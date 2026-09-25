@@ -1,1203 +1,444 @@
 # -*- coding: utf-8 -*-
 """
-Slovak Number to Words Converter - Complete Version with Full Case & Gender Declension
+Slovak numbers to words — cardinals, ordinals and decimals with case, gender and animacy,
+for TTS text normalisation.
 
-Follows official Slovak grammar rules (Pravidlá slovenského pravopisu):
-- Full support for all 6 grammatical cases
-- Full support for all 3 genders (masculine, feminine, neuter)
-- Proper compound forms: dvetisíc, tritisíc, päťtisíc
-- Separate words for millions+: dva milióny, päť miliónov
+v2 (25 September 2026): rewritten from a sourced normative spec (Morfológia slovenského jazyka
+1966, Pravidlá slovenského pravopisu 1991/1998, Navrátil 2003, Beliana, JÚĽŠ SAV language
+columns; see NUM2WORDS_CHANGES.md). v1 produced ORDINAL forms wherever a cardinal should be
+declined (21 G "dvadsiatehojedného", 100 G "stého", 1000 G "tisíceho", 2 000 000 G
+"dvamiliónteho"); those are gone.
 
-Cases: nominative, genitive, dative, accusative, instrumental, locative
-Genders: masculine, feminine, neuter
+Main rules implemented
+  * 1-4 decline by gender; 2-4 have masculine PERSONAL forms (dvaja/traja/štyria, A = G).
+    Instrumental: dvoma/troma with masculine and neuter nouns, dvomi/tromi with feminine nouns
+    ("dvoma stromami", "dvomi stenami"; both forms are codified), štyrmi for all.
+  * 5-99 decline like "päť" (piatich, piatim, piatimi); masculine personal N "piati" is an
+    optional congruent form (construction="agreement").
+  * compounds ending in -jeden (21, 101, 1001 ...) NEVER decline and use "jeden" for all genders;
+    tens + 2 use the masculine "dva" for all genders ("dvadsaťdva žien", "dvadsaťdvatisíc"), but a
+    bare 2 after sto-/tisíc- agrees like a simple "dve": "stodve knihy" (native review).
+  * 22-99: both parts decline as cardinals, units written apart: "dvadsiatich dvoch"
+    (declined=False keeps every compound undeclined — "dvadsaťdva", "stodva" — also standard).
+  * sto, dvesto ... deväťsto and every -tisíc compound are INVARIABLE with counted nouns;
+    in larger numbers only the final tens and units decline ("tristoštyridsiatich piatich").
+  * milión/miliarda are nouns: separate words, both parts decline ("dvoch miliónov"), also when
+    a smaller part follows ("dvoch miliónov piatich", native review); sto-/-tisíc parts stay
+    invariable and the final tens and units decline.
+  * ordinals: thousands and hundreds stay CARDINAL prefixes, only tens and units are ordinal:
+    "stoprvý", "stodvadsiaty prvý", "dvetisícdvadsiaty štvrtý"; bare 200th/2000th "dvestý",
+    "dvetisíci" (the frequent forms, chosen in native review; codified=True gives the codified
+    "dvojstý", "dvojtisíci"). Rhythmic law applied (piateho, miliónteho, tisíca).
+  * decimals agree with "celá": "jedna celá päť desatín", "tri celé štrnásť stotín".
+  * nula declines as a noun (nuly, nule, nulu, nulou).
 
-Key rules:
-- HUNDREDS decline by both gender AND case: sto/stého/stému (masc), stá/stej/stej (fem)
-- ONES 1-4 decline by gender, 5-9 are gender-neutral but case-sensitive
-- TENS decline by case only
-- Compound thousands (dvetisíc) are indeclinable
-- Millions+ are separate words with full declension
+API (compatible with v1):
+    num2words(number, to="cardinal"|"ordinal", gender="masculine"|"feminine"|"neuter",
+              case="nominative"|"genitive"|"dative"|"accusative"|"instrumental"|"locative",
+              animacy="inanimate"|"animate"|"personal", plural=False,
+              construction="genitive"|"agreement", declined=True, codified=False)
+`animacy` only matters for the masculine: "animate" (incl. animals) changes the accusative of
+jeden and of ordinals; "personal" (people) also selects dvaja/traja/štyria and plural forms.
 """
+from __future__ import annotations
 
-# =============================================================================
-# CONSTANTS
-# =============================================================================
+from decimal import Decimal, InvalidOperation
+from typing import List, Optional, Tuple
 
-CASES = ['nominative', 'genitive', 'dative', 'accusative', 'instrumental', 'locative']
-CASE_INDICES = {case: i for i, case in enumerate(CASES)}
+CASES = ["nominative", "genitive", "dative", "accusative", "instrumental", "locative"]
+N, G, D, A, I, L = range(6)  # indices into CASES
+GENDERS = ("masculine", "feminine", "neuter")
+ANIMACY = ("inanimate", "animate", "personal")
 
-ZERO = 'nula'
-MINUS = 'mínus'
-POINT_WORD = 'celých'
+ZERO_FORMS = ("nula", "nuly", "nule", "nulu", "nulou", "nule")
+MINUS = "mínus"
 
-# =============================================================================
-# ONES (1-9) - Structure: {num: ((masc_cases), (fem_cases), (neut_cases))}
-# Each gender tuple has 6 cases: nom, gen, dat, acc, ins, loc
-# =============================================================================
-ONES = {
-    1: (
-        ('jeden', 'jedného', 'jednému', 'jedného', 'jedným', 'jednom'),     # masculine
-        ('jedna', 'jednej', 'jednej', 'jednu', 'jednou', 'jednej'),         # feminine
-        ('jedno', 'jedného', 'jednému', 'jedno', 'jedným', 'jednom'),       # neuter
-    ),
-    2: (
-        ('dva', 'dvoch', 'dvom', 'dva', 'dvoma', 'dvoch'),                  # masculine
-        ('dve', 'dvoch', 'dvom', 'dve', 'dvomi', 'dvoch'),                  # feminine
-        ('dve', 'dvoch', 'dvom', 'dve', 'dvoma', 'dvoch'),                  # neuter
-    ),
-    3: (
-        ('tri', 'troch', 'trom', 'troch', 'troma', 'troch'),               # masculine (acc=gen for animate)
-        ('tri', 'troch', 'trom', 'tri', 'tromi', 'troch'),                 # feminine
-        ('tri', 'troch', 'trom', 'tri', 'troma', 'troch'),                 # neuter
-    ),
-    4: (
-        ('štyri', 'štyroch', 'štyrom', 'štyroch', 'štyrmi', 'štyroch'),    # masculine
-        ('štyri', 'štyroch', 'štyrom', 'štyri', 'štyrmi', 'štyroch'),      # feminine
-        ('štyri', 'štyroch', 'štyrom', 'štyri', 'štyrmi', 'štyroch'),      # neuter
-    ),
-    # 5-9: gender-neutral, only case matters (same forms for all genders)
-    5: (
-        ('päť', 'piatich', 'piatim', 'päť', 'piatimi', 'piatich'),
-        ('päť', 'piatich', 'piatim', 'päť', 'piatimi', 'piatich'),
-        ('päť', 'piatich', 'piatim', 'päť', 'piatimi', 'piatich'),
-    ),
-    6: (
-        ('šesť', 'šiestich', 'šiestim', 'šesť', 'šiestimi', 'šiestich'),
-        ('šesť', 'šiestich', 'šiestim', 'šesť', 'šiestimi', 'šiestich'),
-        ('šesť', 'šiestich', 'šiestim', 'šesť', 'šiestimi', 'šiestich'),
-    ),
-    7: (
-        ('sedem', 'siedmich', 'siedmim', 'sedem', 'siedmimi', 'siedmich'),
-        ('sedem', 'siedmich', 'siedmim', 'sedem', 'siedmimi', 'siedmich'),
-        ('sedem', 'siedmich', 'siedmim', 'sedem', 'siedmimi', 'siedmich'),
-    ),
-    8: (
-        ('osem', 'ôsmich', 'ôsmim', 'osem', 'ôsmimi', 'ôsmich'),
-        ('osem', 'ôsmich', 'ôsmim', 'osem', 'ôsmimi', 'ôsmich'),
-        ('osem', 'ôsmich', 'ôsmim', 'osem', 'ôsmimi', 'ôsmich'),
-    ),
-    9: (
-        ('deväť', 'deviatich', 'deviatim', 'deväť', 'deviatimi', 'deviatich'),
-        ('deväť', 'deviatich', 'deviatim', 'deväť', 'deviatimi', 'deviatich'),
-        ('deväť', 'deviatich', 'deviatim', 'deväť', 'deviatimi', 'deviatich'),
-    ),
+# --------------------------------------------------------------------------------------
+# Cardinal building blocks
+# --------------------------------------------------------------------------------------
+
+ONE = {
+    "masculine": ("jeden", "jedného", "jednému", None, "jedným", "jednom"),  # A by animacy
+    "feminine": ("jedna", "jednej", "jednej", "jednu", "jednou", "jednej"),
+    "neuter": ("jedno", "jedného", "jednému", "jedno", "jedným", "jednom"),
 }
-
-# =============================================================================
-# TEENS (10-19) - Gender-neutral, 6 cases
-# =============================================================================
-TEENS = {
-    0: ('desať', 'desiatich', 'desiatim', 'desať', 'desiatimi', 'desiatich'),
-    1: ('jedenásť', 'jedenástich', 'jedenástim', 'jedenásť', 'jedenástimi', 'jedenástich'),
-    2: ('dvanásť', 'dvanástich', 'dvanástim', 'dvanásť', 'dvanástimi', 'dvanástich'),
-    3: ('trinásť', 'trinástich', 'trinástim', 'trinásť', 'trinástimi', 'trinástich'),
-    4: ('štrnásť', 'štrnástich', 'štrnástim', 'štrnásť', 'štrnástimi', 'štrnástich'),
-    5: ('pätnásť', 'pätnástich', 'pätnástim', 'pätnásť', 'pätnástimi', 'pätnástich'),
-    6: ('šestnásť', 'šestnástich', 'šestnástim', 'šestnásť', 'šestnástimi', 'šestnástich'),
-    7: ('sedemnásť', 'sedemnástich', 'sedemnástim', 'sedemnásť', 'sedemnástimi', 'sedemnástich'),
-    8: ('osemnásť', 'osemnástich', 'osemnástim', 'osemnásť', 'osemnástimi', 'osemnástich'),
-    9: ('devätnásť', 'devätnástich', 'devätnástim', 'devätnásť', 'devätnástimi', 'devätnástich'),
+# 2-4: (N other, N masc personal, G, D, I, L); A = N, or G for masculine personal
+SMALL = {
+    2: ("dva", "dvaja", "dvoch", "dvom", "dvoma", "dvoch"),
+    3: ("tri", "traja", "troch", "trom", "troma", "troch"),
+    4: ("štyri", "štyria", "štyroch", "štyrom", "štyrmi", "štyroch"),
 }
-
-# =============================================================================
-# TENS (20-90) - Gender-neutral, 6 cases
-# =============================================================================
-TENS = {
-    2: ('dvadsať', 'dvadsiatich', 'dvadsiatim', 'dvadsať', 'dvadsiatimi', 'dvadsiatich'),
-    3: ('tridsať', 'tridsiatich', 'tridsiatim', 'tridsať', 'tridsiatimi', 'tridsiatich'),
-    4: ('štyridsať', 'štyridsiatich', 'štyridsiatim', 'štyridsať', 'štyridsiatimi', 'štyridsiatich'),
-    5: ('päťdesiat', 'päťdesiatich', 'päťdesiatim', 'päťdesiat', 'päťdesiatimi', 'päťdesiatich'),
-    6: ('šesťdesiat', 'šesťdesiatich', 'šesťdesiatim', 'šesťdesiat', 'šesťdesiatimi', 'šesťdesiatich'),
-    7: ('sedemdesiat', 'sedemdesiatich', 'sedemdesiatim', 'sedemdesiat', 'sedemdesiatimi', 'sedemdesiatich'),
-    8: ('osemdesiat', 'osemdesiatich', 'osemdesiatim', 'osemdesiat', 'osemdesiatimi', 'osemdesiatich'),
-    9: ('deväťdesiat', 'deväťdesiatich', 'deväťdesiatim', 'deväťdesiat', 'deväťdesiatimi', 'deväťdesiatich'),
+# 5-20 and round tens: (nominative, oblique stem); endings G/L -ich, D -im, I -imi, pers. N -i
+PAT = {
+    5: ("päť", "piat"), 6: ("šesť", "šiest"), 7: ("sedem", "siedm"), 8: ("osem", "ôsm"),
+    9: ("deväť", "deviat"), 10: ("desať", "desiat"), 11: ("jedenásť", "jedenást"),
+    12: ("dvanásť", "dvanást"), 13: ("trinásť", "trinást"), 14: ("štrnásť", "štrnást"),
+    15: ("pätnásť", "pätnást"), 16: ("šestnásť", "šestnást"), 17: ("sedemnásť", "sedemnást"),
+    18: ("osemnásť", "osemnást"), 19: ("devätnásť", "devätnást"), 20: ("dvadsať", "dvadsiat"),
+    30: ("tridsať", "tridsiat"), 40: ("štyridsať", "štyridsiat"), 50: ("päťdesiat", "päťdesiat"),
+    60: ("šesťdesiat", "šesťdesiat"), 70: ("sedemdesiat", "sedemdesiat"),
+    80: ("osemdesiat", "osemdesiat"), 90: ("deväťdesiat", "deväťdesiat"),
 }
+PAT_ENDINGS = {G: "ich", D: "im", I: "imi", L: "ich"}
+HUNDREDS = {1: "sto", 2: "dvesto", 3: "tristo", 4: "štyristo", 5: "päťsto", 6: "šesťsto",
+            7: "sedemsto", 8: "osemsto", 9: "deväťsto"}
 
-# Singular adjectival forms for ALL tens (2-9) when used in compounds with ones
-# In oblique cases, tens decline to singular adjectival form
-# nom/acc stay cardinal, other cases use singular adjectival forms
-TENS_COMPOUND = {
-    2: ('dvadsať', 'dvadsiateho', 'dvadsiatemu', 'dvadsať', 'dvadsiatym', 'dvadsiatom'),
-    3: ('tridsať', 'tridsiateho', 'tridsiatemu', 'tridsať', 'tridsiatym', 'tridsiatom'),
-    4: ('štyridsať', 'štyridsiateho', 'štyridsiatemu', 'štyridsať', 'štyridsiatym', 'štyridsiatom'),
-    5: ('päťdesiat', 'päťdesiateho', 'päťdesiatemu', 'päťdesiat', 'päťdesiatym', 'päťdesiatom'),
-    6: ('šesťdesiat', 'šesťdesiateho', 'šesťdesiatemu', 'šesťdesiat', 'šesťdesiatym', 'šesťdesiatom'),
-    7: ('sedemdesiat', 'sedemdesiateho', 'sedemdesiatemu', 'sedemdesiat', 'sedemdesiatym', 'sedemdesiatom'),
-    8: ('osemdesiat', 'osemdesiateho', 'osemdesiatemu', 'osemdesiat', 'osemdesiatym', 'osemdesiatom'),
-    9: ('deväťdesiat', 'deväťdesiateho', 'deväťdesiatemu', 'deväťdesiat', 'deväťdesiatym', 'deväťdesiatom'),
-}
-
-# Singular adjectival forms for ones 5-9 when used in compounds (to match TENS_COMPOUND)
-# Structure: {num: ((masc_cases), (fem_cases), (neut_cases))}
-# nom/acc stay cardinal, other cases use singular adjectival forms
-ONES_COMPOUND = {
-    1: (
-        ('jeden', 'jedného', 'jednému', 'jedného', 'jedným', 'jednom'),     # masculine (same as ONES)
-        ('jedna', 'jednej', 'jednej', 'jednu', 'jednou', 'jednej'),         # feminine
-        ('jedno', 'jedného', 'jednému', 'jedno', 'jedným', 'jednom'),       # neuter
-    ),
-    2: (
-        ('dva', 'druhého', 'druhému', 'dva', 'druhým', 'druhom'),           # masculine singular
-        ('dve', 'druhej', 'druhej', 'dve', 'druhou', 'druhej'),             # feminine singular
-        ('dve', 'druhého', 'druhému', 'dve', 'druhým', 'druhom'),           # neuter singular
-    ),
-    3: (
-        ('tri', 'tretieho', 'tretiemu', 'tri', 'tretím', 'treťom'),         # masculine singular
-        ('tri', 'tretej', 'tretej', 'tri', 'treťou', 'tretej'),             # feminine singular
-        ('tri', 'tretieho', 'tretiemu', 'tri', 'tretím', 'treťom'),         # neuter singular
-    ),
-    4: (
-        ('štyri', 'štvrtého', 'štvrtému', 'štyri', 'štvrtým', 'štvrtom'),   # masculine singular
-        ('štyri', 'štvrtej', 'štvrtej', 'štyri', 'štvrtou', 'štvrtej'),     # feminine singular
-        ('štyri', 'štvrtého', 'štvrtému', 'štyri', 'štvrtým', 'štvrtom'),   # neuter singular
-    ),
-    5: (
-        ('päť', 'piateho', 'piatemu', 'päť', 'piatym', 'piatom'),      # masculine
-        ('päť', 'piatej', 'piatej', 'päť', 'piatou', 'piatej'),        # feminine
-        ('päť', 'piateho', 'piatemu', 'päť', 'piatym', 'piatom'),      # neuter
-    ),
-    6: (
-        ('šesť', 'šiesteho', 'šiestemu', 'šesť', 'šiestym', 'šiestom'),
-        ('šesť', 'šiestej', 'šiestej', 'šesť', 'šiestou', 'šiestej'),
-        ('šesť', 'šiesteho', 'šiestemu', 'šesť', 'šiestym', 'šiestom'),
-    ),
-    7: (
-        ('sedem', 'siedmeho', 'siedmemu', 'sedem', 'siedmym', 'siedmom'),
-        ('sedem', 'siedmej', 'siedmej', 'sedem', 'siedmou', 'siedmej'),
-        ('sedem', 'siedmeho', 'siedmemu', 'sedem', 'siedmym', 'siedmom'),
-    ),
-    8: (
-        ('osem', 'ôsmeho', 'ôsmemu', 'osem', 'ôsmym', 'ôsmom'),
-        ('osem', 'ôsmej', 'ôsmej', 'osem', 'ôsmou', 'ôsmej'),
-        ('osem', 'ôsmeho', 'ôsmemu', 'osem', 'ôsmym', 'ôsmom'),
-    ),
-    9: (
-        ('deväť', 'deviateho', 'deviatemu', 'deväť', 'deviatym', 'deviatom'),
-        ('deväť', 'deviatej', 'deviatej', 'deväť', 'deviatou', 'deviatej'),
-        ('deväť', 'deviateho', 'deviatemu', 'deväť', 'deviatym', 'deviatom'),
-    ),
-}
-
-# =============================================================================
-# HUNDREDS (100-900) - Gender AND case sensitive
-# Structure: {num: ((masc_cases), (fem_cases), (neut_cases))}
-# Each gender has 6 cases: nom, gen, dat, acc, ins, loc
-# =============================================================================
-HUNDREDS = {
-    1: (
-        ('sto', 'stého', 'stému', 'sto', 'stým', 'stom'),           # masculine
-        ('stá', 'stej', 'stej', 'stú', 'stou', 'stej'),             # feminine
-        ('sté', 'stého', 'stému', 'sté', 'stým', 'stom'),           # neuter
-    ),
-    2: (
-        ('dvesto', 'dvestého', 'dvestému', 'dvesto', 'dvestým', 'dvestom'),
-        ('dvestá', 'dvestej', 'dvestej', 'dvestú', 'dvestou', 'dvestej'),
-        ('dvesté', 'dvestého', 'dvestému', 'dvesté', 'dvestým', 'dvestom'),
-    ),
-    3: (
-        ('tristo', 'tristého', 'tristému', 'tristo', 'tristým', 'tristom'),
-        ('tristá', 'tristej', 'tristej', 'tristú', 'tristou', 'tristej'),
-        ('tristé', 'tristého', 'tristému', 'tristé', 'tristým', 'tristom'),
-    ),
-    4: (
-        ('štyristo', 'štyristého', 'štyristému', 'štyristo', 'štyristým', 'štyristom'),
-        ('štyristá', 'štyristej', 'štyristej', 'štyristú', 'štyristou', 'štyristej'),
-        ('štyristé', 'štyristého', 'štyristému', 'štyristé', 'štyristým', 'štyristom'),
-    ),
-    5: (
-        ('päťsto', 'päťstého', 'päťstému', 'päťsto', 'päťstým', 'päťstom'),
-        ('päťstá', 'päťstej', 'päťstej', 'päťstú', 'päťstou', 'päťstej'),
-        ('päťsté', 'päťstého', 'päťstému', 'päťsté', 'päťstým', 'päťstom'),
-    ),
-    6: (
-        ('šesťsto', 'šesťstého', 'šesťstému', 'šesťsto', 'šesťstým', 'šesťstom'),
-        ('šesťstá', 'šesťstej', 'šesťstej', 'šesťstú', 'šesťstou', 'šesťstej'),
-        ('šesťsté', 'šesťstého', 'šesťstému', 'šesťsté', 'šesťstým', 'šesťstom'),
-    ),
-    7: (
-        ('sedemsto', 'sedemstého', 'sedemstému', 'sedemsto', 'sedemstým', 'sedemstom'),
-        ('sedemstá', 'sedemstej', 'sedemstej', 'sedemstú', 'sedemstou', 'sedemstej'),
-        ('sedemsté', 'sedemstého', 'sedemstému', 'sedemsté', 'sedemstým', 'sedemstom'),
-    ),
-    8: (
-        ('osemsto', 'osemstého', 'osemstému', 'osemsto', 'osemstým', 'osemstom'),
-        ('osemstá', 'osemstej', 'osemstej', 'osemstú', 'osemstou', 'osemstej'),
-        ('osemsté', 'osemstého', 'osemstému', 'osemsté', 'osemstým', 'osemstom'),
-    ),
-    9: (
-        ('deväťsto', 'deväťstého', 'deväťstému', 'deväťsto', 'deväťstým', 'deväťstom'),
-        ('deväťstá', 'deväťstej', 'deväťstej', 'deväťstú', 'deväťstou', 'deväťstej'),
-        ('deväťsté', 'deväťstého', 'deväťstému', 'deväťsté', 'deväťstým', 'deväťstom'),
-    ),
-}
-
-# =============================================================================
-# THOUSANDS compound prefixes (indeclinable in compound form)
-# =============================================================================
-THOUSAND_PREFIXES = {
-    1: '',        # tisíc (not jedentisíc)
-    2: 'dve',     # dvetisíc
-    3: 'tri',     # tritisíc
-    4: 'štyri',   # štyritisíc
-    5: 'päť',     # päťtisíc
-    6: 'šesť',    # šesťtisíc
-    7: 'sedem',   # sedemtisíc
-    8: 'osem',    # osemtisíc
-    9: 'deväť',   # deväťtisíc
-}
-
-THOUSAND_WORD = 'tisíc'
-
-# Cardinal "tisíc" case declension (NO gender variation for cardinals)
-# Used when "1000" appears alone, not in compounds like "dvetisíc"
-TISIC_CARDINAL = (
-    'tisíc',     # nominative
-    'tisíca',    # genitive  
-    'tisícu',    # dative
-    'tisíc',     # accusative
-    'tisícom',   # instrumental
-    'tisíci',    # locative
-)
-
-# Compound thousands declension with gender (for dvetisíc, desaťtisíc, etc.)
-# Structure: ((masc_cases), (fem_cases), (neut_cases))
-# Each gender has 6 cases: nom, gen, dat, acc, ins, loc
-TISIC_COMPOUND = (
-    ('tisíc', 'tisíceho', 'tisícemu', 'tisíc', 'tisícim', 'tisícom'),    # masculine
-    ('tisíc', 'tisícej', 'tisícej', 'tisíc', 'tisícou', 'tisícej'),      # feminine
-    ('tisíc', 'tisíceho', 'tisícemu', 'tisíc', 'tisícim', 'tisícom'),    # neuter
-)
-
-# =============================================================================
-# SCALES - Compound declension forms for millions and above
-# =============================================================================
-
-# Nominative forms for scales by plural index (0=singular, 1=2-4, 2=5+)
-SCALE_NOM_FORMS = {
-    2: ('milión', 'milióny', 'miliónov'),
-    3: ('miliarda', 'miliardy', 'miliárd'),
-    4: ('bilión', 'bilióny', 'biliónov'),
-    5: ('biliarda', 'biliardy', 'biliárd'),
-    6: ('trilión', 'trilióny', 'triliónov'),
-}
-
-# Compound "t" suffix forms for oblique cases (gen, dat, ins, loc)
-# Structure: ((masc_cases), (fem_cases), (neut_cases))
-# Cases: nom (unused - use SCALE_NOM_FORMS), gen, dat, acc (same as nom), ins, loc
-SCALE_T_COMPOUND = {
-    2: (  # milión-t-
-        ('milión', 'miliónteho', 'milióntemu', 'milión', 'milióntym', 'milióntom'),
-        ('milión', 'milióntej', 'milióntej', 'milión', 'milióntou', 'milióntej'),
-        ('milión', 'miliónteho', 'milióntemu', 'milión', 'milióntym', 'milióntom'),
-    ),
-    3: (  # miliard-t-
-        ('miliarda', 'miliardtého', 'miliardtému', 'miliarda', 'miliardtým', 'miliardtom'),
-        ('miliarda', 'miliardtej', 'miliardtej', 'miliarda', 'miliardtou', 'miliardtej'),
-        ('miliarda', 'miliardtého', 'miliardtému', 'miliarda', 'miliardtým', 'miliardtom'),
-    ),
-    4: (  # bilión-t-
-        ('bilión', 'biliónteho', 'bilióntemu', 'bilión', 'bilióntym', 'bilióntom'),
-        ('bilión', 'bilióntej', 'bilióntej', 'bilión', 'bilióntou', 'bilióntej'),
-        ('bilión', 'biliónteho', 'bilióntemu', 'bilión', 'bilióntym', 'bilióntom'),
-    ),
-    5: (  # biliard-t-
-        ('biliarda', 'biliardtého', 'biliardtému', 'biliarda', 'biliardtým', 'biliardtom'),
-        ('biliarda', 'biliardtej', 'biliardtej', 'biliarda', 'biliardtou', 'biliardtej'),
-        ('biliarda', 'biliardtého', 'biliardtému', 'biliarda', 'biliardtým', 'biliardtom'),
-    ),
-    6: (  # trilión-t-
-        ('trilión', 'triliónteho', 'trilióntemu', 'trilión', 'trilióntym', 'trilióntom'),
-        ('trilión', 'trilióntej', 'trilióntej', 'trilión', 'trilióntou', 'trilióntej'),
-        ('trilión', 'triliónteho', 'trilióntemu', 'trilión', 'trilióntym', 'trilióntom'),
-    ),
-}
-
-# Prefixes for compound scales - masculine forms
-SCALE_PREFIXES_MASC = {
-    2: 'dva',
-    3: 'tri',
-    4: 'štyri',
-    5: 'päť',
-    6: 'šesť',
-    7: 'sedem',
-    8: 'osem',
-    9: 'deväť',
-}
-
-# Prefixes for compound scales - feminine forms (for miliarda, biliarda)
-SCALE_PREFIXES_FEM = {
-    2: 'dve',
-    3: 'tri',
-    4: 'štyri',
-    5: 'päť',
-    6: 'šesť',
-    7: 'sedem',
-    8: 'osem',
-    9: 'deväť',
-}
-
-SCALE_VALUES = {
-    2: 10**6, 3: 10**9, 4: 10**12, 5: 10**15, 6: 10**18,
-}
-
-# =============================================================================
-# HELPER FUNCTIONS
-# =============================================================================
-
-def get_gender_index(gender) -> int:
-    """Get index for gender: 0=masculine, 1=feminine, 2=neuter"""
-    if gender in ('masculine', 'm', 0):
-        return 0
-    elif gender in ('feminine', 'f', 1):
-        return 1
-    return 2  # neuter
+# scale nouns: (exponent, gender, singular forms, plural forms); milión = vzor dub, miliarda = vzor žena
+_M = lambda s: ((s, s + "a", s + "u", s, s + "om", s + "e"),
+                (s + "y", s + "ov", s + "om", s + "y", s + "mi", s + "och"))
+_F = lambda s, gpl: ((s + "a", s + "y", s + "e", s + "u", s + "ou", s + "e"),
+                     (s + "y", gpl, s + "ám", s + "y", s + "ami", s + "ách"))
+SCALES = [
+    (27, "feminine", *_F("kvadriliard", "kvadriliárd")),
+    (24, "masculine", *_M("kvadrilión")),
+    (21, "feminine", *_F("triliard", "triliárd")),
+    (18, "masculine", *_M("trilión")),
+    (15, "feminine", *_F("biliard", "biliárd")),
+    (12, "masculine", *_M("bilión")),
+    (9, "feminine", *_F("miliard", "miliárd")),
+    (6, "masculine", *_M("milión")),
+]
 
 
-def get_case_index(case) -> int:
-    """Get index for case (0-5)"""
-    if isinstance(case, int):
-        return min(case, 5)
-    return CASE_INDICES.get(case, 0)
+def _idx(case: str) -> int:
+    if case not in CASES:
+        raise ValueError(f"case must be one of {CASES}, got {case!r}")
+    return CASES.index(case)
 
 
-def get_plural_index(count: int) -> int:
+def _check(gender: str, animacy: str) -> None:
+    if gender not in GENDERS:
+        raise ValueError(f"gender must be one of {GENDERS}, got {gender!r}")
+    if animacy not in ANIMACY:
+        raise ValueError(f"animacy must be one of {ANIMACY}, got {animacy!r}")
+
+
+def _simple(n: int, c: int, gender: str, animacy: str, construction: str, compound: bool) -> str:
     """
-    Determine plural form index based on count.
-    0 = singular (1)
-    1 = plural 2-4
-    2 = plural 5+ (and 0, 11-14)
+    1-20 and round tens in case c. compound=True: part of a larger number ("jeden" for every
+    gender; for 21-99 the caller passes the masculine, so 22 is "dvadsaťdva" for every gender).
     """
-    if count == 1:
-        return 0
-    last_two = abs(count) % 100
-    if 11 <= last_two <= 14:
-        return 2
-    last_digit = abs(count) % 10
-    if 2 <= last_digit <= 4:
-        return 1
-    return 2
-
-
-# Gender of scale words
-SCALE_GENDERS = {
-    2: 'm',  # milión
-    3: 'f',  # miliarda
-    4: 'm',  # bilión
-    5: 'f',  # biliarda
-    6: 'm',  # trilión
-}
-
-
-def get_scale_gender(scale_idx: int) -> str:
-    """Get gender of scale word."""
-    return SCALE_GENDERS.get(scale_idx, 'm')
-
-
-# =============================================================================
-# CORE CONVERSION FUNCTIONS
-# =============================================================================
-
-def convert_ones(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 1-9 with gender and case."""
-    if n == 0:
-        return ''
-    return ONES[n][gender_idx][case_idx]
-
-
-def convert_teens(n: int, case_idx: int) -> str:
-    """Convert 10-19 with case (gender-neutral)."""
-    return TEENS[n][case_idx]
-
-
-def convert_tens(t: int, case_idx: int) -> str:
-    """Convert 20, 30, ... 90 with case (gender-neutral)."""
-    return TENS[t][case_idx]
-
-
-def convert_hundreds(h: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 100-900 with BOTH gender AND case."""
-    return HUNDREDS[h][gender_idx][case_idx]
-
-
-def convert_0_99(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 0-99 with declension. Always compound form (no spaces)."""
-    if n == 0:
-        return ''
-    if n < 10:
-        return convert_ones(n, gender_idx, case_idx)
-    if n < 20:
-        return convert_teens(n - 10, case_idx)
-    
-    tens_digit = n // 10
-    ones_digit = n % 10
-    
-    if ones_digit == 0:
-        # Tens alone: use full case declension (plural quantitative forms)
-        return convert_tens(tens_digit, case_idx)
-    else:
-        # Compound (e.g., 21, 55, 99): 
-        # All tens use singular adjectival forms in oblique cases
-        tens_word = TENS_COMPOUND[tens_digit][case_idx]
-        
-        # All ones use singular compound forms in compounds
-        ones_word = ONES_COMPOUND[ones_digit][gender_idx][case_idx]
-        
-        return tens_word + ones_word
-
-
-def convert_0_999(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 0-999 with full gender+case declension."""
-    if n == 0:
-        return ''
-    
-    hundreds = n // 100
-    remainder = n % 100
-    
-    result = ''
-    if hundreds > 0:
-        if remainder > 0:
-            # Hundreds stay NOMINATIVE when followed by other digits
-            # e.g., 313 genitive: "tristotrinástich" not "tristéhotrinástich"
-            result = convert_hundreds(hundreds, gender_idx, 0)  # nominative
-        else:
-            # Hundreds alone: full declension
-            result = convert_hundreds(hundreds, gender_idx, case_idx)
-    
-    if remainder > 0:
-        remainder_word = convert_0_99(remainder, gender_idx, case_idx)
-        if result:
-            result += remainder_word  # compound: stodvadsať
-        else:
-            result = remainder_word
-    
-    return result
-
-
-def convert_thousands_compound(n: int, gender_idx: int, case_idx: int, has_remainder: bool = False) -> str:
-    """
-    Convert 1-999 thousands with gender and case declension.
-    All thousands (including 1000 alone) use adjectival declension with gender.
-    """
-    if n == 0:
-        return ''
-    
+    personal = gender == "masculine" and animacy == "personal"
     if n == 1:
-        # "tisíc" - uses adjectival declension with gender
-        if has_remainder:
-            return THOUSAND_WORD  # "tisíc" - undeclined when followed by remainder
-        else:
-            return TISIC_COMPOUND[gender_idx][case_idx]  # tisíc/tisíceho/tisícemu/...
-    
-    # Compound forms 2-9: prefix + tisíc with gender+case
-    if n < 10:
-        prefix = THOUSAND_PREFIXES[n]
-        suffix = TISIC_COMPOUND[gender_idx][case_idx]
-        return prefix + suffix
-    
-    # For 10-999 thousands: nominative prefix + tisíc with gender+case
-    prefix = convert_0_999(n, 0, 0)  # nominative masculine for prefix
-    suffix = TISIC_COMPOUND[gender_idx][case_idx]
-    return prefix + suffix
+        if compound:
+            return "jeden"
+        if c == A and gender == "masculine":
+            return "jedného" if animacy != "inanimate" else "jeden"
+        return ONE[gender][c]
+    if n in SMALL:
+        nom, pers, g, d, i, l = SMALL[n]
+        if c in (N, A):
+            if personal and (not compound or construction == "agreement"):
+                return pers if c == N else g
+            if n == 2 and gender != "masculine":
+                return "dve"  # dve knihy; also after sto-/tisíc-: "stodve knihy" (native review)
+            return nom
+        if c == I and gender == "feminine" and n in (2, 3):
+            return "dvomi" if n == 2 else "tromi"  # dvomi stenami, but dvoma stromami (native review)
+        return {G: g, D: d, I: i, L: l}[c]
+    nom, stem = PAT[n]
+    if c in (N, A):
+        if personal and construction == "agreement":
+            return stem + ("i" if c == N else "ich")
+        return nom
+    return stem + PAT_ENDINGS[c]
 
 
-def convert_below_million(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert number below 1 million."""
-    if n == 0:
-        return ''
-    if n < 1000:
-        return convert_0_999(n, gender_idx, case_idx)
-    
-    thousands = n // 1000
-    remainder = n % 1000
-    
-    # Thousands part - pass gender_idx and has_remainder
-    result = convert_thousands_compound(thousands, gender_idx, case_idx, has_remainder=(remainder > 0))
-    
-    if remainder > 0:
-        # Remainder uses proper gender+case declension
-        result += convert_0_999(remainder, gender_idx, case_idx)
-    
-    return result
-
-
-def convert_scale_compound(count: int, scale_idx: int, gender_idx: int, case_idx: int, has_remainder: bool = False) -> str:
+def _below_100(n: int, c: int, gender: str, animacy: str, construction: str, declined: bool,
+               compound: bool) -> Tuple[str, str]:
     """
-    Convert a count of a scale (milión, miliarda, etc.) as compound form.
-    E.g., 5 million -> päťmiliónov (nominative), päťmiliónteho (genitive)
-    
-    Uses:
-    - SCALE_NOM_FORMS for nominative/accusative (with plural selection)
-    - SCALE_T_COMPOUND for oblique cases (gen, dat, ins, loc)
+    Returns (head, tail): `head` is joined to a preceding hundreds/thousands prefix, `tail`
+    (possibly '') is a separate word — PSP 1991: declined units are written apart.
     """
-    scale_gender = get_scale_gender(scale_idx)
-    is_feminine_scale = (scale_gender == 'f')
-    plural_idx = get_plural_index(count)
-    
+    if n <= 20 or n % 10 == 0:
+        if compound and not declined and c not in (N, A):  # undeclined compound: "so stodva žiakmi"
+            return _simple(n, N, gender, "inanimate", "genitive", True), ""
+        return _simple(n, c, gender, animacy, construction, compound), ""
+    tens, unit = n - n % 10, n % 10
+    if unit == 1:  # -jeden compounds never decline and never change gender
+        return PAT[tens][0] + "jeden", ""
+    personal = gender == "masculine" and animacy == "personal"
+    oblique = c not in (N, A)
+    congruent = personal and construction == "agreement"
+    if (oblique and declined) or (congruent and c in (N, A)):
+        return (_simple(tens, c, gender, animacy, construction, True),
+                _simple(unit, c, gender, animacy, construction, True))
+    return PAT[tens][0] + _simple(unit, N, "masculine", "inanimate", "genitive", True), ""
+
+
+def _below_1000(n: int, c: int, gender: str, animacy: str, construction: str, declined: bool,
+                prefix: str = "", in_compound: bool = False) -> str:
+    """in_compound: the number follows a milión/miliarda group (1 000 005 = milión päť)."""
+    h, rest = divmod(n, 100)
+    prefix = prefix + (HUNDREDS[h] if h else "")
+    if rest == 0:
+        return prefix  # sto, dvesto, ... and -tisíc compounds are invariable
+    compound = bool(prefix) or in_compound
+    head, tail = _below_100(rest, c, gender, animacy, construction, declined, compound)
+    personal = gender == "masculine" and animacy == "personal"
+    if prefix and 1 < rest < 10 and ((c not in (N, A) and declined) or
+                                     (personal and construction == "agreement")):
+        # a declined or congruent unit after sto-/tisíc- is written apart: "sto piatich", "sto dvaja"
+        return f"{prefix} {head}"
+    word = prefix + head
+    return f"{word} {tail}" if tail else word
+
+
+def _thousands_prefix(t: int) -> str:
+    """Invariable -tisíc prefix: tisíc, dvetisíc, päťtisíc, dvadsaťjedentisíc, stotisíc."""
+    if t == 1:
+        return "tisíc"
+    if t == 2:
+        return "dvetisíc"
+    return _below_1000(t, N, "masculine", "inanimate", "genitive", False) + "tisíc"
+
+
+def _scale_group(count: int, sg: tuple, pl: tuple, sgender: str, c: int, declined: bool) -> str:
+    """count x milión/miliarda... in case c. Both parts decline (nouns, vzor dub / žena)."""
     if count == 1:
-        # Singular form: just the scale word with proper declension
-        if has_remainder or case_idx in (0, 3):  # nominative or accusative
-            return SCALE_NOM_FORMS[scale_idx][0]  # singular nominative
-        else:
-            return SCALE_T_COMPOUND[scale_idx][gender_idx][case_idx]
-    
-    # Build prefix based on count
-    if count < 10:
-        # Use simple prefix with gender agreement for feminine scales
-        if is_feminine_scale:
-            prefix = SCALE_PREFIXES_FEM.get(count, '')
-        else:
-            prefix = SCALE_PREFIXES_MASC.get(count, '')
-        if not prefix:
-            prefix = convert_ones(count, 0, 0)  # nominative masculine fallback
-    elif count < 1000:
-        # Use nominative form for prefix
-        prefix = convert_0_999(count, 0, 0)
-    elif count < 1_000_000:
-        # Thousands prefix
-        prefix = convert_below_million(count, 0, 0)
+        return sg[c]
+    if count in SMALL and count <= 4:
+        num = _simple(count, c, sgender, "inanimate", "genitive", False)
+        return f"{num} {pl[N] if c in (N, A) else pl[c]}"
+    num = _below_1000(count, c, sgender, "inanimate", "genitive", declined)
+    if c in (N, A):
+        # G pl after 5+ and after tens (dvadsaťdva miliónov); after sto- + a bare 2-4 the noun
+        # agrees as after a simple 2-4, like "stodve knihy" (native review): stodve miliardy
+        noun = pl[N] if count % 100 in (2, 3, 4) else pl[G]
     else:
-        # Recursive for very large counts
-        prefix = int_to_cardinal_compound(count, 'masculine', 'nominative')
-    
-    # Choose suffix based on case
-    if has_remainder or case_idx in (0, 3):  # nominative or accusative
-        # Use appropriate plural form
-        suffix = SCALE_NOM_FORMS[scale_idx][plural_idx]
-    else:
-        # Use t-suffix forms for oblique cases
-        suffix = SCALE_T_COMPOUND[scale_idx][gender_idx][case_idx]
-    
-    return prefix + suffix
+        noun = pl[c]
+    return f"{num} {noun}"
 
 
-def int_to_cardinal_compound(n: int, gender: str, case: str) -> str:
-    """
-    Convert integer to Slovak cardinal number as compound (no spaces).
-    Internal recursive function.
-    """
-    gender_idx = get_gender_index(gender)
-    case_idx = get_case_index(case)
-    
-    if n < 1_000_000:
-        return convert_below_million(n, gender_idx, case_idx)
-    
-    # Build compound from largest scale down
-    result = ''
-    remaining = n
-    
-    for scale_idx in sorted(SCALE_VALUES.keys(), reverse=True):
-        scale_value = SCALE_VALUES[scale_idx]
-        
-        if remaining >= scale_value:
-            count = remaining // scale_value
-            remaining = remaining % scale_value
-            
-            has_remainder = (remaining > 0)
-            
-            # Convert scale part as compound
-            scale_part = convert_scale_compound(count, scale_idx, gender_idx, case_idx, has_remainder)
-            result += scale_part
-    
-    # Add remaining part (below million)
-    if remaining > 0:
-        result += convert_below_million(remaining, gender_idx, case_idx)
-    
-    return result
-
-
-# =============================================================================
-# ORDINAL NUMBERS - Slovak ordinals with full gender+case declension
-# Ordinals are adjectives in Slovak, following hard/soft adjective patterns
-# =============================================================================
-
-# Ordinal ones (1st-9th) - full adjective declension
-# Structure: {num: ((masc_cases), (fem_cases), (neut_cases))}
-# Cases: nom, gen, dat, acc, ins, loc
-ORDINAL_ONES = {
-    1: (  # prvý (hard pattern)
-        ('prvý', 'prvého', 'prvému', 'prvého', 'prvým', 'prvom'),
-        ('prvá', 'prvej', 'prvej', 'prvú', 'prvou', 'prvej'),
-        ('prvé', 'prvého', 'prvému', 'prvé', 'prvým', 'prvom'),
-    ),
-    2: (  # druhý (hard pattern)
-        ('druhý', 'druhého', 'druhému', 'druhého', 'druhým', 'druhom'),
-        ('druhá', 'druhej', 'druhej', 'druhú', 'druhou', 'druhej'),
-        ('druhé', 'druhého', 'druhému', 'druhé', 'druhým', 'druhom'),
-    ),
-    3: (  # tretí (soft pattern)
-        ('tretí', 'tretieho', 'tretiemu', 'tretieho', 'tretím', 'treťom'),
-        ('tretia', 'tretej', 'tretej', 'tretiu', 'treťou', 'tretej'),
-        ('tretie', 'tretieho', 'tretiemu', 'tretie', 'tretím', 'treťom'),
-    ),
-    4: (  # štvrtý (hard pattern)
-        ('štvrtý', 'štvrtého', 'štvrtému', 'štvrtého', 'štvrtým', 'štvrtom'),
-        ('štvrtá', 'štvrtej', 'štvrtej', 'štvrtú', 'štvrtou', 'štvrtej'),
-        ('štvrté', 'štvrtého', 'štvrtému', 'štvrté', 'štvrtým', 'štvrtom'),
-    ),
-    5: (  # piaty (hard pattern)
-        ('piaty', 'piateho', 'piatemu', 'piateho', 'piatym', 'piatom'),
-        ('piata', 'piatej', 'piatej', 'piatu', 'piatou', 'piatej'),
-        ('piate', 'piateho', 'piatemu', 'piate', 'piatym', 'piatom'),
-    ),
-    6: (  # šiesty (hard pattern)
-        ('šiesty', 'šiesteho', 'šiestemu', 'šiesteho', 'šiestym', 'šiestom'),
-        ('šiesta', 'šiestej', 'šiestej', 'šiestu', 'šiestou', 'šiestej'),
-        ('šieste', 'šiesteho', 'šiestemu', 'šieste', 'šiestym', 'šiestom'),
-    ),
-    7: (  # siedmy (hard pattern)
-        ('siedmy', 'siedmeho', 'siedmemu', 'siedmeho', 'siedmym', 'siedmom'),
-        ('siedma', 'siedmej', 'siedmej', 'siedmu', 'siedmou', 'siedmej'),
-        ('siedme', 'siedmeho', 'siedmemu', 'siedme', 'siedmym', 'siedmom'),
-    ),
-    8: (  # ôsmy (hard pattern)
-        ('ôsmy', 'ôsmeho', 'ôsmemu', 'ôsmeho', 'ôsmym', 'ôsmom'),
-        ('ôsma', 'ôsmej', 'ôsmej', 'ôsmu', 'ôsmou', 'ôsmej'),
-        ('ôsme', 'ôsmeho', 'ôsmemu', 'ôsme', 'ôsmym', 'ôsmom'),
-    ),
-    9: (  # deviaty (hard pattern)
-        ('deviaty', 'deviateho', 'deviatemu', 'deviateho', 'deviatym', 'deviatom'),
-        ('deviata', 'deviatej', 'deviatej', 'deviatu', 'deviatou', 'deviatej'),
-        ('deviate', 'deviateho', 'deviatemu', 'deviate', 'deviatym', 'deviatom'),
-    ),
-}
-
-# Ordinal teens (10th-19th) - follow hard adjective pattern
-# Structure: {num: ((masc_cases), (fem_cases), (neut_cases))}
-ORDINAL_TEENS = {
-    0: (  # desiaty (10th)
-        ('desiaty', 'desiateho', 'desiatemu', 'desiateho', 'desiatym', 'desiatom'),
-        ('desiata', 'desiatej', 'desiatej', 'desiatu', 'desiatou', 'desiatej'),
-        ('desiate', 'desiateho', 'desiatemu', 'desiate', 'desiatym', 'desiatom'),
-    ),
-    1: (  # jedenásty (11th)
-        ('jedenásty', 'jedenásteho', 'jedenástemu', 'jedenásteho', 'jedenástym', 'jedenástom'),
-        ('jedenásta', 'jedenástej', 'jedenástej', 'jedenástu', 'jedenástou', 'jedenástej'),
-        ('jedenáste', 'jedenásteho', 'jedenástemu', 'jedenáste', 'jedenástym', 'jedenástom'),
-    ),
-    2: (  # dvanásty (12th)
-        ('dvanásty', 'dvanásteho', 'dvanástemu', 'dvanásteho', 'dvanástym', 'dvanástom'),
-        ('dvanásta', 'dvanástej', 'dvanástej', 'dvanástu', 'dvanástou', 'dvanástej'),
-        ('dvanáste', 'dvanásteho', 'dvanástemu', 'dvanáste', 'dvanástym', 'dvanástom'),
-    ),
-    3: (  # trinásty (13th)
-        ('trinásty', 'trinásteho', 'trinástemu', 'trinásteho', 'trinástym', 'trinástom'),
-        ('trinásta', 'trinástej', 'trinástej', 'trinástu', 'trinástou', 'trinástej'),
-        ('trináste', 'trinásteho', 'trinástemu', 'trináste', 'trinástym', 'trinástom'),
-    ),
-    4: (  # štrnásty (14th)
-        ('štrnásty', 'štrnásteho', 'štrnástemu', 'štrnásteho', 'štrnástym', 'štrnástom'),
-        ('štrnásta', 'štrnástej', 'štrnástej', 'štrnástu', 'štrnástou', 'štrnástej'),
-        ('štrnáste', 'štrnásteho', 'štrnástemu', 'štrnáste', 'štrnástym', 'štrnástom'),
-    ),
-    5: (  # pätnásty (15th)
-        ('pätnásty', 'pätnásteho', 'pätnástemu', 'pätnásteho', 'pätnástym', 'pätnástom'),
-        ('pätnásta', 'pätnástej', 'pätnástej', 'pätnástu', 'pätnástou', 'pätnástej'),
-        ('pätnáste', 'pätnásteho', 'pätnástemu', 'pätnáste', 'pätnástym', 'pätnástom'),
-    ),
-    6: (  # šestnásty (16th)
-        ('šestnásty', 'šestnásteho', 'šestnástemu', 'šestnásteho', 'šestnástym', 'šestnástom'),
-        ('šestnásta', 'šestnástej', 'šestnástej', 'šestnástu', 'šestnástou', 'šestnástej'),
-        ('šestnáste', 'šestnásteho', 'šestnástemu', 'šestnáste', 'šestnástym', 'šestnástom'),
-    ),
-    7: (  # sedemnásty (17th)
-        ('sedemnásty', 'sedemnásteho', 'sedemnástemu', 'sedemnásteho', 'sedemnástym', 'sedemnástom'),
-        ('sedemnásta', 'sedemnástej', 'sedemnástej', 'sedemnástu', 'sedemnástou', 'sedemnástej'),
-        ('sedemnáste', 'sedemnásteho', 'sedemnástemu', 'sedemnáste', 'sedemnástym', 'sedemnástom'),
-    ),
-    8: (  # osemnásty (18th)
-        ('osemnásty', 'osemnásteho', 'osemnástemu', 'osemnásteho', 'osemnástym', 'osemnástom'),
-        ('osemnásta', 'osemnástej', 'osemnástej', 'osemnástu', 'osemnástou', 'osemnástej'),
-        ('osemnáste', 'osemnásteho', 'osemnástemu', 'osemnáste', 'osemnástym', 'osemnástom'),
-    ),
-    9: (  # devätnásty (19th)
-        ('devätnásty', 'devätnásteho', 'devätnástemu', 'devätnásteho', 'devätnástym', 'devätnástom'),
-        ('devätnásta', 'devätnástej', 'devätnástej', 'devätnástu', 'devätnástou', 'devätnástej'),
-        ('devätnáste', 'devätnásteho', 'devätnástemu', 'devätnáste', 'devätnástym', 'devätnástom'),
-    ),
-}
-
-# Ordinal tens (20th, 30th, ... 90th) - all follow hard adjective pattern
-# Structure: {tens_digit: ((masc_cases), (fem_cases), (neut_cases))}
-ORDINAL_TENS = {
-    2: (  # dvadsiaty (20th)
-        ('dvadsiaty', 'dvadsiateho', 'dvadsiatemu', 'dvadsiateho', 'dvadsiatym', 'dvadsiatom'),
-        ('dvadsiata', 'dvadsiatej', 'dvadsiatej', 'dvadsiatu', 'dvadsiatou', 'dvadsiatej'),
-        ('dvadsiate', 'dvadsiateho', 'dvadsiatemu', 'dvadsiate', 'dvadsiatym', 'dvadsiatom'),
-    ),
-    3: (  # tridsiaty (30th)
-        ('tridsiaty', 'tridsiateho', 'tridsiatemu', 'tridsiateho', 'tridsiatym', 'tridsiatom'),
-        ('tridsiata', 'tridsiatej', 'tridsiatej', 'tridsiatu', 'tridsiatou', 'tridsiatej'),
-        ('tridsiate', 'tridsiateho', 'tridsiatemu', 'tridsiate', 'tridsiatym', 'tridsiatom'),
-    ),
-    4: (  # štyridsiaty (40th)
-        ('štyridsiaty', 'štyridsiateho', 'štyridsiatemu', 'štyridsiateho', 'štyridsiatym', 'štyridsiatom'),
-        ('štyridsiata', 'štyridsiatej', 'štyridsiatej', 'štyridsiatu', 'štyridsiatou', 'štyridsiatej'),
-        ('štyridsiate', 'štyridsiateho', 'štyridsiatemu', 'štyridsiate', 'štyridsiatym', 'štyridsiatom'),
-    ),
-    5: (  # päťdesiaty (50th)
-        ('päťdesiaty', 'päťdesiateho', 'päťdesiatemu', 'päťdesiateho', 'päťdesiatym', 'päťdesiatom'),
-        ('päťdesiata', 'päťdesiatej', 'päťdesiatej', 'päťdesiatu', 'päťdesiatou', 'päťdesiatej'),
-        ('päťdesiate', 'päťdesiateho', 'päťdesiatemu', 'päťdesiate', 'päťdesiatym', 'päťdesiatom'),
-    ),
-    6: (  # šesťdesiaty (60th)
-        ('šesťdesiaty', 'šesťdesiateho', 'šesťdesiatemu', 'šesťdesiateho', 'šesťdesiatym', 'šesťdesiatom'),
-        ('šesťdesiata', 'šesťdesiatej', 'šesťdesiatej', 'šesťdesiatu', 'šesťdesiatou', 'šesťdesiatej'),
-        ('šesťdesiate', 'šesťdesiateho', 'šesťdesiatemu', 'šesťdesiate', 'šesťdesiatym', 'šesťdesiatom'),
-    ),
-    7: (  # sedemdesiaty (70th)
-        ('sedemdesiaty', 'sedemdesiateho', 'sedemdesiatemu', 'sedemdesiateho', 'sedemdesiatym', 'sedemdesiatom'),
-        ('sedemdesiata', 'sedemdesiatej', 'sedemdesiatej', 'sedemdesiatu', 'sedemdesiatou', 'sedemdesiatej'),
-        ('sedemdesiate', 'sedemdesiateho', 'sedemdesiatemu', 'sedemdesiate', 'sedemdesiatym', 'sedemdesiatom'),
-    ),
-    8: (  # osemdesiaty (80th)
-        ('osemdesiaty', 'osemdesiateho', 'osemdesiatemu', 'osemdesiateho', 'osemdesiatym', 'osemdesiatom'),
-        ('osemdesiata', 'osemdesiatej', 'osemdesiatej', 'osemdesiatu', 'osemdesiatou', 'osemdesiatej'),
-        ('osemdesiate', 'osemdesiateho', 'osemdesiatemu', 'osemdesiate', 'osemdesiatym', 'osemdesiatom'),
-    ),
-    9: (  # deväťdesiaty (90th)
-        ('deväťdesiaty', 'deväťdesiateho', 'deväťdesiatemu', 'deväťdesiateho', 'deväťdesiatym', 'deväťdesiatom'),
-        ('deväťdesiata', 'deväťdesiatej', 'deväťdesiatej', 'deväťdesiatu', 'deväťdesiatou', 'deväťdesiatej'),
-        ('deväťdesiate', 'deväťdesiateho', 'deväťdesiatemu', 'deväťdesiate', 'deväťdesiatym', 'deväťdesiatom'),
-    ),
-}
-
-# Ordinal hundreds (100th, 200th, ... 900th)
-# Structure: {hundreds_digit: ((masc_cases), (fem_cases), (neut_cases))}
-ORDINAL_HUNDREDS = {
-    1: (  # stý (100th)
-        ('stý', 'stého', 'stému', 'stého', 'stým', 'stom'),
-        ('stá', 'stej', 'stej', 'stú', 'stou', 'stej'),
-        ('sté', 'stého', 'stému', 'sté', 'stým', 'stom'),
-    ),
-    2: (  # dvojstý (200th)
-        ('dvojstý', 'dvojstého', 'dvojstému', 'dvojstého', 'dvojstým', 'dvojstom'),
-        ('dvojstá', 'dvojstej', 'dvojstej', 'dvojstú', 'dvojstou', 'dvojstej'),
-        ('dvojsté', 'dvojstého', 'dvojstému', 'dvojsté', 'dvojstým', 'dvojstom'),
-    ),
-    3: (  # trojstý (300th)
-        ('trojstý', 'trojstého', 'trojstému', 'trojstého', 'trojstým', 'trojstom'),
-        ('trojstá', 'trojstej', 'trojstej', 'trojstú', 'trojstou', 'trojstej'),
-        ('trojsté', 'trojstého', 'trojstému', 'trojsté', 'trojstým', 'trojstom'),
-    ),
-    4: (  # štvorsťý (400th)
-        ('štvorstý', 'štvorstého', 'štvorstému', 'štvorstého', 'štvorstým', 'štvorstom'),
-        ('štvorstá', 'štvorstej', 'štvorstej', 'štvorstú', 'štvorstou', 'štvorstej'),
-        ('štvorsté', 'štvorstého', 'štvorstému', 'štvorsté', 'štvorstým', 'štvorstom'),
-    ),
-    5: (  # päťstý (500th)
-        ('päťstý', 'päťstého', 'päťstému', 'päťstého', 'päťstým', 'päťstom'),
-        ('päťstá', 'päťstej', 'päťstej', 'päťstú', 'päťstou', 'päťstej'),
-        ('päťsté', 'päťstého', 'päťstému', 'päťsté', 'päťstým', 'päťstom'),
-    ),
-    6: (  # šesťstý (600th)
-        ('šesťstý', 'šesťstého', 'šesťstému', 'šesťstého', 'šesťstým', 'šesťstom'),
-        ('šesťstá', 'šesťstej', 'šesťstej', 'šesťstú', 'šesťstou', 'šesťstej'),
-        ('šesťsté', 'šesťstého', 'šesťstému', 'šesťsté', 'šesťstým', 'šesťstom'),
-    ),
-    7: (  # sedemstý (700th)
-        ('sedemstý', 'sedemstého', 'sedemstému', 'sedemstého', 'sedemstým', 'sedemstom'),
-        ('sedemstá', 'sedemstej', 'sedemstej', 'sedemstú', 'sedemstou', 'sedemstej'),
-        ('sedemsté', 'sedemstého', 'sedemstému', 'sedemsté', 'sedemstým', 'sedemstom'),
-    ),
-    8: (  # osemstý (800th)
-        ('osemstý', 'osemstého', 'osemstému', 'osemstého', 'osemstým', 'osemstom'),
-        ('osemstá', 'osemstej', 'osemstej', 'osemstú', 'osemstou', 'osemstej'),
-        ('osemsté', 'osemstého', 'osemstému', 'osemsté', 'osemstým', 'osemstom'),
-    ),
-    9: (  # deväťstý (900th)
-        ('deväťstý', 'deväťstého', 'deväťstému', 'deväťstého', 'deväťstým', 'deväťstom'),
-        ('deväťstá', 'deväťstej', 'deväťstej', 'deväťstú', 'deväťstou', 'deväťstej'),
-        ('deväťsté', 'deväťstého', 'deväťstému', 'deväťsté', 'deväťstým', 'deväťstom'),
-    ),
-}
-
-# Ordinal thousands (1000th = tisíci, soft pattern like tretí)
-ORDINAL_TISICI = (
-    ('tisíci', 'tisíceho', 'tisícemu', 'tisíceho', 'tisícim', 'tisícom'),
-    ('tisícia', 'tisícej', 'tisícej', 'tisíciu', 'tisícou', 'tisícej'),
-    ('tisície', 'tisíceho', 'tisícemu', 'tisície', 'tisícim', 'tisícom'),
-)
-
-# Ordinal prefixes for compound thousands (2000th = dvojtisíci, etc.)
-ORDINAL_THOUSAND_PREFIXES = {
-    2: 'dvoj',
-    3: 'troj',
-    4: 'štvor',
-    5: 'päť',
-    6: 'šesť',
-    7: 'sedem',
-    8: 'osem',
-    9: 'deväť',
-}
-
-# Ordinal scale words (milióny = millionth, miliardtý = billionth)
-ORDINAL_SCALE = {
-    2: (  # milióny (millionth) - hard pattern
-        ('milióny', 'milióntého', 'milióntému', 'milióntého', 'milióntým', 'milióntom'),
-        ('miliónta', 'milióntej', 'milióntej', 'milióntu', 'milióntou', 'milióntej'),
-        ('miliónte', 'milióntého', 'milióntému', 'miliónte', 'milióntým', 'milióntom'),
-    ),
-    3: (  # miliardtý (billionth)
-        ('miliardtý', 'miliardtého', 'miliardtému', 'miliardtého', 'miliardtým', 'miliardtom'),
-        ('miliardta', 'miliardtej', 'miliardtej', 'miliardtu', 'miliardtou', 'miliardtej'),
-        ('miliardté', 'miliardtého', 'miliardtému', 'miliardté', 'miliardtým', 'miliardtom'),
-    ),
-    4: (  # bilióny (trillionth)
-        ('bilióny', 'bilióntého', 'bilióntému', 'bilióntého', 'bilióntým', 'bilióntom'),
-        ('biliónta', 'bilióntej', 'bilióntej', 'bilióntu', 'bilióntou', 'bilióntej'),
-        ('biliónte', 'bilióntého', 'bilióntému', 'biliónte', 'bilióntým', 'bilióntom'),
-    ),
-    5: (  # biliardtý
-        ('biliardtý', 'biliardtého', 'biliardtému', 'biliardtého', 'biliardtým', 'biliardtom'),
-        ('biliardta', 'biliardtej', 'biliardtej', 'biliardtu', 'biliardtou', 'biliardtej'),
-        ('biliardté', 'biliardtého', 'biliardtému', 'biliardté', 'biliardtým', 'biliardtom'),
-    ),
-    6: (  # trilióny
-        ('trilióny', 'trilióntého', 'trilióntému', 'trilióntého', 'trilióntým', 'trilióntom'),
-        ('triliónta', 'trilióntej', 'trilióntej', 'trilióntu', 'trilióntou', 'trilióntej'),
-        ('triliónte', 'trilióntého', 'trilióntému', 'triliónte', 'trilióntým', 'trilióntom'),
-    ),
-}
-
-# Ordinal scale prefixes
-ORDINAL_SCALE_PREFIXES = {
-    2: 'dvoj',
-    3: 'troj',
-    4: 'štvor',
-    5: 'päť',
-    6: 'šesť',
-    7: 'sedem',
-    8: 'osem',
-    9: 'deväť',
-}
-
-
-# =============================================================================
-# ORDINAL CONVERSION FUNCTIONS
-# =============================================================================
-
-def ordinal_ones(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 1st-9th to ordinal."""
-    return ORDINAL_ONES[n][gender_idx][case_idx]
-
-
-def ordinal_teens(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 10th-19th to ordinal."""
-    return ORDINAL_TEENS[n][gender_idx][case_idx]
-
-
-def ordinal_tens(t: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 20th, 30th, ... 90th to ordinal."""
-    return ORDINAL_TENS[t][gender_idx][case_idx]
-
-
-def ordinal_hundreds(h: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 100th, 200th, ... 900th to ordinal."""
-    return ORDINAL_HUNDREDS[h][gender_idx][case_idx]
-
-
-def ordinal_0_99(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 1st-99th to ordinal. Compound form (no spaces)."""
-    if n == 0:
-        return ''
-    if n < 10:
-        return ordinal_ones(n, gender_idx, case_idx)
-    if n < 20:
-        return ordinal_teens(n - 10, gender_idx, case_idx)
-    
-    tens_digit = n // 10
-    ones_digit = n % 10
-    
-    if ones_digit == 0:
-        return ordinal_tens(tens_digit, gender_idx, case_idx)
-    else:
-        # Compound: tens stay nominative masculine, ones take full declension
-        # e.g., dvadsiatyprvý, dvadsiatehopiateho
-        tens_word = ORDINAL_TENS[tens_digit][gender_idx][case_idx]
-        ones_word = ordinal_ones(ones_digit, gender_idx, case_idx)
-        return tens_word + ones_word
-
-
-def ordinal_0_999(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 1st-999th to ordinal. Compound form."""
-    if n == 0:
-        return ''
-    
-    hundreds = n // 100
-    remainder = n % 100
-    
-    if hundreds == 0:
-        return ordinal_0_99(remainder, gender_idx, case_idx)
-    
-    if remainder == 0:
-        return ordinal_hundreds(hundreds, gender_idx, case_idx)
-    else:
-        # Compound: hundreds stay nominative, remainder takes declension
-        hundreds_word = ORDINAL_HUNDREDS[hundreds][gender_idx][0]  # nominative
-        remainder_word = ordinal_0_99(remainder, gender_idx, case_idx)
-        return hundreds_word + remainder_word
-
-
-def ordinal_thousands(n: int, gender_idx: int, case_idx: int, has_remainder: bool = False) -> str:
-    """
-    Convert 1000th-999000th to ordinal.
-    1000th = tisíci
-    2000th = dvojtisíci
-    10000th = desaťtisíci
-    """
-    if n == 0:
-        return ''
-    
-    if n == 1:
-        if has_remainder:
-            return ORDINAL_TISICI[gender_idx][0]  # nominative when followed by remainder
-        return ORDINAL_TISICI[gender_idx][case_idx]
-    
-    # Build prefix
-    if n < 10:
-        prefix = ORDINAL_THOUSAND_PREFIXES.get(n, '')
-        if not prefix:
-            prefix = convert_0_999(n, 0, 0)  # cardinal nominative
-    else:
-        prefix = convert_0_999(n, 0, 0)  # cardinal nominative
-    
-    if has_remainder:
-        suffix = ORDINAL_TISICI[gender_idx][0]
-    else:
-        suffix = ORDINAL_TISICI[gender_idx][case_idx]
-    
-    return prefix + suffix
-
-
-def ordinal_below_million(n: int, gender_idx: int, case_idx: int) -> str:
-    """Convert 1st-999999th to ordinal."""
-    if n == 0:
-        return ''
-    if n < 1000:
-        return ordinal_0_999(n, gender_idx, case_idx)
-    
-    thousands = n // 1000
-    remainder = n % 1000
-    
-    result = ordinal_thousands(thousands, gender_idx, case_idx, has_remainder=(remainder > 0))
-    
-    if remainder > 0:
-        result += ordinal_0_999(remainder, gender_idx, case_idx)
-    
-    return result
-
-
-def ordinal_scale_word(count: int, scale_idx: int, gender_idx: int, case_idx: int, has_remainder: bool = False) -> str:
-    """
-    Convert scale ordinal (millionth, billionth, etc.)
-    count: how many of this scale (e.g., 5 for 5 millionth)
-    """
-    scale_ordinal = ORDINAL_SCALE[scale_idx]
-    
-    if count == 1:
-        if has_remainder:
-            return scale_ordinal[gender_idx][0]
-        return scale_ordinal[gender_idx][case_idx]
-    
-    # Build prefix
-    if count < 10:
-        prefix = ORDINAL_SCALE_PREFIXES.get(count, '')
-        if not prefix:
-            prefix = convert_0_999(count, 0, 0)
-    elif count < 1_000_000:
-        prefix = convert_below_million(count, 0, 0)
-    else:
-        prefix = int_to_cardinal_compound(count, 'masculine', 'nominative')
-    
-    if has_remainder:
-        suffix = scale_ordinal[gender_idx][0]
-    else:
-        suffix = scale_ordinal[gender_idx][case_idx]
-    
-    return prefix + suffix
-
-
-def int_to_ordinal(n: int, gender: str = 'masculine', case: str = 'nominative') -> str:
-    """
-    Convert integer to Slovak ordinal number with full gender+case declension.
-    
-    Args:
-        n: Integer to convert (must be > 0)
-        gender: 'masculine', 'feminine', or 'neuter'
-        case: One of 'nominative', 'genitive', 'dative', 'accusative', 'instrumental', 'locative'
-    
-    Returns:
-        Slovak ordinal word representation with proper declension
-    """
-    if n <= 0:
-        raise ValueError("Ordinal numbers must be positive integers")
-    
-    gender_idx = get_gender_index(gender)
-    case_idx = get_case_index(case)
-    
-    if n < 1_000_000:
-        return ordinal_below_million(n, gender_idx, case_idx)
-    
-    # For millions and above, build compound
-    result = ''
-    remaining = n
-    
-    for scale_idx in sorted(SCALE_VALUES.keys(), reverse=True):
-        scale_value = SCALE_VALUES[scale_idx]
-        
-        if remaining >= scale_value:
-            count = remaining // scale_value
-            remaining = remaining % scale_value
-            
-            has_remainder = (remaining > 0)
-            result += ordinal_scale_word(count, scale_idx, gender_idx, case_idx, has_remainder)
-    
-    if remaining > 0:
-        result += ordinal_below_million(remaining, gender_idx, case_idx)
-    
-    return result
-
-
-# =============================================================================
-# MAIN CONVERSION FUNCTION
-# =============================================================================
-
-def int_to_cardinal(n: int, gender: str = 'masculine', case: str = 'nominative') -> str:
-    """
-    Convert integer to Slovak cardinal number with full gender+case declension.
-    Uses compound forms throughout (no spaces between number parts).
-    
-    Args:
-        n: Integer to convert
-        gender: 'masculine', 'feminine', or 'neuter'
-        case: One of 'nominative', 'genitive', 'dative', 'accusative', 'instrumental', 'locative'
-    
-    Returns:
-        Slovak word representation with proper declension
-    """
+def int_to_cardinal(n: int, gender: str = "masculine", case: str = "nominative",
+                    animacy: str = "inanimate", construction: str = "genitive",
+                    declined: bool = True) -> str:
+    _check(gender, animacy)
+    c = _idx(case)
     if n < 0:
-        return MINUS + ' ' + int_to_cardinal(abs(n), gender, case)
-    
+        return f"{MINUS} {int_to_cardinal(-n, gender, case, animacy, construction, declined)}"
     if n == 0:
-        return ZERO
-    
-    return int_to_cardinal_compound(n, gender, case)
+        return ZERO_FORMS[c]
+    groups: List[str] = []
+    rest = n
+    big: List[Tuple[int, tuple, tuple, str]] = []
+    for exp, sgender, sg, pl in SCALES:
+        count, rest = divmod(rest, 10 ** exp)
+        if count:
+            if count >= 1000:
+                raise ValueError("number too large")
+            big.append((count, sg, pl, sgender))
+    t, r = divmod(rest, 1000)
+    has_tail = rest > 0
+    # milión/miliarda groups are nouns and always decline, also before a smaller part:
+    # "dvoch miliónov piatich", "miliarde päťsto miliónom" (native review)
+    for count, sg, pl, sgender in big:
+        groups.append(_scale_group(count, sg, pl, sgender, c, declined))
+    if rest:
+        prefix = _thousands_prefix(t) if t else ""
+        if r == 0:
+            groups.append(prefix)  # round thousands: invariable
+        else:
+            groups.append(_below_1000(r, c, gender, animacy, construction, declined, prefix,
+                                      in_compound=bool(big)))
+    return " ".join(groups)
 
 
-def float_to_cardinal(n: float, gender: str = 'masculine', case: str = 'nominative') -> str:
-    """Convert float to Slovak words."""
-    if n < 0:
-        return MINUS + ' ' + float_to_cardinal(abs(n), gender, case)
-    
-    str_n = str(n)
-    if '.' in str_n:
-        int_part, dec_part = str_n.split('.')
+# --------------------------------------------------------------------------------------
+# Ordinals: adjective declension (vzor pekný / cudzí, with the rhythmic law)
+# --------------------------------------------------------------------------------------
+
+ORDINALS = {
+    0: "nultý", 1: "prvý", 2: "druhý", 3: "tretí", 4: "štvrtý", 5: "piaty", 6: "šiesty",
+    7: "siedmy", 8: "ôsmy", 9: "deviaty", 10: "desiaty", 11: "jedenásty", 12: "dvanásty",
+    13: "trinásty", 14: "štrnásty", 15: "pätnásty", 16: "šestnásty", 17: "sedemnásty",
+    18: "osemnásty", 19: "devätnásty", 20: "dvadsiaty", 30: "tridsiaty", 40: "štyridsiaty",
+    50: "päťdesiaty", 60: "šesťdesiaty", 70: "sedemdesiaty", 80: "osemdesiaty",
+    90: "deväťdesiaty", 100: "stý", 200: "dvojstý", 300: "trojstý", 400: "štvorstý",
+    500: "päťstý", 600: "šesťstý", 700: "sedemstý", 800: "osemstý", 900: "deväťstý",
+}
+MULTIPLIER = {2: "dvoj", 3: "troj", 4: "štvor"}      # dvojstý, dvojtisíci, dvojmiliónty
+UNCODIFIED = {2: "dve", 3: "troj", 4: "štvor"}       # dvestý, dvetisíci (frequent, not codified);
+# *tritisíci and *štyritisíci are unattested (Šrámeková 2023), so 3 and 4 keep troj-/štvor-
+
+_HARD_LONG = {  # after a short syllable: prvý, druhý, stý
+    "m": ("ý", "ého", "ému", None, "ým", "om"), "f": ("á", "ej", "ej", "ú", "ou", "ej"),
+    "n": ("é", "ého", "ému", "é", "ým", "om"),
+    "pl": ("é", "ých", "ým", "é", "ými", "ých"), "pl_pers": ("í", "ých", "ým", "ých", "ými", "ých"),
+}
+_HARD_SHORT = {  # rhythmic law after a long syllable: piaty, miliónty
+    "m": ("y", "eho", "emu", None, "ym", "om"), "f": ("a", "ej", "ej", "u", "ou", "ej"),
+    "n": ("e", "eho", "emu", "e", "ym", "om"),
+    "pl": ("e", "ych", "ym", "e", "ymi", "ych"), "pl_pers": ("i", "ych", "ym", "ych", "ymi", "ych"),
+}
+_SOFT_LONG = {  # tretí
+    "m": ("í", "ieho", "iemu", None, "ím", "om"), "f": ("ia", "ej", "ej", "iu", "ou", "ej"),
+    "n": ("ie", "ieho", "iemu", "ie", "ím", "om"),
+    "pl": ("ie", "ích", "ím", "ie", "ími", "ích"), "pl_pers": ("í", "ích", "ím", "ích", "ími", "ích"),
+}
+_SOFT_SHORT = {  # tisíci (rhythmic law): tisíca, tisíce, tisíceho
+    "m": ("i", "eho", "emu", None, "im", "om"), "f": ("a", "ej", "ej", "u", "ou", "ej"),
+    "n": ("e", "eho", "emu", "e", "im", "om"),
+    "pl": ("e", "ich", "im", "e", "imi", "ich"), "pl_pers": ("i", "ich", "im", "ich", "imi", "ich"),
+}
+_SOFTEN = {"t": "ť", "d": "ď", "n": "ň", "l": "ľ"}  # treťom, treťou
+
+
+def decline_ordinal(lemma: str, c: int, gender: str, animacy: str, plural: bool) -> str:
+    last = lemma[-1]
+    table = {"ý": _HARD_LONG, "y": _HARD_SHORT, "í": _SOFT_LONG, "i": _SOFT_SHORT}[last]
+    stem = lemma[:-1]
+    personal = gender == "masculine" and animacy == "personal"
+    if plural:
+        ending = table["pl_pers" if personal else "pl"][c]
     else:
-        return int_to_cardinal(int(n), gender, case)
-    
-    int_words = int_to_cardinal(int(int_part), gender, case)
-    
-    if not dec_part or int(dec_part) == 0:
-        return int_words
-    
-    leading_zeros = len(dec_part) - len(dec_part.lstrip('0'))
-    zero_words = (ZERO + ' ') * leading_zeros
-    
-    dec_value = int(dec_part.lstrip('0')) if dec_part.lstrip('0') else 0
-    dec_words = int_to_cardinal(dec_value, gender, case) if dec_value else ''
-    
-    return int_words + ' ' + POINT_WORD + ' ' + zero_words + dec_words
+        key = {"masculine": "m", "feminine": "f", "neuter": "n"}[gender]
+        ending = table[key][c]
+        if ending is None:  # masculine accusative
+            ending = table["m"][G] if animacy != "inanimate" else table["m"][N]
+    if table is _SOFT_LONG and ending.startswith("o") and stem[-1] in _SOFTEN:
+        stem = stem[:-1] + _SOFTEN[stem[-1]]
+    return stem + ending
 
 
-# =============================================================================
-# API CLASS
-# =============================================================================
+def _ordinal_lemmas(n: int, codified: bool) -> Tuple[str, List[str]]:
+    """(cardinal prefix, ordinal lemmas to decline). The prefix is glued to the first lemma."""
+    mult = MULTIPLIER if codified else UNCODIFIED
+    rest = n
+    parts: List[str] = []
+    for exp, sgender, sg, pl in SCALES:
+        count, rest = divmod(rest, 10 ** exp)
+        if count and rest == 0:  # the scale group itself is the ordinal: miliónty, dvojmiliardtý
+            base = sg[N][:-1] if sgender == "feminine" else sg[N]
+            lemma = base + ("tý" if base.endswith("d") else "ty")  # miliardtý / miliónty
+            if count == 1:
+                pre = ""
+            elif count in mult:
+                pre = mult[count]
+            else:
+                pre = _below_1000(count, N, "masculine", "inanimate", "genitive", False)
+            return (" ".join(parts) + " " if parts else ""), [pre + lemma]
+        if count:
+            parts.append(_scale_group(count, sg, pl, sgender, N, False))
+    lead = (" ".join(parts) + " ") if parts else ""
+    t, r = divmod(rest, 1000)
+    if r == 0 and t:  # ...th thousand: tisíci, dvojtisíci, päťtisíci
+        pre = "" if t == 1 else (mult[t] if t in mult else _thousands_prefix(t)[:-5])
+        return lead, [pre + "tisíci"]
+    prefix = _thousands_prefix(t) if t else ""
+    h, tu = divmod(r, 100)
+    if tu == 0:  # ...th hundred: stý, dvojstý, tisícstý
+        lemma = "dvestý" if (h == 2 and not codified) else ORDINALS[h * 100]
+        return lead + prefix, [lemma]
+    prefix += HUNDREDS[h] if h else ""
+    if tu in ORDINALS:
+        return lead + prefix, [ORDINALS[tu]]
+    return lead + prefix, [ORDINALS[tu - tu % 10], ORDINALS[tu % 10]]
+
+
+def int_to_ordinal(n: int, gender: str = "masculine", case: str = "nominative",
+                   animacy: str = "inanimate", plural: bool = False, codified: bool = False) -> str:
+    _check(gender, animacy)
+    if n < 0:
+        raise ValueError("ordinal numbers must be >= 0")
+    c = _idx(case)
+    if n == 0:
+        return decline_ordinal(ORDINALS[0], c, gender, animacy, plural)
+    prefix, lemmas = _ordinal_lemmas(n, codified)
+    words = [decline_ordinal(l, c, gender, animacy, plural) for l in lemmas]
+    # PSP: the cardinal prefix is glued to the first ordinal word, the unit is a separate word
+    return prefix + " ".join(words)
+
+
+# --------------------------------------------------------------------------------------
+# Decimals: "jedna celá päť desatín", "tri celé štrnásť stotín"
+# --------------------------------------------------------------------------------------
+
+DENOMINATORS = {  # (1, 2-4, 5+ and compounds)
+    1: ("desatina", "desatiny", "desatín"), 2: ("stotina", "stotiny", "stotín"),
+    3: ("tisícina", "tisíciny", "tisícin"), 4: ("desaťtisícina", "desaťtisíciny", "desaťtisícin"),
+    5: ("stotisícina", "stotisíciny", "stotisícin"), 6: ("milióntina", "milióntiny", "milióntin"),
+}
+
+
+def _count_with_noun(v: int, forms: Tuple[str, str, str]) -> str:
+    """Feminine count + noun in the nominative: jedna celá / dve celé / päť celých."""
+    if v == 0:
+        return f"nula {forms[2]}"
+    if v == 1:
+        return f"jedna {forms[0]}"
+    if v in (2, 3, 4):
+        return f"{_simple(v, N, 'feminine', 'inanimate', 'genitive', False)} {forms[1]}"
+    return f"{int_to_cardinal(v, 'feminine')} {forms[2]}"
+
+
+def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **_) -> str:
+    """
+    Decimal numbers are read in the nominative (no source covers oblique cases); the integer
+    part agrees with the feminine "celá" and the fraction takes desatina/stotina/tisícina.
+    """
+    try:
+        d = Decimal(str(x).replace(",", "."))
+    except InvalidOperation:
+        raise ValueError(f"not a number: {x!r}")
+    sign = MINUS + " " if d < 0 else ""
+    d = abs(d)
+    whole = int(d)
+    frac = format(d, "f").split(".")[1].rstrip("0") if "." in format(d, "f") else ""
+    if not frac:
+        return sign + int_to_cardinal(whole, gender, case)
+    if len(frac) > 6:
+        digits = " ".join(int_to_cardinal(int(ch), "feminine") for ch in frac)
+        return f"{sign}{_count_with_noun(whole, ('celá', 'celé', 'celých'))} {digits}"
+    return (f"{sign}{_count_with_noun(whole, ('celá', 'celé', 'celých'))} "
+            f"{_count_with_noun(int(frac), DENOMINATORS[len(frac)])}")
+
+
+# --------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------
+
+def _options(kwargs: dict) -> dict:
+    animacy = kwargs.get("animacy")
+    if animacy is None:
+        animacy = "animate" if kwargs.get("animate") else "inanimate"
+    return {"gender": kwargs.get("gender", "masculine"), "case": kwargs.get("case", "nominative"),
+            "animacy": animacy}
+
 
 class Num2Word_SK:
-    """Slovak number to words converter."""
-    
-    def __init__(self):
-        self.negword = MINUS
-        self.pointword = POINT_WORD
-    
+    """Slovak number to words converter (v1-compatible class interface)."""
+
+    negword = MINUS
+
     def to_cardinal(self, number, **kwargs) -> str:
-        gender = kwargs.get('gender', 'masculine')
-        case = kwargs.get('case', 'nominative')
-        
-        if isinstance(number, float):
-            return float_to_cardinal(number, gender, case)
-        return int_to_cardinal(int(number), gender, case)
-    
+        o = _options(kwargs)
+        if isinstance(number, (float, Decimal)) or (isinstance(number, str) and any(s in number for s in ".,")):
+            return float_to_cardinal(number, o["gender"], o["case"])
+        return int_to_cardinal(int(number), o["gender"], o["case"], o["animacy"],
+                               kwargs.get("construction", "genitive"), kwargs.get("declined", True))
+
     def to_ordinal(self, number, **kwargs) -> str:
-        gender = kwargs.get('gender', 'masculine')
-        case = kwargs.get('case', 'nominative')
-        return int_to_ordinal(int(number), gender, case)
+        o = _options(kwargs)
+        return int_to_ordinal(int(number), o["gender"], o["case"], o["animacy"],
+                              kwargs.get("plural", False), kwargs.get("codified", False))
 
 
-def num2words(number, to: str = 'cardinal', **kwargs) -> str:
+def num2words(number, to: str = "cardinal", **kwargs) -> str:
     """
-    Convert number to Slovak words.
-    
-    Args:
-        number: Number to convert
-        to: 'cardinal' or 'ordinal'
-        gender: 'masculine', 'feminine', or 'neuter' (default: 'masculine')
-        case: 'nominative', 'genitive', 'dative', 'accusative', 'instrumental', 'locative'
-    
-    Returns:
-        Slovak word representation
+    Convert a number to Slovak words.
+        to: "cardinal" | "ordinal"
+        gender: "masculine" | "feminine" | "neuter"          (default "masculine")
+        case: "nominative" | "genitive" | "dative" | "accusative" | "instrumental" | "locative"
+        animacy: "inanimate" | "animate" | "personal"         (masculine only; default "inanimate")
+        construction: "genitive" (dvadsaťdva žiakov) | "agreement" (dvadsiati dvaja žiaci)
+        declined: decline 22-99 in oblique cases (True) or keep "dvadsaťdva" (False)
+        plural: ordinal in the plural (prví, prvých ...)
+        codified: the frequent dvestý / dvetisíci (False, default) or the codified dvojstý / dvojtisíci
     """
     converter = Num2Word_SK()
-    if to == 'ordinal':
+    if to == "ordinal":
         return converter.to_ordinal(number, **kwargs)
+    if to != "cardinal":
+        raise ValueError("to must be 'cardinal' or 'ordinal'")
     return converter.to_cardinal(number, **kwargs)
-
-
-# =============================================================================
-# TEST
-# =============================================================================
-
-if __name__ == '__main__':
-    print("=" * 80)
-    print("SLOVAK NUM2WORDS - Full Gender + Case Declension Test")
-    print("=" * 80)
-    
-    # Test key numbers with gender and case
-    test_cases = [
-        (1, "jeden/jedna/jedno"),
-        (2, "dva/dve/dve"),
-        (100, "sto/stá/sté"),
-        (101, "stojedna (fem gen = stojednej)"),
-        (200, "dvesto/dvestá/dvesté"),
-    ]
-    
-    print("\n--- GENDER comparison (nominative) ---")
-    for n, desc in test_cases:
-        print(f"\n{n} ({desc}):")
-        for gender in ['masculine', 'feminine', 'neuter']:
-            result = num2words(n, gender=gender, case='nominative')
-            print(f"  {gender}: {result}")
-    
-    print("\n" + "=" * 80)
-    print("--- 100 in all cases, all genders ---")
-    print("=" * 80)
-    for gender in ['masculine', 'feminine', 'neuter']:
-        print(f"\n{gender.upper()}:")
-        for case in CASES:
-            result = num2words(100, gender=gender, case=case)
-            print(f"  {case}: {result}")
-    
-    print("\n" + "=" * 80)
-    print("--- 101 in all cases, feminine gender ---")
-    print("(Should show: stojedna, stojednej, stojednej, stojednu, stojednou, stojednej)")
-    print("=" * 80)
-    for case in CASES:
-        result = num2words(101, gender='feminine', case=case)
-        print(f"  {case}: {result}")
-    
-    print("\n" + "=" * 80)
-    print("--- 121 in all cases, feminine gender ---")
-    print("=" * 80)
-    for case in CASES:
-        result = num2words(121, gender='feminine', case=case)
-        print(f"  {case}: {result}")

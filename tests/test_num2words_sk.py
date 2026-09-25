@@ -1,595 +1,235 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Comprehensive Test Suite for Slovak num2words Implementation
-Tests gender and case declension across various number types.
+Tests for num2words_sk v2. Expected values are quoted from the sources listed in
+NUM2WORDS_CHANGES.md (MSJ = Morfológia slovenského jazyka 1966; PSP = Pravidlá slovenského
+pravopisu 1991/1998, via Jarošová 2021; NAV = Navrátil 2003; PAL = Páleníková; TASR18 = TASR
+style guide; DUCH = Duchková), or were decided in the native-speaker review of 25 Sep 2026
+where the sources are silent or allow variants (test_native_review_decisions).
+Run: pytest test_num2words_sk.py
 """
+import re
 
-from num2words_sk import num2words, CASES
+import pytest
 
-# =============================================================================
-# TEST DATA - Expected values from Slovak grammar
-# =============================================================================
+try:  # standalone: the module sits next to this file
+    from num2words_sk import CASES, Num2Word_SK, num2words as w
+except ImportError:  # inside the TTS repository
+    from src.text.num2words_sk import CASES, Num2Word_SK, num2words as w
 
-# Test: 100 in all genders and cases
-EXPECTED_100 = {
-    'masculine': {
-        'nominative': 'sto',
-        'genitive': 'stého',
-        'dative': 'stému',
-        'accusative': 'sto',
-        'instrumental': 'stým',
-        'locative': 'stom',
-    },
-    'feminine': {
-        'nominative': 'stá',
-        'genitive': 'stej',
-        'dative': 'stej',
-        'accusative': 'stú',
-        'instrumental': 'stou',
-        'locative': 'stej',
-    },
-    'neuter': {
-        'nominative': 'sté',
-        'genitive': 'stého',
-        'dative': 'stému',
-        'accusative': 'sté',
-        'instrumental': 'stým',
-        'locative': 'stom',
-    },
-}
-
-# Test: 1 in all genders and cases
-EXPECTED_1 = {
-    'masculine': {
-        'nominative': 'jeden',
-        'genitive': 'jedného',
-        'dative': 'jednému',
-        'accusative': 'jedného',
-        'instrumental': 'jedným',
-        'locative': 'jednom',
-    },
-    'feminine': {
-        'nominative': 'jedna',
-        'genitive': 'jednej',
-        'dative': 'jednej',
-        'accusative': 'jednu',
-        'instrumental': 'jednou',
-        'locative': 'jednej',
-    },
-    'neuter': {
-        'nominative': 'jedno',
-        'genitive': 'jedného',
-        'dative': 'jednému',
-        'accusative': 'jedno',
-        'instrumental': 'jedným',
-        'locative': 'jednom',
-    },
-}
-
-# Test: 2 in all genders and cases
-EXPECTED_2 = {
-    'masculine': {
-        'nominative': 'dva',
-        'genitive': 'dvoch',
-        'dative': 'dvom',
-        'accusative': 'dva',
-        'instrumental': 'dvoma',
-        'locative': 'dvoch',
-    },
-    'feminine': {
-        'nominative': 'dve',
-        'genitive': 'dvoch',
-        'dative': 'dvom',
-        'accusative': 'dve',
-        'instrumental': 'dvomi',
-        'locative': 'dvoch',
-    },
-    'neuter': {
-        'nominative': 'dve',
-        'genitive': 'dvoch',
-        'dative': 'dvom',
-        'accusative': 'dve',
-        'instrumental': 'dvoma',
-        'locative': 'dvoch',
-    },
-}
-
-# Test: 101 feminine (sto + jedna compound)
-# Note: hundreds stay NOMINATIVE when followed by other digits
-EXPECTED_101_FEM = {
-    'nominative': 'stájedna',
-    'genitive': 'stájednej',
-    'dative': 'stájednej',
-    'accusative': 'stájednu',
-    'instrumental': 'stájednou',
-    'locative': 'stájednej',
-}
-
-# Test: 200 in genders
-EXPECTED_200 = {
-    'masculine': {
-        'nominative': 'dvesto',
-        'genitive': 'dvestého',
-    },
-    'feminine': {
-        'nominative': 'dvestá',
-        'genitive': 'dvestej',
-    },
-    'neuter': {
-        'nominative': 'dvesté',
-        'genitive': 'dvestého',
-    },
-}
-
-# Test: Compound thousands (indeclinable)
-EXPECTED_THOUSANDS = {
-    1000: 'tisíc',
-    2000: 'dvetisíc',
-    3000: 'tritisíc',
-    5000: 'päťtisíc',
-}
-
-# Test: Millions with compound forms and t-suffix
-EXPECTED_MILLIONS = {
-    1000000: {
-        'nominative': 'milión',
-        'genitive': 'miliónteho',
-    },
-    2000000: {
-        'nominative': 'dvamilióny',
-        'genitive': 'dvamiliónteho',
-    },
-}
-
-# Test: Billions (compound forms with feminine prefix agreement)
-EXPECTED_BILLIONS = {
-    1000000000: {
-        'nominative': 'miliarda',
-    },
-    2000000000: {
-        'nominative': 'dvemiliardy',
-        'genitive': 'dvemiliardtého',
-    },
-}
+CASE_ORDER = ["nominative", "genitive", "dative", "accusative", "instrumental", "locative"]
 
 
-# =============================================================================
-# TEST FUNCTIONS
-# =============================================================================
-
-def test_number_gender_case(n, expected_dict, test_name):
-    """Test a number across all specified genders and cases."""
-    print(f"\n{'='*60}")
-    print(f"TEST: {test_name}")
-    print(f"{'='*60}")
-    
-    passed = 0
-    failed = 0
-    
-    for gender, cases_dict in expected_dict.items():
-        for case, expected in cases_dict.items():
-            result = num2words(n, gender=gender, case=case)
-            status = "✓" if result == expected else "✗"
-            if result == expected:
-                passed += 1
-            else:
-                failed += 1
-            
-            if result != expected:
-                print(f"  {status} {gender} {case}: got '{result}', expected '{expected}'")
-            else:
-                print(f"  {status} {gender} {case}: {result}")
-    
-    return passed, failed
+def paradigm(n, **kw):
+    return [w(n, case=c, **kw) for c in CASE_ORDER]
 
 
-def test_single_case(n, expected_dict, gender, test_name):
-    """Test a number with specific gender across all cases."""
-    print(f"\n{'='*60}")
-    print(f"TEST: {test_name}")
-    print(f"{'='*60}")
-    
-    passed = 0
-    failed = 0
-    
-    for case, expected in expected_dict.items():
-        result = num2words(n, gender=gender, case=case)
-        status = "✓" if result == expected else "✗"
-        if result == expected:
-            passed += 1
-        else:
-            failed += 1
-        
-        if result != expected:
-            print(f"  {status} {case}: got '{result}', expected '{expected}'")
-        else:
-            print(f"  {status} {case}: {result}")
-    
-    return passed, failed
+# ---------------------------------------------------------------- cardinals 1-4 (MSJ pp. 318-323)
+def test_jeden_by_gender_and_animacy():
+    assert paradigm(1) == ["jeden", "jedného", "jednému", "jeden", "jedným", "jednom"]
+    assert w(1, case="accusative", animacy="animate") == "jedného"
+    assert paradigm(1, gender="feminine") == ["jedna", "jednej", "jednej", "jednu", "jednou", "jednej"]
+    assert paradigm(1, gender="neuter") == ["jedno", "jedného", "jednému", "jedno", "jedným", "jednom"]
 
 
-def test_nominative_values(expected_dict, test_name):
-    """Test nominative forms for various numbers."""
-    print(f"\n{'='*60}")
-    print(f"TEST: {test_name}")
-    print(f"{'='*60}")
-    
-    passed = 0
-    failed = 0
-    
-    for n, expected in expected_dict.items():
-        result = num2words(n, gender='masculine', case='nominative')
-        status = "✓" if result == expected else "✗"
-        if result == expected:
-            passed += 1
-        else:
-            failed += 1
-        
-        if result != expected:
-            print(f"  {status} {n}: got '{result}', expected '{expected}'")
-        else:
-            print(f"  {status} {n}: {result}")
-    
-    return passed, failed
+def test_dva_tri_styri_with_masculine_personal_forms():
+    assert paradigm(2) == ["dva", "dvoch", "dvom", "dva", "dvoma", "dvoch"]
+    assert paradigm(2, gender="feminine") == ["dve", "dvoch", "dvom", "dve", "dvomi", "dvoch"]
+    assert paradigm(2, animacy="personal")[0::3] == ["dvaja", "dvoch"]       # N, A
+    assert paradigm(3, animacy="personal")[0::3] == ["traja", "troch"]
+    assert paradigm(4, animacy="personal")[0::3] == ["štyria", "štyroch"]
+    assert paradigm(3)[0::3] == ["tri", "tri"]                               # not "troch" for inanimates
+    # instrumental: dvoma/troma for masculine and neuter, dvomi/tromi for feminine (native review);
+    # MSJ p. 320-323 and SNK 2011 list both forms as standard; štyrmi is the only form of 4
+    assert w(3, case="instrumental") == "troma"
+    assert w(3, gender="feminine", case="instrumental") == "tromi"
+    assert {w(4, gender=g, case="instrumental") for g in ("masculine", "feminine", "neuter")} == {"štyrmi"}
 
 
-def test_scales_with_cases(expected_dict, test_name):
-    """Test scale numbers (millions, billions) with case declension."""
-    print(f"\n{'='*60}")
-    print(f"TEST: {test_name}")
-    print(f"{'='*60}")
-    
-    passed = 0
-    failed = 0
-    
-    for n, cases_dict in expected_dict.items():
-        print(f"  {n}:")
-        for case, expected in cases_dict.items():
-            result = num2words(n, gender='masculine', case=case)
-            status = "✓" if result == expected else "✗"
-            if result == expected:
-                passed += 1
-            else:
-                failed += 1
-            
-            if result != expected:
-                print(f"    {status} {case}: got '{result}', expected '{expected}'")
-            else:
-                print(f"    {status} {case}: {result}")
-    
-    return passed, failed
+# ---------------------------------------------------------------- 5-99 (MSJ p. 324; POV18)
+def test_pat_paradigm():
+    assert paradigm(5) == ["päť", "piatich", "piatim", "päť", "piatimi", "piatich"]
+    assert w(5, animacy="personal", construction="agreement") == "piati"
+    assert w(5, animacy="personal", construction="agreement", case="accusative") == "piatich"
 
 
-# =============================================================================
-# ORIGINAL TEST NUMBERS FROM JUPYTER NOTEBOOK
-# These numbers MUST be preserved in all test suites
-# =============================================================================
-
-ORIGINAL_TEST_NUMBERS = [
-    # Existing numbers for thoroughness at lower scales
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15,
-    20, 21, 29, 30, 40, 45, 50, 55, 88, 90, 99,
-    100, 101, 112, 120, 121, 150, 151, 195,
-    200, 201, 202, 213, 224,
-    300, 303, 313, 333,
-    400, 404, 414, 444,
-    1000, 1001, 1010, 1011, 1025, 1050, 1098, 1100, 1101, 1111,
-    1590, 1900, 1990, 1991, 2000, 2001, 2004, 2012, 2020, 2021, 2059, 2099,
-    2100, 2152, 2200, 2201, 2222,
-    3000, 3003, 3013, 3033, 3333,
-    4000, 4004, 4014, 4044, 4444,
-    10000, 10001, 10010, 10011, 10021, 10033,
-    20000, 20001, 25000, 29999,
-    100000, 100001, 100010, 100100, 100101,
-    200000, 250000, 299999,
-    1000000, 1000001, 1000010, 1000100, 1001000, 1001010, 1100000,
-    2000000, 2500000, 2999999,
-    10000000, 15000000, 19999999,
-    100000000, 150000000, 199999999,
-    1000000000, 1500000000, 1999999999,
-    2000000000, 2500000000, 2999999999,
-    
-    # Expanding to larger scales: billions (miliardy)
-    10000000000, 20000000000, 25000000000, 99999999999,
-    
-    # Trillions (bilióny)
-    100000000000, 150000000000, 200000000000, 500000000000, 999999999999,
-    
-    # Quadrillions (biliardy)
-    1000000000000, 2000000000000, 3000000000000, 5000000000000, 9999999999999,
-    
-    # Quintillions (trilióny)
-    10000000000000, 20000000000000, 30000000000000, 50000000000000, 99999999999999,
-    
-    # Sextillions (triliardy)
-    100000000000000, 200000000000000, 300000000000000, 500000000000000, 999999999999999,
-    
-    # Septillions (kvadrilióny)
-    1000000000000000, 2000000000000000, 3000000000000000, 5000000000000000, 9999999999999999,
-    
-    # Octillions (kvadriliardy)
-    10000000000000000, 20000000000000000, 30000000000000000, 50000000000000000, 99999999999999999,
-    
-    # Nonillions (kvintilióny)
-    100000000000000000, 200000000000000000, 300000000000000000, 500000000000000000, 999999999999999999,
-    
-    # Decillions (decilióny)
-    1000000000000000000, 2000000000000000000, 3000000000000000000, 5000000000000000000, 9999999999999999999
-]
+@pytest.mark.parametrize("n,gen", [(7, "siedmich"), (8, "ôsmich"), (17, "sedemnástich"),
+                                   (70, "sedemdesiatich"), (80, "osemdesiatich"), (20, "dvadsiatich")])
+def test_stems(n, gen):
+    assert w(n, case="genitive") == gen
 
 
-def test_original_numbers():
-    """Test all original numbers from the Jupyter notebook in nominative neuter case."""
-    print(f"\n{'='*60}")
-    print("TEST: Original Jupyter Notebook Numbers (nominative, neuter)")
-    print(f"{'='*60}")
-    
-    passed = 0
-    failed = 0
-    errors = []
-    
-    for number in ORIGINAL_TEST_NUMBERS:
-        try:
-            result = num2words(number, gender='neuter', case='nominative')
-            passed += 1
-            # Only print first few and any notable ones
-            if number <= 10 or number in [100, 1000, 1000000, 1000000000]:
-                print(f"  ✓ {number}: {result}")
-        except Exception as e:
-            failed += 1
-            errors.append((number, str(e)))
-            print(f"  ✗ {number}: ERROR - {e}")
-    
-    if passed > 10:
-        print(f"  ... ({passed - 10} more numbers tested successfully)")
-    
-    if errors:
-        print(f"\n  Errors encountered:")
-        for num, err in errors[:5]:  # Show first 5 errors
-            print(f"    {num}: {err}")
-    
-    return passed, failed
+def test_compounds_ending_in_jeden_never_decline():
+    """PAL/NAV/MSJ p. 326: dvadsaťjeden... sa nikdy neskloňujú; jeden for all genders."""
+    for g in ("masculine", "feminine", "neuter"):
+        assert set(paradigm(21, gender=g)) == {"dvadsaťjeden"}
+    assert w(61, case="instrumental") == "šesťdesiatjeden"      # "so šesťdesiatjeden hosťami"
+    assert w(41, case="locative", gender="feminine") == "štyridsaťjeden"  # "o štyridsaťjeden ženách"
 
 
-# =============================================================================
-# MAIN TEST RUNNER
-# =============================================================================
-
-def main():
-    print("=" * 70)
-    print("SLOVAK NUM2WORDS - COMPREHENSIVE TEST SUITE")
-    print("Testing gender and case declension")
-    print("=" * 70)
-    
-    total_passed = 0
-    total_failed = 0
-    
-    # Test 1: Number 1 in all genders and cases
-    p, f = test_number_gender_case(1, EXPECTED_1, "Number 1 - Full declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 2: Number 2 in all genders and cases
-    p, f = test_number_gender_case(2, EXPECTED_2, "Number 2 - Full declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 3: Number 100 in all genders and cases
-    p, f = test_number_gender_case(100, EXPECTED_100, "Number 100 - Full declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 4: Number 101 in feminine gender
-    p, f = test_single_case(101, EXPECTED_101_FEM, 'feminine', "Number 101 feminine - Full declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 5: Number 200 partial test
-    p, f = test_number_gender_case(200, EXPECTED_200, "Number 200 - Partial declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 6: Compound thousands (nominative)
-    p, f = test_nominative_values(EXPECTED_THOUSANDS, "Compound thousands - Nominative")
-    total_passed += p
-    total_failed += f
-    
-    # Test 7: Millions with cases
-    p, f = test_scales_with_cases(EXPECTED_MILLIONS, "Millions - Case declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 8: Billions with cases
-    p, f = test_scales_with_cases(EXPECTED_BILLIONS, "Billions - Case declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 9: Original Jupyter Notebook numbers
-    p, f = test_original_numbers()
-    total_passed += p
-    total_failed += f
-    
-    # Test 10: Ordinal numbers
-    p, f = test_ordinals()
-    total_passed += p
-    total_failed += f
-    
-    # Summary
-    print("\n" + "=" * 70)
-    print("TEST SUMMARY")
-    print("=" * 70)
-    print(f"  Passed: {total_passed}")
-    print(f"  Failed: {total_failed}")
-    print(f"  Total:  {total_passed + total_failed}")
-    
-    if total_failed == 0:
-        print("\n  ✓ ALL TESTS PASSED!")
-    else:
-        print(f"\n  ✗ {total_failed} TESTS FAILED")
-    
-    return total_failed == 0
+def test_22_declines_both_parts_as_cardinals():
+    """MSJ p. 326: dvadsiatich dvoch žiakov, dvadsiatim dvom žiakom, s dvadsiatimi dvoma žiakmi."""
+    assert paradigm(22)[1:3] + paradigm(22)[4:5] == ["dvadsiatich dvoch", "dvadsiatim dvom", "dvadsiatimi dvoma"]
+    assert w(22, gender="feminine") == "dvadsaťdva"             # masculine form for all genders
+    assert w(22, case="locative", declined=False) == "dvadsaťdva"  # the undeclined variant
+    assert w(25, animacy="personal", construction="agreement") == "dvadsiati piati"  # NAV
 
 
-# =============================================================================
-# ORDINAL TEST DATA AND FUNCTIONS
-# =============================================================================
-
-# Expected ordinal values: {number: {gender: {case: expected_word}}}
-EXPECTED_ORDINALS_1 = {
-    'masculine': {
-        'nominative': 'prvý',
-        'genitive': 'prvého',
-        'dative': 'prvému',
-        'accusative': 'prvého',
-        'instrumental': 'prvým',
-        'locative': 'prvom',
-    },
-    'feminine': {
-        'nominative': 'prvá',
-        'genitive': 'prvej',
-        'dative': 'prvej',
-        'accusative': 'prvú',
-        'instrumental': 'prvou',
-        'locative': 'prvej',
-    },
-    'neuter': {
-        'nominative': 'prvé',
-        'genitive': 'prvého',
-        'dative': 'prvému',
-        'accusative': 'prvé',
-        'instrumental': 'prvým',
-        'locative': 'prvom',
-    },
-}
-
-EXPECTED_ORDINALS_3 = {
-    'masculine': {
-        'nominative': 'tretí',
-        'genitive': 'tretieho',
-        'dative': 'tretiemu',
-        'accusative': 'tretieho',
-        'instrumental': 'tretím',
-        'locative': 'treťom',
-    },
-    'feminine': {
-        'nominative': 'tretia',
-        'genitive': 'tretej',
-        'dative': 'tretej',
-        'accusative': 'tretiu',
-        'instrumental': 'treťou',
-        'locative': 'tretej',
-    },
-    'neuter': {
-        'nominative': 'tretie',
-        'genitive': 'tretieho',
-        'dative': 'tretiemu',
-        'accusative': 'tretie',
-        'instrumental': 'tretím',
-        'locative': 'treťom',
-    },
-}
-
-# Simple ordinal nominative tests
-EXPECTED_ORDINALS_NOM = {
-    1: ('prvý', 'prvá', 'prvé'),
-    2: ('druhý', 'druhá', 'druhé'),
-    3: ('tretí', 'tretia', 'tretie'),
-    4: ('štvrtý', 'štvrtá', 'štvrté'),
-    5: ('piaty', 'piata', 'piate'),
-    6: ('šiesty', 'šiesta', 'šieste'),
-    7: ('siedmy', 'siedma', 'siedme'),
-    8: ('ôsmy', 'ôsma', 'ôsme'),
-    9: ('deviaty', 'deviata', 'deviate'),
-    10: ('desiaty', 'desiata', 'desiate'),
-    11: ('jedenásty', 'jedenásta', 'jedenáste'),
-    12: ('dvanásty', 'dvanásta', 'dvanáste'),
-    20: ('dvadsiaty', 'dvadsiata', 'dvadsiate'),
-    21: ('dvadsiatyprvý', 'dvadsiataprvá', 'dvadsiateprvé'),
-    100: ('stý', 'stá', 'sté'),
-    1000: ('tisíci', 'tisícia', 'tisície'),
-    1000000: ('milióny', 'miliónta', 'miliónte'),
-}
+def test_psp_and_tasr_quotes():
+    assert w(124, case="genitive", animacy="personal") == "stodvadsiatich štyroch"      # PSP 91
+    assert w(124, animacy="personal", construction="agreement") == "stodvadsiati štyria"  # PSP 91
+    assert w(245, case="instrumental") == "dvestoštyridsiatimi piatimi"                 # TASR18
+    assert w(352, case="dative") == "tristopäťdesiatim dvom"                            # TASR18
+    assert w(1225, case="genitive") == "tisícdvestodvadsiatich piatich"                 # JAR p. 214
 
 
-def test_ordinal_full_declension(n, expected_dict, test_name):
-    """Test ordinal number across all genders and cases."""
-    print(f"\n{'='*60}")
-    print(f"TEST: {test_name}")
-    print(f"{'='*60}")
-    
-    passed = 0
-    failed = 0
-    
-    for gender, cases_dict in expected_dict.items():
-        for case, expected in cases_dict.items():
-            result = num2words(n, to='ordinal', gender=gender, case=case)
-            if result == expected:
-                print(f"  ✓ {gender} {case}: {result}")
-                passed += 1
-            else:
-                print(f"  ✗ {gender} {case}: got '{result}', expected '{expected}'")
-                failed += 1
-    
-    return passed, failed
+# ---------------------------------------------------------------- sto, tisíc, milión (BEL, NAV, JAR)
+@pytest.mark.parametrize("n", [100, 200, 500, 900, 1000, 2000, 5000, 21000, 100000, 101, 121, 1001])
+def test_invariable_with_counted_nouns(n):
+    for g in ("masculine", "feminine", "neuter"):
+        assert len(set(paradigm(n, gender=g))) == 1, (n, g, paradigm(n, gender=g))
 
 
-def test_ordinal_nominative():
-    """Test ordinal nominative forms across genders."""
-    print(f"\n{'='*60}")
-    print(f"TEST: Ordinal Numbers - Nominative (all genders)")
-    print(f"{'='*60}")
-    
-    passed = 0
-    failed = 0
-    genders = ['masculine', 'feminine', 'neuter']
-    
-    for n, expected_tuple in EXPECTED_ORDINALS_NOM.items():
-        all_ok = True
-        results = []
-        for i, gender in enumerate(genders):
-            result = num2words(n, to='ordinal', gender=gender, case='nominative')
-            results.append(result)
-            if result != expected_tuple[i]:
-                all_ok = False
-        
-        if all_ok:
-            print(f"  ✓ {n}: {'/'.join(results)}")
-            passed += 1
-        else:
-            print(f"  ✗ {n}: got {'/'.join(results)}, expected {'/'.join(expected_tuple)}")
-            failed += 1
-    
-    return passed, failed
+def test_milion_miliarda_are_declined_nouns_written_apart():
+    assert paradigm(1_000_000) == ["milión", "milióna", "miliónu", "milión", "miliónom", "milióne"]
+    assert paradigm(2_000_000) == ["dva milióny", "dvoch miliónov", "dvom miliónom", "dva milióny",
+                                   "dvoma miliónmi", "dvoch miliónoch"]
+    assert paradigm(5_000_000) == ["päť miliónov", "piatich miliónov", "piatim miliónom", "päť miliónov",
+                                   "piatimi miliónmi", "piatich miliónoch"]
+    assert paradigm(2_000_000_000) == ["dve miliardy", "dvoch miliárd", "dvom miliardám", "dve miliardy",
+                                       "dvomi miliardami", "dvoch miliardách"]
+    assert w(5_000_000_000) == "päť miliárd"
+    assert w(5_234_567) == "päť miliónov dvestotridsaťštyritisícpäťstošesťdesiatsedem"  # JAR fn. 18
 
 
-def test_ordinals():
-    """Run all ordinal tests."""
-    print(f"\n{'='*60}")
-    print("ORDINAL NUMBER TESTS")
-    print(f"{'='*60}")
-    
-    total_passed = 0
-    total_failed = 0
-    
-    # Test 1: First (1st) full declension
-    p, f = test_ordinal_full_declension(1, EXPECTED_ORDINALS_1, "Ordinal 1st - Full declension")
-    total_passed += p
-    total_failed += f
-    
-    # Test 2: Third (3rd) full declension (soft pattern)
-    p, f = test_ordinal_full_declension(3, EXPECTED_ORDINALS_3, "Ordinal 3rd - Full declension (soft)")
-    total_passed += p
-    total_failed += f
-    
-    # Test 3: Various ordinals nominative
-    p, f = test_ordinal_nominative()
-    total_passed += p
-    total_failed += f
-    
-    return total_passed, total_failed
+def test_undeclined_variant_keeps_every_compound_invariable():
+    """MSJ p. 326: compounds 'sa alebo neskloňujú, alebo sa skloňujú v oboch častiach'."""
+    assert w(202, case="genitive") == "dvesto dvoch"                        # PSP 91: declined units apart
+    assert w(202, case="genitive", declined=False) == "dvestodva"
+    assert w(112, case="instrumental", declined=False) == "stodvanásť"
+    assert w(1_000_005, case="genitive") == "milióna piatich"
+    assert w(1_000_005, case="genitive", declined=False) == "milióna päť"      # milión is a noun
+    assert w(5, case="genitive", declined=False) == "piatich"               # simple numerals always decline
 
 
-if __name__ == '__main__':
-    success = main()
-    exit(0 if success else 1)
+def test_scale_groups_always_decline():
+    """milión/miliarda are nouns: they decline also before a smaller part (native review)."""
+    assert w(2_000_005, case="genitive") == "dvoch miliónov piatich"
+    assert w(2_500_000, case="dative") == "dvom miliónom päťstotisíc"
+    assert w(1_500_000_000, case="dative") == "miliarde päťsto miliónom"
+    assert w(1_000_002_000_000, case="instrumental") == "biliónom dvoma miliónmi"
+
+
+# ---------------------------------------------------------------- native review, 25 Sep 2026
+def test_native_review_decisions():
+    """The sources are silent here, or allow variants; a native Slovak speaker decided."""
+    assert w(22_000) == "dvadsaťdvatisíc"
+    assert w(102, gender="feminine") == "stodve"                       # "stodve knihy", not "stodva kníh"
+    assert w(102) == "stodva"
+    assert w(122, gender="feminine") == "stodvadsaťdva"                # after tens the MSJ rule applies
+    assert w(2, case="instrumental") == "dvoma"                        # "dvoma stromami"
+    assert w(2, gender="feminine", case="instrumental") == "dvomi"     # "dvomi stenami"
+    assert w(22, gender="feminine", case="instrumental") == "dvadsiatimi dvomi"
+    assert w(2, gender="neuter", case="instrumental") == "dvoma"       # "dvoma mestami"
+    assert w(3, gender="feminine", case="instrumental") == "tromi"     # "tromi ženami"
+    assert w(3, case="instrumental") == "troma"                        # "troma mužmi"
+    assert w(102, gender="neuter") == "stodve"                         # dve mestá
+    assert w(2002, gender="feminine") == "dvetisícdve"
+    assert w(1_000_002, gender="feminine") == "milión dve"
+    assert w(102 * 10**6) == "stodva milióny"                          # like "stodve knihy"
+    assert w(102 * 10**9) == "stodve miliardy"
+    assert w(105 * 10**6) == "stopäť miliónov"                         # 5 and up: genitive plural
+    assert w(22 * 10**9) == "dvadsaťdva miliárd"                       # after tens: genitive plural
+    assert w(2.5, case="genitive") == "dve celé päť desatín"           # decimals: nominative reading
+    assert w(300, to="ordinal") == "trojstý" and w(400, to="ordinal") == "štvorstý"
+    assert w(1_000_001, to="ordinal") == "milión prvý"
+    assert w(5000, to="ordinal") == "päťtisíci"
+    assert w(21_000, to="ordinal") == "dvadsaťjedentisíci"
+
+
+def test_nula_declines_as_a_noun():
+    assert paradigm(0) == ["nula", "nuly", "nule", "nulu", "nulou", "nule"]
+
+
+def test_no_ordinal_forms_leak_into_cardinals():
+    """Regression for v1: 21 G 'dvadsiatehojedného', 100 G 'stého', 1000 G 'tisíceho'."""
+    bad = re.compile(r"(ého|ému|eho|emu|ým|ym)\b|stej\b|tisícej\b")
+    for n in list(range(0, 130)) + [200, 345, 999, 1000, 1001, 2024, 21000, 10**6, 2 * 10**6, 10**9]:
+        for g in ("masculine", "feminine", "neuter"):
+            for c in CASE_ORDER:
+                out = w(n, gender=g, case=c)
+                if n == 1 and g != "feminine":  # jedného/jednému/jedným are genuine cardinal forms
+                    continue
+                assert not bad.search(out), (n, g, c, out)
+
+
+# ---------------------------------------------------------------- ordinals (MSJ, SSSJ, PSP)
+def test_simple_ordinals():
+    assert paradigm(1, to="ordinal") == ["prvý", "prvého", "prvému", "prvý", "prvým", "prvom"]
+    assert w(1, to="ordinal", case="accusative", animacy="animate") == "prvého"
+    assert paradigm(3, to="ordinal") == ["tretí", "tretieho", "tretiemu", "tretí", "tretím", "treťom"]
+    assert paradigm(3, to="ordinal", gender="feminine") == ["tretia", "tretej", "tretej", "tretiu", "treťou", "tretej"]
+    assert paradigm(5, to="ordinal")[:3] == ["piaty", "piateho", "piatemu"]   # rhythmic law
+    assert w(7, to="ordinal", case="genitive") == "siedmeho"
+
+
+def test_ordinal_plurals():
+    assert w(1, to="ordinal", plural=True, animacy="personal") == "prví"
+    assert w(5, to="ordinal", plural=True, animacy="personal") == "piati"
+    assert w(1, to="ordinal", plural=True, gender="feminine") == "prvé"
+    assert w(5, to="ordinal", plural=True, case="genitive") == "piatych"
+
+
+def test_special_ordinals():
+    assert w(1000, to="ordinal", gender="feminine") == "tisíca"          # SSSJ: -tisíci -ca -ce
+    assert w(1000, to="ordinal", gender="neuter") == "tisíce"
+    assert w(1000, to="ordinal", case="genitive") == "tisíceho"
+    assert w(2000, to="ordinal") == "dvetisíci"                           # native review; SRA: more frequent
+    assert w(2000, to="ordinal", codified=True) == "dvojtisíci"           # SSSJ: the codified form
+    assert w(200, to="ordinal") == "dvestý" and w(200, to="ordinal", codified=True) == "dvojstý"
+    assert w(3000, to="ordinal") == "trojtisíci"                          # SRA: *tritisíci is unattested
+    assert w(1200, to="ordinal") == "tisícdvestý"                         # native review: 200th follows 2000th
+    assert w(2 * 10**6, to="ordinal") == "dvemiliónty"
+    assert w(10**6, to="ordinal", case="genitive") == "miliónteho"        # not "milióny"
+    assert w(0, to="ordinal") == "nultý"
+
+
+def test_compound_ordinals_keep_cardinal_prefixes():
+    assert w(21, to="ordinal") == "dvadsiaty prvý"                                   # BEL: two words
+    assert w(21, to="ordinal", case="genitive") == "dvadsiateho prvého"
+    assert w(101, to="ordinal") == "stoprvý"                                        # PSP 98
+    assert w(2002, to="ordinal") == "dvetisícdruhý"                                 # PSP 98
+    assert w(124, to="ordinal", animacy="personal") == "stodvadsiaty štvrtý"        # PSP 91
+    assert w(124, to="ordinal", case="genitive", animacy="personal") == "stodvadsiateho štvrtého"
+    assert w(1985, to="ordinal", case="locative") == "tisícdeväťstoosemdesiatom piatom"  # PSP 91
+    assert w(2024, to="ordinal") == "dvetisícdvadsiaty štvrtý"
+    assert w(102, to="ordinal", case="genitive") == "stodruhého"                    # JAR p. 217
+
+
+# ---------------------------------------------------------------- decimals (DUCH, HS)
+@pytest.mark.parametrize("x,expected", [
+    (0.25, "nula celých dvadsaťpäť stotín"),
+    (1.9, "jedna celá deväť desatín"),
+    (2.84, "dve celé osemdesiatštyri stotín"),
+    (41.2, "štyridsaťjeden celých dve desatiny"),
+    (396.4, "tristodeväťdesiatšesť celých štyri desatiny"),
+    (2.531, "dve celé päťstotridsaťjeden tisícin"),
+    ("68,50", "šesťdesiatosem celých päť desatín"),
+    (3.14, "tri celé štrnásť stotín"),
+    (-2.5, "mínus dve celé päť desatín"),
+])
+def test_decimals(x, expected):
+    assert w(x) == expected
+
+
+# ---------------------------------------------------------------- API
+def test_api():
+    assert CASES == CASE_ORDER
+    assert Num2Word_SK().to_cardinal(5, case="genitive") == "piatich"
+    assert w(1, case="accusative", animate=True) == "jedného"        # v1-style alias
+    assert w(-5, case="genitive") == "mínus piatich"
+    with pytest.raises(ValueError):
+        w(5, case="vocative")
+    with pytest.raises(ValueError):
+        w(5, gender="plural")
+    with pytest.raises(ValueError):
+        w(5, to="fraction")

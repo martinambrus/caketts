@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Comprehensive validation: All ORIGINAL_TEST_NUMBERS × all genders × all cases
-For both CARDINAL and ORDINAL numbers.
-This file prints ALL results for human review.
+Comprehensive validation for num2words_sk v2: all ORIGINAL_TEST_NUMBERS x all genders x all cases,
+for CARDINAL and ORDINAL numbers, plus decimals. Prints everything for human review.
+
+Besides the three gender rows, extra rows are printed only where they differ from the default:
+  m.anim   masculine animate (jedného; prvého)
+  m.pers   masculine personal, congruent type (dvaja, traja; dvadsiati piati; A = G)
+  undecl.  the undeclined variant for compounds 22-99 (dvadsaťdva in every case)
+  pl ...   ordinal plurals (prví, piati; prvé)
+  codified the codified dvojstý / dvojtisíci instead of the default dvestý / dvetisíci
 """
 
-import sys
-if 'num2words_sk' in sys.modules:
-    del sys.modules['num2words_sk']
+try:  # standalone: the module sits next to this script
+    from num2words_sk import num2words
+except ImportError:  # inside the TTS repository: scripts/ -> src/text/
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from src.text.num2words_sk import num2words
 
-from num2words_sk import num2words
-
-# Complete list from Jupyter notebook - 170 numbers
+# Complete list from the Jupyter notebook
 ORIGINAL_TEST_NUMBERS = [
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15,
     20, 21, 29, 30, 40, 45, 50, 55, 88, 90, 99,
@@ -35,7 +43,7 @@ ORIGINAL_TEST_NUMBERS = [
     100000000, 150000000, 199999999,
     1000000000, 1500000000, 1999999999,
     2000000000, 2500000000, 2999999999,
-    # Extended to decillions
+    # Extended to quintillions
     10000000000, 50000000000, 99999999999,
     100000000000, 500000000000, 999999999999,
     1000000000000, 5000000000000, 9999999999999,
@@ -47,7 +55,6 @@ ORIGINAL_TEST_NUMBERS = [
     1000000000000000000, 5000000000000000000, 9999999999999999999,
 ]
 
-# Ordinal test numbers (subset for ordinals)
 ORDINAL_TEST_NUMBERS = [
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     20, 21, 22, 30, 33, 40, 44, 50, 55, 60, 70, 80, 90, 99,
@@ -56,98 +63,102 @@ ORDINAL_TEST_NUMBERS = [
     1000000, 1000001, 2000000, 1000000000, 2000000000,
 ]
 
+DECIMAL_TEST_NUMBERS = ["0,25", "0,5", "1,5", "1,9", "2,5", "2,84", "3,14", "5,25", "21,3", "22,5",
+                        "41,2", "68,50", "396,4", "2,531", "1000,05", "-2,5"]
+
 GENDERS = ['masculine', 'feminine', 'neuter']
 CASES = ['nominative', 'genitive', 'dative', 'accusative', 'instrumental', 'locative']
-CASE_ABBR = {'nominative': 'nom', 'genitive': 'gen', 'dative': 'dat', 
+CASE_ABBR = {'nominative': 'nom', 'genitive': 'gen', 'dative': 'dat',
              'accusative': 'acc', 'instrumental': 'ins', 'locative': 'loc'}
+
 
 def print_header(title):
     print("\n" + "=" * 100)
     print(title)
     print("=" * 100)
 
+
+def row(n, errors, label, **kw):
+    results = []
+    for case in CASES:
+        try:
+            results.append(f"{CASE_ABBR[case]}:{num2words(n, case=case, **kw)}")
+        except Exception as e:  # noqa: BLE001 - report everything
+            results.append(f"{CASE_ABBR[case]}:ERROR({e})")
+            errors.append((label, case, str(e)))
+    return results
+
+
+def show(n, variants, errors):
+    base = None
+    for label, kw in variants:
+        results = row(n, errors, label, **kw)
+        if label in ('mas', 'fem', 'neu') or results != base:
+            print(f"  {label:9s}: {' | '.join(results)}")
+        if label == 'mas':
+            base = results
+
+
 def validate_cardinal(n):
-    """Print all gender × case combinations for a cardinal number."""
     print(f"\n{n:,}:")
     print("-" * 90)
-    
     errors = []
-    
-    for gender in GENDERS:
-        results = []
-        for case in CASES:
-            try:
-                result = num2words(n, to='cardinal', gender=gender, case=case)
-                results.append(f"{CASE_ABBR[case]}:{result}")
-            except Exception as e:
-                results.append(f"{CASE_ABBR[case]}:ERROR({e})")
-                errors.append((gender, case, str(e)))
-        
-        print(f"  {gender[:3]}: {' | '.join(results)}")
-    
+    show(n, [('mas', dict(gender='masculine')), ('fem', dict(gender='feminine')),
+             ('neu', dict(gender='neuter')),
+             ('m.anim', dict(gender='masculine', animacy='animate')),
+             ('m.pers', dict(gender='masculine', animacy='personal', construction='agreement')),
+             ('undecl.', dict(gender='masculine', declined=False))], errors)
     return errors
+
 
 def validate_ordinal(n):
-    """Print all gender × case combinations for an ordinal number."""
     print(f"\n{n:,}. (ordinal):")
     print("-" * 90)
-    
     errors = []
-    
-    for gender in GENDERS:
-        results = []
-        for case in CASES:
-            try:
-                result = num2words(n, to='ordinal', gender=gender, case=case)
-                results.append(f"{CASE_ABBR[case]}:{result}")
-            except Exception as e:
-                results.append(f"{CASE_ABBR[case]}:ERROR({e})")
-                errors.append((gender, case, str(e)))
-        
-        print(f"  {gender[:3]}: {' | '.join(results)}")
-    
+    show(n, [('mas', dict(to='ordinal', gender='masculine')), ('fem', dict(to='ordinal', gender='feminine')),
+             ('neu', dict(to='ordinal', gender='neuter')),
+             ('m.anim', dict(to='ordinal', gender='masculine', animacy='animate')),
+             ('pl m.pers', dict(to='ordinal', gender='masculine', animacy='personal', plural=True)),
+             ('pl f.', dict(to='ordinal', gender='feminine', plural=True)),
+             ('codified', dict(to='ordinal', gender='masculine', codified=True))], errors)
     return errors
 
+
 def main():
-    print_header("SLOVAK NUM2WORDS - COMPREHENSIVE VALIDATION")
+    print_header("SLOVAK NUM2WORDS v2 - COMPREHENSIVE VALIDATION")
     print(f"Testing CARDINALS: {len(ORIGINAL_TEST_NUMBERS)} numbers")
     print(f"Testing ORDINALS: {len(ORDINAL_TEST_NUMBERS)} numbers")
-    print("Each number tested across 3 genders × 6 cases = 18 combinations")
-    
+    print("Each number: 3 genders x 6 cases, plus variant rows where they differ")
+
     all_errors = []
-    
-    # Test cardinal numbers
     print_header("CARDINAL NUMBERS")
     for n in ORIGINAL_TEST_NUMBERS:
-        errors = validate_cardinal(n)
-        all_errors.extend([(n, 'cardinal', *e) for e in errors])
-    
-    # Test ordinal numbers
+        all_errors.extend([(n, 'cardinal', *e) for e in validate_cardinal(n)])
+
     print_header("ORDINAL NUMBERS")
     for n in ORDINAL_TEST_NUMBERS:
-        errors = validate_ordinal(n)
-        all_errors.extend([(n, 'ordinal', *e) for e in errors])
-    
-    # Summary
+        all_errors.extend([(n, 'ordinal', *e) for e in validate_ordinal(n)])
+
+    print_header("DECIMALS (read in the nominative)")
+    for x in DECIMAL_TEST_NUMBERS:
+        try:
+            print(f"  {x:>9}: {num2words(x)}")
+        except Exception as e:  # noqa: BLE001
+            print(f"  {x:>9}: ERROR({e})")
+            all_errors.append((x, 'decimal', '-', '-', str(e)))
+
     print_header("SUMMARY")
-    
-    cardinal_tests = len(ORIGINAL_TEST_NUMBERS) * len(GENDERS) * len(CASES)
-    ordinal_tests = len(ORDINAL_TEST_NUMBERS) * len(GENDERS) * len(CASES)
-    total_tests = cardinal_tests + ordinal_tests
-    
     print(f"Cardinal numbers tested: {len(ORIGINAL_TEST_NUMBERS)}")
-    print(f"Cardinal test combinations: {cardinal_tests}")
     print(f"Ordinal numbers tested: {len(ORDINAL_TEST_NUMBERS)}")
-    print(f"Ordinal test combinations: {ordinal_tests}")
-    print(f"Total test combinations: {total_tests}")
+    print(f"Decimals tested: {len(DECIMAL_TEST_NUMBERS)}")
     print(f"Errors encountered: {len(all_errors)}")
-    
     if all_errors:
         print("\nErrors:")
-        for n, num_type, gender, case, err in all_errors[:20]:
-            print(f"  {n} ({num_type}) {gender} {case}: {err}")
+        for n, num_type, label, case, err in all_errors[:20]:
+            print(f"  {n} ({num_type}) {label} {case}: {err}")
     else:
         print("\n✓ All tests completed without exceptions!")
+
 
 if __name__ == '__main__':
     main()

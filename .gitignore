@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Cloned dependencies (see README)
+/third_party/
+
+# Data, audio, checkpoints and experiment logs stay out of git (root folders only:
+# src/data/ is code)
+/data/
+/checkpoints/
+/outputs/
+/wandb/
+*.wav
+*.flac
+*.pt
+*.ckpt
+*.safetensors
+
+# Script outputs
+cldr_diff*.tsv

@@ -1,2 +1,69 @@
 # caketts
 A TTS with style
+
+An audiobook text-to-speech system for **Slovak, Czech and English**, in one narrator's voice. It pairs a Matcha-TTS core with a multilingual SSL discriminator and the BigVGAN v2 vocoder. It is trained on 10–40 hours of the narrator's recordings, with optional public cs/sk/en speech for pretraining.
+
+It has two hard requirements:
+
+1. **Every word is spoken once, in order.** No skipped or repeated words, no gibberish, no cut-offs.
+2. **Steady pace.** The speed stays the same within a text and across texts.
+
+## What's in the repository
+
+| path | what it is |
+|---|---|
+| [`docs/czech_slovak_tts_implementation_plan.md`](docs/czech_slovak_tts_implementation_plan.md) | The implementation plan (v2, 25 September 2026): every step, with Claude Code prompts, acceptance criteria and tested code |
+| [`docs/czech_tts_architecture_recommendation.md`](docs/czech_tts_architecture_recommendation.md) | Why this architecture |
+| [`docs/research/tts_breakthroughs_since_late_2025.md`](docs/research/tts_breakthroughs_since_late_2025.md) | The research report behind the v2 changes |
+| [`NUM2WORDS_CHANGES.md`](NUM2WORDS_CHANGES.md) | Slovak and Czech number-to-words v2: every change against v1, the sources, and the decisions from the native-speaker review |
+| `src/`, `tests/`, `scripts/` | The reference implementation. These are the plan's tested code blocks as files. |
+| `docs/research/num2words_spec_*.md`, `docs/NUM2WORDS_v1_v2_diff.csv` | Research notes and the full v1 → v2 diff for the number modules |
+
+The first commit holds the v1 plan and the v1 number modules, so `git log -p` shows what changed in v2.
+
+## Status
+
+These parts are implemented and tested on CPU:
+
+- G2P: espeak-ng with post-rules, a lexicon and a strict vocabulary
+- Slovak and Czech number-to-words, with case, gender and animacy
+- Audio preprocessing with BigVGAN's exact mel spectrogram
+- The data pipeline
+- The Matcha-TTS components: text encoder, duration predictor, MAS, OT-CFM decoder
+- The SSL discriminator
+- Tempo labels
+- Pace metrics and the ASR check
+
+These are still prompts with acceptance criteria in the plan:
+
+- The text normalizer
+- Corpus preparation
+- The training loops and stages
+- Book-length inference
+
+## Quick start
+
+```bash
+pip install -r requirements.txt
+git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
+pytest tests/ -q -m "not slow"   # 194 tests, about 20 s on CPU
+pytest tests/ -q                 # adds the end-to-end synthetic training test, about 1 min
+```
+
+Numbers to words:
+
+```python
+from src.text.num2words_sk import num2words as sk
+from src.text.num2words_cs import num2words as cs
+
+sk(25, case="genitive")                      # 'dvadsiatich piatich'
+sk(2, gender="feminine", case="instrumental")  # 'dvomi'
+cs(1991, to="ordinal")                       # 'tisíc devět set devadesátý první'
+cs(3.14)                                     # 'tři celé čtrnáct setin'
+```
+
+To print every form for review, run `python scripts/validate_all_sk.py` or `python scripts/validate_all_cs.py`. `python scripts/cldr_crosscheck.py` compares both modules with the Unicode CLDR rules; it needs PyICU (`apt install libicu-dev; pip install PyICU`).
+
+## License
+
+MIT; see [LICENSE](LICENSE).
