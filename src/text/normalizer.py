@@ -212,8 +212,8 @@ _ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: 
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 # "14.30" is a time only when hod follows, also after a second time: "15.30–16.00 hod.", "od 8.00 do 12.00 hod."
-_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}?[–—-]{_HS}?|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
-             rf"{_HS}?hod{_NOT_LETTER_AFTER})")
+_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—-]{_HS}*|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
+             rf"{_HS}*hod{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
@@ -242,7 +242,7 @@ def _abbreviation_pattern(key: str) -> str:
         if ch == " ":
             out.append(f"{_HS}+")
         elif ch == "." and i < len(key) - 1:
-            out.append(rf"\.{_HS}?")
+            out.append(rf"\.{_HS}*")
         elif i == 0 and len(key) > 2 and ch.isalpha():
             out.append(f"[{ch}{ch.upper()}]")
         else:
@@ -254,33 +254,33 @@ def _items_pattern(abbreviations) -> re.Pattern:
     abbr = "|".join(_abbreviation_pattern(k) for k in sorted(abbreviations, key=len, reverse=True))
     return re.compile(
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
-        rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}?(?P<month>1[0-2]|0?[1-9])\."
-        rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
+        rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
+        rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d))?)"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
-        rf"(?:{_HS}?hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
-        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?(?:{_INT})(?:[.,]\d+)?){_HS}?[–—-]{_HS}?"
+        rf"(?:{_HS}*hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
+        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?(?:{_INT})(?:[.,]\d+)?){_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−]?(?:{_INT})(?:[.,]\d+)?)"
-        rf"(?:{_HS}?(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?)"
-        rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}?(?P<price>{_PRICE})"
-        rf"(?:{_HS}?[–—-]{_HS}?(?P<pricehigh>{_PRICE}))?"
-        rf"(?:{_HS}(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?"
+        rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
+        rf"(?:{_HS}*[–—-]{_HS}*(?P<pricehigh>{_PRICE}))?"
+        rf"(?:{_HS}+(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?)"
-        rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
-        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
+        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
         rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
         rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
-        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
+        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d)"
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
-        rf"|(?P<sign>[&+@=×±]|#(?={_HS}?\d)|(?<=\d)x(?=\d)|(?<=\d{_HS})x(?={_HS}\d))"
-        rf"|(?P<slash>(?<=[^\W\d_]{{2}}){_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}?/{_HS}?(?=\d))"
-        rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d\.)-(?=\d)|(?<=[IVXLC]\.)-(?=[IVXLC]+\.))"
+        rf"|(?P<sign>[&+@=×±]|#(?={_HS}*\d)|(?<=\d)x(?=\d)|(?<=\d{_HS})x(?={_HS}\d))"
+        rf"|(?P<slash>(?<=[^\W\d_]{{2}}){_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=\d))"
+        rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d)-(?=\d)|(?<=\d\.)-(?=\d)|(?<=[IVXLC]\.)-(?=[IVXLC]+\.))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
 

@@ -107,6 +107,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "range-with-scale": ("cs", None, "Stálo to 5–10 tis. Kč.", "Stálo to pět až deset tisíc korun."),
     "range-per-unit": ("cs", None, "Stojí to 5–10 Kč/kg.", "Stojí to pět až deset korun za kilogram."),
     "prefixed-price-range-and-scale": ("cs", None, "Stálo to $5–10 mil.", "Stálo to pět až deset milionů dolarů."),
+    "compact-time-range": ("cs", None, "Otevřeno 10:00-12:00.", "Otevřeno deset hodin až dvanáct hodin."),
+    "repeated-spaces": ("cs", None, "Ujel 5  km.", "Ujel pět kilometrů."),
     "spaced-word-slash": ("cs", None, "Přijde on / ona.", "Přijde on nebo ona."),
     "currency-range-with-cents": ("cs", None, "Stojí to 1,50–2,50 €.",
                                   "Stojí to jedno euro padesát centů až dvě eura padesát centů."),
