@@ -480,6 +480,10 @@ class TextNormalizer:
             source_case = m.lastgroup == "abbreviation" and m.group(0)[0].isalpha()
             if start == m.start() and not source_case and _starts_sentence("".join(out) + text[pos:start]):
                 words = words[:1].upper() + words[1:]  # "5 lidí přišlo." -> "Pět lidí přišlo."
+            if text[m.end():m.end() + 1].isalnum() and not words[-1:].isspace():
+                words += " "  # "§5", "č.5", "5.díl"
+            if start == pos and out and out[-1].endswith(" ") and words.startswith(" "):
+                words = words[1:]  # "3x4", "Cca5": both replacements brought a space
             out += [text[pos:start], words]
             pos = m.end()
             if m.group(0) == "#" or (m.lastgroup == "abbreviation" and _key_of(m) in LABEL_ABBREVIATIONS):
