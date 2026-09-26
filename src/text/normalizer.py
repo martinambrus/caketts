@@ -222,7 +222,7 @@ _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
-_SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/+])"
+_SIGN_START = r"(?:(?<=\dx)|(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/+]))"  # also "3x-4", but not "Max-5"
 _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.56 USD": never a Czech decimal
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
@@ -292,18 +292,18 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
-        rf"(?:{_HS}*(?:(?P<lowscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*(?:(?P<lowscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<lowscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER})?))?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−]?{_UNSIGNED})"
-        rf"(?(lowscale){_HS}*(?P<highscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<highper>{_PER}){_NOT_LETTER_AFTER})?"
-        rf"|(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"|(?:{_HS}*(?:(?P<rangescale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<rangescaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
@@ -312,13 +312,13 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}{_HS}*[–—-]{_HS}*(?P<highpersign>[-−])?"
         rf"(?:(?P=symbol){_HS}*)?"
         rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{_PER}){_NOT_LETTER_AFTER}"
-        rf"|(?:(?:{_HS}+(?P<lowmoneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
+        rf"|(?:(?:{_HS}+(?P<lowmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
         rf"(?P<highsign>[-−])?(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"  # "-$5–-$10"
-        rf"(?(lowmoneyscale){_HS}+(?P<highmoneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
-        rf"|(?:{_HS}+(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?)"
+        rf"(?(lowmoneyscale){_HS}+(?P<highmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
+        rf"|(?:{_HS}+(?P<moneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?)"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
-        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<scaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
         rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
@@ -332,7 +332,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?:(?<=\d)|(?<=\d{_HS})|(?<=\d{_HS}{_HS})|(?<=\d{_HS}{_HS}{_HS}))x{_NOT_LETTER_AFTER})"  # "3 x 4", "3 x týdně"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
-        rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})"
+        rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}}|[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"
         rf"|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]){_HS}*/{_HS}*"
         rf"(?=[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"  # "a/i", "v/z"
         rf"|(?<=\d){_HS}*/{_HS}*(?=[-−–]?\d))"
@@ -631,8 +631,8 @@ class TextNormalizer:
         elif kind == "money":
             price = _plain_price(m["price"])
             sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
-            scale = m["moneyscale"] or m["highmoneyscale"]
-            if m["lowmoneyscale"] and m["lowmoneyscale"] != scale:  # "$500 tis.–$1 mil."
+            scale = (m["moneyscale"] or m["highmoneyscale"] or "").lower() or None
+            if m["lowmoneyscale"] and m["lowmoneyscale"].lower() != scale:  # "$500 tis.–$1 mil."
                 words = f" {RANGE_WORD} ".join(
                     self._measure(amount, amount_scale, start, tags, text, end, scale_unit=m["symbol"])
                     for amount, amount_scale in ((sign + price, m["lowmoneyscale"]),
@@ -765,7 +765,8 @@ class TextNormalizer:
             if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:
                 words = f"{self._measure(low_amount, unit, start, tags, text, end)} {RANGE_WORD} {high}"  # "1,50–2,50 €"
             else:
-                gender = SCALE_GENDERS[self.language][scale] if scale else NOUNS[self.language][self._unit(unit)[0]][0]
+                gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
+                          else NOUNS[self.language][self._unit(unit)[0]][0])
                 case = NOM if decimal else self._preposition_case(start, tags) or NOM
                 words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
@@ -782,7 +783,8 @@ class TextNormalizer:
         value, integer, fraction = _parse(amount)
         case = self._preposition_case(start, tags)
         unit = unit.rstrip(".")
-        if unit in SCALES:
+        if unit.lower() in SCALES:  # also "5 TIS. Kč"
+            unit = unit.lower()
             if fraction:
                 words = f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} {SCALE_GENITIVES[self.language][unit]}"
             else:
@@ -893,7 +895,7 @@ class TextNormalizer:
         words = self._signed(m["value"], words)
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
-        if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x\d", text[m.end():m.end() + 2]):
+        if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x[-−–]?\d", text[m.end():m.end() + 3]):
             self._warn(text, m, words, "digits glued to a word")  # "3x4" is a multiplication, read by the sign
             words += " "
         return words
