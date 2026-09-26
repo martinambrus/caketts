@@ -83,6 +83,14 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "period-inside-sentence": ("cs", None, "Navštívil např. Prahu a Brno.", "Navštívil například Prahu a Brno."),
     "capital-at-sentence-start": ("cs", None, "5 lidí přišlo. 3 lidé odešli.", "Pět lidí přišlo. Tři lidé odešli."),
     "locative-abbreviation": ("sk", None, "Na str. 45 sa píše o tom.", "Na strane štyridsaťpäť sa píše o tom."),
+    "slash-between-words": ("cs", None, "Přijde on a/nebo ona, on/ona.", "Přijde on a nebo ona, on nebo ona."),
+    "legal-reference": ("cs", None, "Podle § 5 odst. 2 platí.", "Podle paragrafu pět odstavce dva platí."),
+    "math-signs": ("sk", None, "Platí 3 × 4 = 12.", "Platí tri krát štyri rovná sa dvanásť."),
+    "square-metres": ("cs", None, "Byt má 80 m² a sklep 2 m2.",
+                      "Byt má osmdesát metrů čtverečních a sklep dva metry čtvereční."),
+    "dot-thousands": ("cs", None, "Stálo to 10.000 Kč.", "Stálo to deset tisíc korun."),
+    "time-range": ("cs", None, "Otevřeno 10:00–12:00.", "Otevřeno deset hodin až dvanáct hodin."),
+    "label-cs": ("cs", None, "Kapitola 1 začíná.", "Kapitola jedna začíná."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

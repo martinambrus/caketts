@@ -106,22 +106,29 @@ NOUNS = {  # gender and forms of every noun the normalizer writes after a number
 }
 
 UNITS = {  # symbol -> noun in NOUNS
-    "cs": {"km": "kilometr", "km/h": "kilometr", "m": "metr", "cm": "centimetr", "mm": "milimetr",
+    "cs": {"km": "kilometr", "km/h": "kilometr", "m": "metr", "m/s": "metr", "cm": "centimetr", "mm": "milimetr",
            "kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "°C": "stupeň", "°": "stupeň",
            "%": "procento", "‰": "promile", "hod": "hodina", "min": "minuta", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolar", "USD": "dolar", "£": "libra"},
-    "sk": {"km": "kilometer", "km/h": "kilometer", "m": "meter", "cm": "centimeter", "mm": "milimeter",
+    "sk": {"km": "kilometer", "km/h": "kilometer", "m": "meter", "m/s": "meter", "cm": "centimeter",
+           "mm": "milimeter",
            "kg": "kilogram", "g": "gram", "l": "liter", "ml": "mililiter", "°C": "stupeň", "°": "stupeň",
            "%": "percento", "‰": "promile", "hod": "hodina", "min": "minúta", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolár", "USD": "dolár", "£": "libra"},
 }
-UNIT_SUFFIXES = {"cs": {"km/h": " za hodinu", "°C": " Celsia"}, "sk": {"km/h": " za hodinu", "°C": " Celzia"}}
+UNIT_SUFFIXES = {"cs": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celsia"},
+                 "sk": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celzia"}}
+UNIT_ADJECTIVES = {"cs": {"²": "čtvereční", "³": "krychlový"}, "sk": {"²": "štvorcový", "³": "kubický"}}
 MINOR_UNITS = {"cs": {"koruna": "haléř", "euro": "cent", "dolar": "cent"},
                "sk": {"koruna": "halier", "euro": "cent", "dolár": "cent"}}
 SCALES = {"tis": 3, "mil": 6, "mld": 9}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
-SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč"}, "sk": {"&": "a", "+": "plus", "@": "zavináč"}}
+SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "±": "plus minus",
+               "#": "číslo"},
+         "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "±": "plus mínus",
+               "#": "číslo"}}
+SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
 RANGE_WORD = "až"
 
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
@@ -141,27 +148,34 @@ VOCALISATION = {
 
 # abbreviations that introduce what follows, so their period never ends a sentence
 NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "cca.", "č.", "str.", "r.",
-                           "mj.", "popř.", "příp.", "príp.", "zejm.", "vč.", "vr.", "max.", "sv.", "tzv."}
+                           "mj.", "popř.", "příp.", "príp.", "zejm.", "vč.", "vr.", "max.", "sv.", "tzv.",
+                           "odst.", "ods.", "písm."}
 AGREEING_ABBREVIATIONS = {"sv.", "tzv."}  # adjectives: they take the case and gender of the next word
+LABEL_ABBREVIATIONS = {"č.", "str.", "r.", "§", "odst.", "ods.", "písm."}  # the number after them names
 # prepositions with the accusative or the locative; before a page, number or year the locative
 # is meant: "na str. 45" -> "na straně"
 LOCATIVE_PREPOSITIONS = {"cs": {"v", "ve", "na", "o", "po"}, "sk": {"v", "vo", "na", "o", "po"}}
 DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" -> "v roce"
     "cs": {"č.": _forms("čísl", "o,a,u,o,em,e"), "str.": _forms("stran", "a,y,ě,u,ou,ě"),
-           "r.": _forms("ro", "k,ku,ku,k,kem,ce")},
-    "sk": {"č.": _forms("čísl", "o,a,u,o,om,e"), "str.": _forms("stran", "a,y,e,u,ou,e")},
+           "r.": _forms("ro", "k,ku,ku,k,kem,ce"), "§": _forms("paragraf", ",u,u,,em,u"),
+           "odst.": _forms("odstav", "ec,ce,ci,ec,cem,ci"), "písm.": _forms("písmen", "o,a,u,o,em,u")},
+    "sk": {"č.": _forms("čísl", "o,a,u,o,om,e"), "str.": _forms("stran", "a,y,e,u,ou,e"),
+           "§": _forms("paragraf", ",u,u,,om,e"), "ods.": _forms("odsek", ",u,u,,om,u"),
+           "písm.": _forms("písmen", "o,a,u,o,om,e")},
 }
 
 _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹›`´*_~")
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
+_MATH_SIGNS = frozenset("×=+±/")
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _TAG_TOKEN = re.compile(r"[^\W\d_]+|\d+|\S")
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
-_INT = r"\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?!\d)|\d+"
+_INT = r"\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?!\d)|\d{1,3}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
 _AMOUNT = rf"(?:(?<![^\s(\[])[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
-_UNIT = r"km/h|km|cm|mm|m|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
+_POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
+_UNIT = rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
 _CURRENCY = r"Kč|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: "CD.", "DC." are acronyms
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
@@ -202,7 +216,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}?(?P<month>1[0-2]|0?[1-9])\."
         rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d):(?P<minute>[0-5]\d)(?![\d:]))"
-        rf"|(?P<range>(?<![\d.,])(?P<low>\d+){_HS}?[–-]{_HS}?(?P<high>{_INT})"
+        rf"|(?P<range>(?<![\d.,])(?P<low>\d+){_HS}?[–—-]{_HS}?(?P<high>{_INT})"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
         rf"|(?P<money>(?P<symbol>[€$£]){_HS}?(?P<price>{_AMOUNT}))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
@@ -212,8 +226,9 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
-        rf"|(?P<sign>[&+@])"
-        rf"|(?P<dash>–|(?<!\S)-(?!\S))"
+        rf"|(?P<sign>[&+@=×±]|#(?={_HS}?\d))"
+        rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?=[^\W\d_]{{2}})|(?<=\d){_HS}?/{_HS}?(?=\d))"
+        rf"|(?P<dash>–|—|(?<!\S)-(?!\S))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
 
@@ -228,8 +243,11 @@ def _unspeakable(text: str) -> Optional[str]:
 
 def _parse(amount: str) -> Tuple[object, int, str]:
     """(value for num2words, absolute integer part, fraction digits without trailing zeros)."""
-    s = re.sub(r"[ \u00a0\u202f]", "", amount).replace("−", "-").replace(".", ",")
-    whole, _, fraction = s.partition(",")
+    s = re.sub(r"[ \u00a0\u202f]", "", amount).replace("−", "-")
+    grouped = re.fullmatch(r"(-?\d{1,3}(?:\.\d{3})+)(,\d+)?", s)  # "10.000", "10.000,50"
+    if grouped:
+        s = grouped.group(1).replace(".", "") + (grouped.group(2) or "")
+    whole, _, fraction = s.replace(".", ",").partition(",")
     fraction = fraction.rstrip("0")
     return (f"{whole},{fraction}" if fraction else int(whole)), abs(int(whole)), fraction
 
@@ -237,6 +255,18 @@ def _parse(amount: str) -> Tuple[object, int, str]:
 def _roman_value(numeral: str) -> int:
     values = [_ROMAN_VALUES[ch] for ch in numeral]
     return sum(-v if i + 1 < len(values) and v < values[i + 1] else v for i, v in enumerate(values))
+
+
+def _spaced(text: str, start: int, end: int, word: str) -> str:
+    """`word` in place of text[start:end], with a space on each side that lacks one."""
+    left = "" if start == 0 or text[start - 1].isspace() else " "
+    right = "" if end == len(text) or text[end].isspace() else " "
+    return f"{left}{word}{right}"
+
+
+def _key_of(m: re.Match) -> str:
+    """The table key of a matched abbreviation: "Např." -> "např.", "t. j." -> "t.j."."""
+    return _abbreviation_key(m.group(0)[0].lower() + m.group(0)[1:])
 
 
 def _capitalise_like(source: str, words: str) -> str:
@@ -295,7 +325,8 @@ class TextNormalizer:
         "aj.": "a jiné", "atp.": "a tak podobně", "mj.": "mimo jiné", "popř.": "popřípadě",
         "příp.": "případně", "zejm.": "zejména", "vč.": "včetně", "max.": "maximálně",
         "př. n. l.": "před naším letopočtem", "n. l.": "našeho letopočtu", "stol.": "století",
-        "sv.": "svatý", "tzv.": "takzvaný",
+        "sv.": "svatý", "tzv.": "takzvaný", "a/nebo": "a nebo", "§": "paragraf", "odst.": "odstavec",
+        "písm.": "písmeno",
     }
     ABBREVIATIONS_SK = {
         "napr.": "napríklad", "tzn.": "to znamená", "atď.": "a tak ďalej", "a pod.": "a podobne",
@@ -304,6 +335,7 @@ class TextNormalizer:
         "tj.": "to jest", "atp.": "a tak podobne", "a i.": "a iné", "príp.": "prípadne",
         "vr.": "vrátane", "max.": "maximálne", "pred n. l.": "pred naším letopočtom",
         "n. l.": "nášho letopočtu", "stor.": "storočie", "sv.": "svätý", "tzv.": "takzvaný",
+        "a/alebo": "a alebo", "§": "paragraf", "ods.": "odsek", "písm.": "písmeno",
     }
 
     def __init__(self, language: str, book_config: Optional[dict] = None):
@@ -355,16 +387,16 @@ class TextNormalizer:
         items = [m for m in self._items.finditer(text)
                  if not any(s < m.end() and m.start() < e for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
-        out, pos, after_abbreviation = [], 0, -1
+        out, pos, after_label = [], 0, -1
         for m in items:
-            start, words = self._resolve(m, text, tags, after_abbreviation == m.start())
+            start, words = self._resolve(m, text, tags, after_label == m.start())
             source_case = m.lastgroup == "abbreviation" and m.group(0)[0].isalpha()
             if start == m.start() and not source_case and _starts_sentence("".join(out) + text[pos:start]):
                 words = words[:1].upper() + words[1:]  # "5 lidí přišlo." -> "Pět lidí přišlo."
             out += [text[pos:start], words]
             pos = m.end()
-            if m.lastgroup == "abbreviation":
-                after_abbreviation = _SPACES.match(text, pos).end()
+            if m.group(0) == "#" or (m.lastgroup == "abbreviation" and _key_of(m) in LABEL_ABBREVIATIONS):
+                after_label = _SPACES.match(text, pos).end()  # a label follows: "č. 5", "§ 7", "#1"
         out.append(text[pos:])
         result = "".join(out)
         bad = _unspeakable(_SPAN_RE.sub(" ", result))
@@ -383,8 +415,7 @@ class TextNormalizer:
 
     def _needs_tags(self, m: re.Match) -> bool:
         if m.lastgroup == "abbreviation":
-            key = _abbreviation_key(m.group(0)[0].lower() + m.group(0)[1:])
-            return key in AGREEING_ABBREVIATIONS or key in DECLINED_ABBREVIATIONS[self.language]
+            return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
         return m.lastgroup not in ("date", "sign", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
@@ -402,18 +433,20 @@ class TextNormalizer:
         return words
 
     # ---- items -----------------------------------------------------------------------------
-    def _resolve(self, m: re.Match, text: str, tags: _Tags, after_abbreviation: bool) -> Tuple[int, str]:
+    def _resolve(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> Tuple[int, str]:
         """(start of the replaced text, replacement) for one item."""
         kind, start, end = m.lastgroup, m.start(), m.end()
         if kind == "dash":
+            if text[:start].rstrip()[-1:].isdigit() and text[end:].lstrip()[:1].isdigit():
+                return start, _spaced(text, start, end, RANGE_WORD)  # "10:00–12:00"
             return start, "—"
         if kind == "ellipsis":
             return start, "…"
         if kind == "sign":
-            word = SIGNS[self.language][m.group(0)]
-            left = "" if start == 0 or text[start - 1].isspace() else " "
-            right = "" if end == len(text) or text[end].isspace() else " "
-            return start, f"{left}{word}{right}"
+            return start, _spaced(text, start, end, SIGNS[self.language][m.group(0)])
+        if kind == "slash":
+            return start, _spaced(text, start, end, SLASH_WORDS[self.language][
+                "number" if text[start - 1].isdigit() else "word"])
         if kind == "abbreviation":
             return start, self._abbreviation(m, text, tags)
         if kind == "roman":
@@ -425,23 +458,22 @@ class TextNormalizer:
         elif kind == "time":
             words = self._time(m, tags)
         elif kind == "range":
-            words = self._range(m, text, tags, after_abbreviation)
+            words = self._range(m, text, tags, after_label)
         elif kind == "money":
             words = self._measure(m["price"], m["symbol"], start, tags, text, end)
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_currency=m["scalecurrency"])
         elif kind == "ordinal":
-            words = self._ordinal_digits(m, text, tags, after_abbreviation)
+            words = self._ordinal_digits(m, text, tags, after_label)
         else:
-            words = self._number(m, text, tags, after_abbreviation)
+            words = self._number(m, text, tags, after_label)
         if kind in ("range", "measure") and m.group(0).endswith(".") and self._ends_sentence(text, end, tags):
             words += "."  # the period of "min." or "mil." also ends the sentence
         return self._vocalise(text, start, words)
 
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
-        raw = m.group(0)
-        key = _abbreviation_key(raw[0].lower() + raw[1:])
+        raw, key = m.group(0), _key_of(m)
         words = self.abbreviations[key]
         if key in AGREEING_ABBREVIATIONS:
             head = tags.head_after(m.end())
@@ -453,7 +485,7 @@ class TextNormalizer:
                 if doubt:
                     self._warn(text, m, words, f"{doubt}; check it")
         elif key in DECLINED_ABBREVIATIONS[self.language]:
-            prep = self._preposition(m.start(), tags)
+            prep = self._reference_preposition(m.start(), tags)
             if prep is not None:
                 case = (LOC if prep.text.lower() in LOCATIVE_PREPOSITIONS[self.language]
                         else _UD_CASES.get(prep.feats.get("Case")))
@@ -512,22 +544,22 @@ class TextNormalizer:
         if minute:
             words.append(self._minutes(minute, case if self.language == "cs" and case not in (NOM, ACC) else NOM))
         else:
-            words.append(self._unit_noun(NOUNS[self.language]["hodina"][1], hour, case))
+            words.append(self._noun_phrase("hodina", hour, case))
         return " ".join(words)
 
     def _minutes(self, minute: int, case: str) -> str:
         words = self._cardinal(minute, case, "feminine", "inanimate")
         return f"nula {words}" if minute < 10 else words
 
-    def _range(self, m: re.Match, text: str, tags: _Tags, after_abbreviation: bool) -> str:
+    def _range(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
         low = int(m["low"])
         if m["rangeunit"]:
             high = self._measure(m["high"], m["rangeunit"], m.start(), tags, text, m.end())
-            gender = NOUNS[self.language][UNITS[self.language][m["rangeunit"].rstrip(".")]][0]
+            gender = NOUNS[self.language][self._unit(m["rangeunit"])[0]][0]
             case = self._preposition_case(m.start(), tags) or NOM
             return f"{self._cardinal(low, case, gender, 'inanimate')} {RANGE_WORD} {high}"
         value = _parse(m["high"])[0]
-        case, gender, animacy = self._context(value, m.start(), m.end(), text, tags, after_abbreviation, m)
+        case, gender, animacy = self._context(value, m.start(), m.end(), text, tags, after_label, m)
         return (f"{self._cardinal(low, case, gender, animacy)} {RANGE_WORD} "
                 f"{self._cardinal(value, case, gender, animacy)}")
 
@@ -544,8 +576,7 @@ class TextNormalizer:
             if scale_currency:
                 words += " " + NOUNS[self.language][UNITS[self.language][scale_currency]][1][7]
             return words
-        noun = UNITS[self.language][unit]
-        suffix = UNIT_SUFFIXES[self.language].get(unit, "")
+        noun, adjective, suffix = self._unit(unit)
 
         def read(c: str) -> str:
             minor = MINOR_UNITS[self.language].get(noun)
@@ -553,32 +584,48 @@ class TextNormalizer:
                 cents = int(fraction.ljust(2, "0"))
                 words = self._counted(cents, minor, c)
                 return words if integer == 0 else f"{self._counted(integer, noun, c)} {words}"
-            if fraction:
-                return f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} {NOUNS[self.language][noun][1][1]}"
-            return self._counted(value, noun, c)
+            if fraction:  # "tři celé pět desetin kilometru": the noun is genitive singular
+                return (f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} "
+                        f"{self._noun_phrase(noun, 1, GEN, adjective)}")
+            return self._counted(value, noun, c, adjective)
 
         words = read(case or NOM)
         if case is None and words != read(ACC):
             self._warn(text, (start, end), words, "no preposition; nominative")
         return words + suffix
 
-    def _counted(self, value: int, noun: str, case: str) -> str:
+    def _unit(self, unit: str) -> Tuple[str, Optional[str], str]:
+        """(noun, agreeing adjective, suffix) of a unit symbol: "m²" -> metr, čtvereční."""
+        unit = unit.rstrip(".")
+        power = {"2": "²", "3": "³"}.get(unit[-1], unit[-1]) if unit[-1] in "²³23" else None
+        base = unit[:-1] if power else unit
+        return (UNITS[self.language][base], UNIT_ADJECTIVES[self.language].get(power),
+                UNIT_SUFFIXES[self.language].get(base, ""))
+
+    def _counted(self, value: int, noun: str, case: str, adjective: Optional[str] = None) -> str:
+        gender = NOUNS[self.language][noun][0]
+        return f"{self._cardinal(value, case, gender, 'inanimate')} {self._noun_phrase(noun, abs(value), case, adjective)}"
+
+    def _noun_phrase(self, noun: str, count: int, case: str, adjective: Optional[str] = None) -> str:
+        """The noun (and adjective) as `count` calls for: "pět kilometrů" is genitive plural."""
         gender, forms = NOUNS[self.language][noun]
-        return f"{self._cardinal(value, case, gender, 'inanimate')} {self._unit_noun(forms, abs(value), case)}"
-
-    def _unit_noun(self, forms: Tuple[str, ...], count: int, case: str) -> str:
-        c = CASES.index(case)
         if count == 1:
-            return forms[c]
-        if case not in (NOM, ACC):
-            return forms[6 + c]
-        return {"sg": forms[c], "pl": forms[6 + c]}.get(self._count_form(count), forms[7])
+            c, plural = case, False
+        elif case not in (NOM, ACC):
+            c, plural = case, True
+        else:
+            form = self._count_form(count)
+            c, plural = (GEN, True) if form == "gen_pl" else (case, form == "pl")
+        words = forms[(6 if plural else 0) + CASES.index(c)]
+        if adjective:
+            words += " " + self._numbers.decline_ordinal(adjective, CASES.index(c), gender, "inanimate", plural)
+        return words
 
-    def _ordinal_digits(self, m: re.Match, text: str, tags: _Tags, after_abbreviation: bool) -> str:
+    def _ordinal_digits(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
         value = int(m["ordinalvalue"])
         following = text[m.end():].lstrip(" \t\u00a0\u202f")
         if following[:1].isupper():  # "Bylo jich 5. Pak…": a number that ends the sentence
-            case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_abbreviation, m)
+            case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
         head = tags.head_after(m.end())
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags)
@@ -589,7 +636,7 @@ class TextNormalizer:
             self._warn(text, m, words, f"{doubt}; check it")
         return words
 
-    def _number(self, m: re.Match, text: str, tags: _Tags, after_abbreviation: bool) -> str:
+    def _number(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
         value, _, fraction = _parse(m["value"])
         if fraction:  # decimals are read in the nominative (Step 2.1)
             words = self._cardinal(value, NOM, "masculine", "inanimate")
@@ -597,7 +644,7 @@ class TextNormalizer:
             words = self._cardinal(value, NOM, "masculine", "inanimate") + "krát"
         else:
             words = self._cardinal(value, *self._context(value, m.start(), m.end(), text, tags,
-                                                         after_abbreviation, m))
+                                                         after_label, m))
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
         if m.end() < len(text) and text[m.end()].isalpha():
@@ -606,9 +653,11 @@ class TextNormalizer:
         return words
 
     # ---- context ---------------------------------------------------------------------------
-    def _context(self, value: int, start: int, end: int, text: str, tags: _Tags, after_abbreviation: bool,
+    def _context(self, value: int, start: int, end: int, text: str, tags: _Tags, after_label: bool,
                  m) -> Tuple[str, str, str]:
         """Case, gender and animacy of a cardinal, from the noun it counts or the preposition before it."""
+        if after_label or text[:start].rstrip()[-1:] in _MATH_SIGNS or text[end:].lstrip()[:1] in _MATH_SIGNS:
+            return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024"
         prep_case = self._preposition_case(start, tags)
         noun = tags.head_after(end)
         case = gender = animacy = tagged_case = noun_case = None
@@ -633,8 +682,8 @@ class TextNormalizer:
             case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:
             prev = tags.before(start)
-            if after_abbreviation or (prev is not None and prev.upos in ("NOUN", "PROPN")):
-                case = NOM  # a label or a year: "kapitola 5", "č. 5", "v roce 2024"
+            if prev is not None and prev.upos in ("NOUN", "PROPN"):
+                return self._label(value)  # "kapitola 5", "v roce 2024"
         if case is None:
             self._warn(text, m, self._cardinal(value, NOM, "masculine", "inanimate"),
                        "no governing noun or preposition; nominative masculine inanimate")
@@ -649,6 +698,10 @@ class TextNormalizer:
                            "no counted noun; masculine inanimate")
             return case, "masculine", "inanimate"
         return case, gender, animacy
+
+    def _label(self, value: int) -> Tuple[str, str, str]:
+        """A number that names rather than counts is nominative; Czech labels and counts with "jedna"."""
+        return NOM, "feminine" if self.language == "cs" and abs(value) == 1 else "masculine", "inanimate"
 
     def _agreement(self, head: Optional[_Word], start: int, tags: _Tags, following: bool = True,
                    ordinal: bool = True):
@@ -685,6 +738,15 @@ class TextNormalizer:
     def _preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
         word = tags.before(pos, skip=("ADV", "PART"))
         return word if word is not None and word.upos == "ADP" else None
+
+    def _reference_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
+        """The preposition that governs a whole reference: "podle § 5 odst. 2" -> podle."""
+        i = bisect.bisect_left(tags.starts, pos) - 1
+        while i >= 0 and (tags.words[i].upos in ("ADV", "PART") or tags.words[i].text.isdigit()
+                          or tags.words[i].text in ("§", ".", ",")
+                          or f"{tags.words[i].text.lower()}." in DECLINED_ABBREVIATIONS[self.language]):
+            i -= 1
+        return tags.words[i] if i >= 0 and tags.words[i].upos == "ADP" else None
 
     def _preposition_case(self, pos: int, tags: _Tags) -> Optional[str]:
         prep = self._preposition(pos, tags)
