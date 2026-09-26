@@ -93,6 +93,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sign-after-opening-quote": ("cs", None, "Řekl: „-5 °C“.", "Řekl: „Mínus pět stupňů Celsia“."),
     "sk-diminutive-animals": ("sk", None, "Prišli 2 ježkovia.", "Prišli dva ježkovia."),
     "spaced-per-unit": ("cs", None, "Stojí to 100 Kč / kg.", "Stojí to sto korun za kilogram."),
+    "spaced-per-second": ("cs", None, "Jel 5 m / s.", "Jel pět metrů za sekundu."),
+    "per-minute": ("sk", None, "Čerpadlo dá 20 l/min.", "Čerpadlo dá dvadsať litrov za minútu."),
     "ordinal-before-capitalised-noun": ("cs", None, "Hrála 5. Symfonie.", "Hrála pátá Symfonie."),
     "sk-zero-hour": ("sk", None, "Stretneme sa o 0:30.", "Stretneme sa o nultej tridsať."),
     "pounds-and-pence": ("cs", None, "Stálo to £4.50.", "Stálo to čtyři libry padesát pencí."),
@@ -113,6 +115,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "compact-time-range": ("cs", None, "Otevřeno 10:00-12:00.", "Otevřeno deset hodin až dvanáct hodin."),
     "repeated-spaces": ("cs", None, "Ujel 5  km.", "Ujel pět kilometrů."),
     "spaced-word-slash": ("cs", None, "Přijde on / ona.", "Přijde on nebo ona."),
+    "one-letter-word-slash": ("cs", None, "Káva s/bez mléka.", "Káva s nebo bez mléka."),
+    "inclusive-forms": ("cs", None, "Vážený/á zákazník/ce, každý/á student/ka by měl/a přijít sám/a, "
+                                    "i když přišel/a pozdě.",
+                        "Vážený nebo vážená zákazník nebo zákaznice, každý nebo každá student nebo studentka "
+                        "by měl nebo měla přijít sám nebo sama, i když přišel nebo přišla pozdě."),
+    "sk-inclusive-forms": ("sk", None, "Prišiel/a si včas, mohol/a by si ostať, zákazník/čka.",
+                           "Prišiel alebo prišla si včas, mohol alebo mohla by si ostať, zákazník alebo zákazníčka."),
     "currency-range-with-cents": ("cs", None, "Stojí to 1,50–2,50 €.",
                                   "Stojí to jedno euro padesát centů až dvě eura padesát centů."),
     "price-per-unit": ("cs", None, "Stojí to 100 Kč/kg.", "Stojí to sto korun za kilogram."),
@@ -138,6 +147,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "period-inside-sentence": ("cs", None, "Navštívil např. Prahu a Brno.", "Navštívil například Prahu a Brno."),
     "capital-at-sentence-start": ("cs", None, "5 lidí přišlo. 3 lidé odešli.", "Pět lidí přišlo. Tři lidé odešli."),
     "locative-abbreviation": ("sk", None, "Na str. 45 sa píše o tom.", "Na strane štyridsaťpäť sa píše o tom."),
+    "abbreviations-in-capitals": ("cs", None, "NAPŘ. PRAHA A TAK DÁLE ATD.", "Například PRAHA A TAK DÁLE a tak dále."),
+    "acronym-stays": ("cs", None, "Hrál na turnajích ATP.", "Hrál na turnajích ATP."),
     "slash-between-words": ("cs", None, "Přijde on a/nebo ona, on/ona.", "Přijde on a nebo ona, on nebo ona."),
     "legal-reference": ("cs", None, "Podle § 5 odst. 2 platí.", "Podle paragrafu pět odstavce dva platí."),
     "math-signs": ("sk", None, "Platí 3 × 4 = 12.", "Platí tri krát štyri rovná sa dvanásť."),
@@ -158,6 +169,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
     "adverb-before-noun": ("cs", "Vrátil 2 zpátky knihovně.", "Vrátil dva zpátky knihovně.",
                            "nominative masculine inanimate"),
+    "decimal-comma-before-currency": ("cs", "Stálo to 1,234 USD.",
+                                      "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -195,7 +208,7 @@ def test_digit_or_symbol_in_span_raises(cs, text):
         cs.normalize(text)
 
 
-@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra."])
+@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH."])
 def test_symbol_without_reading_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)

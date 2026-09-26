@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**376 tests:** 102 for the TTS components, 94 for num2words, 176 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**393 tests:** 102 for the TTS components, 94 for num2words, 193 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -444,7 +444,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 176 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 193 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -543,6 +543,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sign-after-opening-quote": ("cs", None, "Řekl: „-5 °C“.", "Řekl: „Mínus pět stupňů Celsia“."),
     "sk-diminutive-animals": ("sk", None, "Prišli 2 ježkovia.", "Prišli dva ježkovia."),
     "spaced-per-unit": ("cs", None, "Stojí to 100 Kč / kg.", "Stojí to sto korun za kilogram."),
+    "spaced-per-second": ("cs", None, "Jel 5 m / s.", "Jel pět metrů za sekundu."),
+    "per-minute": ("sk", None, "Čerpadlo dá 20 l/min.", "Čerpadlo dá dvadsať litrov za minútu."),
     "ordinal-before-capitalised-noun": ("cs", None, "Hrála 5. Symfonie.", "Hrála pátá Symfonie."),
     "sk-zero-hour": ("sk", None, "Stretneme sa o 0:30.", "Stretneme sa o nultej tridsať."),
     "pounds-and-pence": ("cs", None, "Stálo to £4.50.", "Stálo to čtyři libry padesát pencí."),
@@ -563,6 +565,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "compact-time-range": ("cs", None, "Otevřeno 10:00-12:00.", "Otevřeno deset hodin až dvanáct hodin."),
     "repeated-spaces": ("cs", None, "Ujel 5  km.", "Ujel pět kilometrů."),
     "spaced-word-slash": ("cs", None, "Přijde on / ona.", "Přijde on nebo ona."),
+    "one-letter-word-slash": ("cs", None, "Káva s/bez mléka.", "Káva s nebo bez mléka."),
+    "inclusive-forms": ("cs", None, "Vážený/á zákazník/ce, každý/á student/ka by měl/a přijít sám/a, "
+                                    "i když přišel/a pozdě.",
+                        "Vážený nebo vážená zákazník nebo zákaznice, každý nebo každá student nebo studentka "
+                        "by měl nebo měla přijít sám nebo sama, i když přišel nebo přišla pozdě."),
+    "sk-inclusive-forms": ("sk", None, "Prišiel/a si včas, mohol/a by si ostať, zákazník/čka.",
+                           "Prišiel alebo prišla si včas, mohol alebo mohla by si ostať, zákazník alebo zákazníčka."),
     "currency-range-with-cents": ("cs", None, "Stojí to 1,50–2,50 €.",
                                   "Stojí to jedno euro padesát centů až dvě eura padesát centů."),
     "price-per-unit": ("cs", None, "Stojí to 100 Kč/kg.", "Stojí to sto korun za kilogram."),
@@ -588,6 +597,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "period-inside-sentence": ("cs", None, "Navštívil např. Prahu a Brno.", "Navštívil například Prahu a Brno."),
     "capital-at-sentence-start": ("cs", None, "5 lidí přišlo. 3 lidé odešli.", "Pět lidí přišlo. Tři lidé odešli."),
     "locative-abbreviation": ("sk", None, "Na str. 45 sa píše o tom.", "Na strane štyridsaťpäť sa píše o tom."),
+    "abbreviations-in-capitals": ("cs", None, "NAPŘ. PRAHA A TAK DÁLE ATD.", "Například PRAHA A TAK DÁLE a tak dále."),
+    "acronym-stays": ("cs", None, "Hrál na turnajích ATP.", "Hrál na turnajích ATP."),
     "slash-between-words": ("cs", None, "Přijde on a/nebo ona, on/ona.", "Přijde on a nebo ona, on nebo ona."),
     "legal-reference": ("cs", None, "Podle § 5 odst. 2 platí.", "Podle paragrafu pět odstavce dva platí."),
     "math-signs": ("sk", None, "Platí 3 × 4 = 12.", "Platí tri krát štyri rovná sa dvanásť."),
@@ -608,6 +619,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
     "adverb-before-noun": ("cs", "Vrátil 2 zpátky knihovně.", "Vrátil dva zpátky knihovně.",
                            "nominative masculine inanimate"),
+    "decimal-comma-before-currency": ("cs", "Stálo to 1,234 USD.",
+                                      "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -645,7 +658,7 @@ def test_digit_or_symbol_in_span_raises(cs, text):
         cs.normalize(text)
 
 
-@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra."])
+@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH."])
 def test_symbol_without_reading_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)
@@ -3526,7 +3539,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 375 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 392 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 

@@ -135,9 +135,9 @@ SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×":
                "±": "plus mínus", "#": "číslo"}}
 PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusative singular
     "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "m": "metr", "km": "kilometr",
-           "ks": "kus", "hod": "hodinu", "h": "hodinu"},
+           "ks": "kus", "hod": "hodinu", "h": "hodinu", "min": "minutu", "s": "sekundu"},
     "sk": {"kg": "kilogram", "g": "gram", "l": "liter", "ml": "mililiter", "m": "meter", "km": "kilometer",
-           "ks": "kus", "hod": "hodinu", "h": "hodinu"},
+           "ks": "kus", "hod": "hodinu", "h": "hodinu", "min": "minútu", "s": "sekundu"},
 }
 SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
 RANGE_WORD = "až"
@@ -203,7 +203,7 @@ _SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/])"
 _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.56 USD": never a Czech decimal
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
-_PER = "kg|ks|km|ml|hod|g|l|m|h"  # units a price can be per: "Kč/kg"
+_PER = rf"kg|ks|km|ml|hod|min|g|l|m|h|s(?!{_HS}+[^\W\d_])"  # "Kč/kg", "m / s"; not "Kč / s DPH"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
@@ -213,6 +213,8 @@ _CURRENCY = r"Kč|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: "CD.", "DC." are acronyms
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
+_ONE_LETTER_WORDS = "aikosuvz"
+_INCLUSIVE_SUFFIXES = "kyně|yně|čka|ka|ce|a|á"  # "on/a", "Vážený/á", "student/ka"
 # "14.30" is a time only when hod follows, also after a second time: "15.30–16.00 hod.", "od 8.00 do 12.00 hod."
 _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—-]{_HS}*|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
              rf"{_HS}*hod{_NOT_LETTER_AFTER})")
@@ -245,7 +247,7 @@ def _abbreviation_pattern(key: str) -> str:
             out.append(f"{_HS}+")
         elif ch == "." and i < len(key) - 1:
             out.append(rf"\.{_HS}*")
-        elif i == 0 and len(key) > 2 and ch.isalpha():
+        elif len(key) > 2 and ch.isalpha():
             out.append(f"[{ch}{ch.upper()}]")
         else:
             out.append(re.escape(ch))
@@ -281,7 +283,9 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±]|#(?={_HS}*\d)|(?<=\d)x(?=\d)|(?<=\d{_HS})x(?={_HS}\d))"
-        rf"|(?P<slash>(?<=[^\W\d_]{{2}}){_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=\d))"
+        rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
+        rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
+        rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=\d))"
         rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d)-(?=\d)|(?<=\d\.)-(?=\d)|(?<=[IVXLC]\.)-(?=[IVXLC]+\.))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
@@ -327,7 +331,14 @@ def _spaced(text: str, start: int, end: int, word: str) -> str:
 
 def _key_of(m: re.Match) -> str:
     """The table key of a matched abbreviation: "Např." -> "např.", "t. j." -> "t.j."."""
-    return _abbreviation_key(m.group(0)[0].lower() + m.group(0)[1:])
+    return _abbreviation_key(m.group(0).lower())
+
+
+def _in_capitals(text: str, start: int, end: int) -> bool:
+    """Whether a word next to text[start:end] is in capitals too: "NAPŘ. PRAHA", but not "turnaj ATP."."""
+    before = re.search(r"([^\W\d_]+)\W*$", text[:start])
+    after = re.match(r"\W*([^\W\d_]+)", text[end:])
+    return any(w is not None and len(w.group(1)) > 1 and w.group(1).isupper() for w in (before, after))
 
 
 def _capitalise_like(source: str, words: str) -> str:
@@ -518,10 +529,17 @@ class TextNormalizer:
         if kind == "slash":
             if text[start - 1].isdigit():
                 return start, _spaced(text, start, end, SLASH_WORDS[self.language]["number"])
-            left, right = re.search(r"[^\W\d_]+$", text[:start]).group(), re.match(r"[^\W\d_]+", text[end:]).group()
-            if {left, right} & (UNITS[self.language].keys() | PER_UNITS[self.language].keys()):
+            left, word = re.search(r"[^\W\d_]+$", text[:start]).group(), SLASH_WORDS[self.language]["word"]
+            if m["suffix"]:
+                feminine = self._feminine(left, m["suffix"])
+                if _starts_sentence(text[:start - len(left)]):
+                    feminine = feminine[0].lower() + feminine[1:]
+                return start, f" {word} {feminine}"
+            right = re.match(r"[^\W\d_]+", text[end:]).group()
+            units = UNITS[self.language].keys() | PER_UNITS[self.language].keys()
+            if ({left, right} & units) - set(_ONE_LETTER_WORDS):  # "s/bez": s is a preposition here
                 return start, m.group(0)  # "Kč/kg" without a number has no reading; the check below raises
-            return start, _spaced(text, start, end, SLASH_WORDS[self.language]["word"])
+            return start, _spaced(text, start, end, word)
         if kind == "abbreviation":
             return start, self._abbreviation(m, text, tags)
         if kind == "roman":
@@ -565,6 +583,8 @@ class TextNormalizer:
 
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
         raw, key = m.group(0), _key_of(m)
+        if raw.isupper() and not _in_capitals(text, m.start(), m.end()):
+            return raw  # an acronym such as "ATP." or "TJ."
         words = self.abbreviations[key]
         if key in AGREEING_ABBREVIATIONS:
             head = tags.head_after(m.end())
@@ -582,7 +602,8 @@ class TextNormalizer:
                         else _UD_CASES.get(prep.feats.get("Case")))
                 if case:
                     words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
-        words = _capitalise_like(raw, words)
+        if not raw.isupper() or _starts_sentence(text[:m.start()]):
+            words = _capitalise_like(raw, words)
         if key.endswith(".") and self._ends_sentence(text, m.end(), tags,
                                                      introduces=key in NON_FINAL_ABBREVIATIONS):
             words += "."
@@ -703,6 +724,8 @@ class TextNormalizer:
         words = read(case or NOM)
         if case is None and words != read(ACC):
             self._warn(text, (start, end), words, "no preposition; nominative")
+        if noun in MINOR_UNITS[self.language] and re.fullmatch(r"[-−–]?\d{1,3},\d{3}", amount):
+            self._warn(text, (start, end), words, "comma read as decimal, not thousands; check it")
         return words + suffix
 
     def _unit(self, unit: str) -> Tuple[str, Optional[str], str]:
@@ -970,6 +993,27 @@ class TextNormalizer:
             word = tags.after(end)
             return word is None or word.upos not in ("PROPN", "ADJ")
         return True
+
+    def _feminine(self, word: str, suffix: str) -> str:
+        """The feminine form that "on/a", "přišel/a", "Vážený/á", "student/ka", "zákazník/ce", "sám/a" or
+        sk "mohol/a", "zákazník/čka" stands for."""
+        lower = word.lower()
+        if suffix in ("a", "á") and lower.endswith("ý"):
+            return word[:-1] + "á"
+        if suffix == "a" and lower.endswith(("šel", "šiel")):
+            return word[:lower.rindex("š") + 1] + "la"
+        if suffix == "a" and lower == "sám":
+            return word[0] + "ama"
+        if (suffix == "a" and self.language == "sk" and len(lower) > 3 and lower.endswith("ol")
+                and lower[-3] not in "aeiouyáéíóúýäô"):
+            return word[:-2] + "la"
+        if suffix == "ce" and lower.endswith("ník"):
+            return word[:-2] + "ice"
+        if suffix == "čka" and lower.endswith("k"):
+            return word[:-1] + suffix
+        if suffix.startswith("y") and lower.endswith("a"):
+            return word[:-1] + suffix
+        return word + suffix
 
     def _vocalise(self, text: str, start: int, words: str) -> Tuple[int, str]:
         """"s 2 přáteli" -> "se dvěma přáteli": vocalise a one-letter preposition before the number words."""
