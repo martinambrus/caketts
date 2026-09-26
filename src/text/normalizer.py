@@ -892,7 +892,7 @@ class TextNormalizer:
         if after_label or text[:start].rstrip()[-1:] in _MATH_SIGNS or text[end:].lstrip()[:1] in _MATH_SIGNS:
             return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024"
         prep_case = self._preposition_case(start, tags)
-        noun = tags.head_after(end)
+        noun = tags.head_after(end) or self._shared_count_head(end, tags)
         case = gender = animacy = tagged_case = noun_case = None
         if noun is not None:
             gender, animacy = self._gender(noun)
@@ -950,6 +950,14 @@ class TextNormalizer:
         if (i + 2 < len(w) and (w[i].upos in ("CCONJ", "ADP", "NOUN") or w[i].text in ("–", "—", "-", ","))
                 and (w[i + 1].text.isdigit() or re.fullmatch(_ROMAN, w[i + 1].text)) and w[i + 2].text == "."):
             return tags.head_after(w[i + 2].end) or self._shared_head(w[i + 2].end, tags)  # "2., 3. a 4. díl"
+        return None
+
+    def _shared_count_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
+        """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži"."""
+        i, w = bisect.bisect_left(tags.starts, pos), tags.words
+        if (i + 1 < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-"))
+                and w[i + 1].text.replace(" ", "").isdigit()):
+            return tags.head_after(w[i + 1].end) or self._shared_count_head(w[i + 1].end, tags)
         return None
 
     @staticmethod
@@ -1023,7 +1031,7 @@ class TextNormalizer:
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
-        while i >= 0 and (w[i].text.isdigit()
+        while i >= 0 and (w[i].text.isdigit() or re.fullmatch(_HOUR_WORD, w[i].text.lower())  # "2:00 hod.–3:00"
                           or w[i].text.lower() in (".", ":", ",", "a", "nebo", "alebo", "–", "—", "-")):
             i -= 1
         return w[i] if i >= 0 and w[i].upos == "ADP" else None
