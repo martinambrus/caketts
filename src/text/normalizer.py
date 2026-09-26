@@ -140,7 +140,8 @@ RANGE_WORD = "až"
 # Slovak animal plurals in -i that the tagger may mark animate like people; animals count with
 # dva/tri/štyri, people with dvaja/traja/štyria
 SK_ANIMAL_PLURALS = frozenset("vlci býci vtáci psi orli sokoli holubi levi tigri sloni barani kocúri "
-                              "kohúti capi diviaci jeleni kanci".split())
+                              "kohúti capi diviaci jeleni kanci ježkovia zajkovia macíkovia vtáčikovia "
+                              "koníkovia psíčkovia kocúrikovia škrečkovia kohútikovia".split())
 
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone
@@ -191,7 +192,8 @@ _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
-_AMOUNT = rf"(?:(?<![^\s(\[])[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
+_SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›])"  # a minus sign starts after a space, bracket or quote: „-5 °C“
+_AMOUNT = rf"(?:{_SIGN_START}[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
@@ -244,12 +246,13 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?![\d:])"
         rf"(?:{_HS}?hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
-        rf"|(?P<range>(?<![\d.,])(?P<low>(?:(?<![^\s(\[])[-−])?(?:{_INT})){_HS}?[–—-]{_HS}?(?P<high>[-−]?(?:{_INT}))"
+        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−])?(?:{_INT})(?:[.,]\d+)?){_HS}?[–—-]{_HS}?"
+        rf"(?P<high>[-−]?(?:{_INT})(?:[.,]\d+)?)"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
-        rf"|(?P<money>(?P<moneysign>(?<![^\s(\[])[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)))"
+        rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
         rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scalecurrency>{_CURRENCY}))?|(?P<unit>{_UNIT}|{_CURRENCY})"
-        rf"(?:/(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
+        rf"(?:{_HS}*/{_HS}*(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER})?)"
@@ -303,9 +306,12 @@ def _capitalise_like(source: str, words: str) -> str:
 
 
 def _starts_sentence(before: str) -> bool:
-    """Whether text after `before` (the paragraph up to it) starts a sentence."""
-    before = _SPAN_RE.sub(lambda s: s.group(2), before).rstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›([—–-")
-    return not before or before[-1] in ".!?…"
+    """Whether text after `before` (the paragraph up to it) starts a sentence, also direct speech
+    after a colon: Řekl: „Pět…“."""
+    before = _SPAN_RE.sub(lambda s: s.group(2), before).rstrip(" \t\n\r\u00a0\u202f")
+    quoted = before[-1:] in "„“\"'‚‘«»‹›"
+    before = before.rstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›([—–-")
+    return not before or before[-1] in ".!?…" or (quoted and before[-1] == ":")
 
 
 @dataclass
@@ -591,14 +597,17 @@ class TextNormalizer:
         return f"nula {words}" if minute < 10 else words
 
     def _range(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
-        low = _parse(m["low"])[0]
+        low, value = _parse(m["low"])[0], _parse(m["high"])[0]
+        decimal = isinstance(low, str) or isinstance(value, str)  # decimals are read in the nominative
         if m["rangeunit"]:
             high = self._measure(m["high"], m["rangeunit"], m.start(), tags, text, m.end())
             gender = NOUNS[self.language][self._unit(m["rangeunit"])[0]][0]
-            case = self._preposition_case(m.start(), tags) or NOM
+            case = NOM if decimal else self._preposition_case(m.start(), tags) or NOM
             return f"{self._cardinal(low, case, gender, 'inanimate')} {RANGE_WORD} {high}"
-        value = _parse(m["high"])[0]
-        case, gender, animacy = self._context(value, m.start(), m.end(), text, tags, after_label, m)
+        if decimal:
+            case, gender, animacy = NOM, "masculine", "inanimate"
+        else:
+            case, gender, animacy = self._context(value, m.start(), m.end(), text, tags, after_label, m)
         return (f"{self._cardinal(low, case, gender, animacy)} {RANGE_WORD} "
                 f"{self._cardinal(value, case, gender, animacy)}")
 
