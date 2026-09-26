@@ -200,7 +200,9 @@ _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
 _SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/])"
-_AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?(?:{_INT})(?:[.,]\d+)?"  # "–5 °C": typeset text uses – for minus
+_EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.56 USD": never a Czech decimal
+_UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
+_AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
 _PER = "kg|ks|km|ml|hod|g|l|m|h"  # units a price can be per: "Kč/kg"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
@@ -258,8 +260,8 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d))?)"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
-        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?(?:{_INT})(?:[.,]\d+)?){_HS}*[–—-]{_HS}*"
-        rf"(?P<high>[-−]?(?:{_INT})(?:[.,]\d+)?)"
+        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED}){_HS}*[–—-]{_HS}*"
+        rf"(?P<high>[-−]?{_UNSIGNED})"
         rf"(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
@@ -296,6 +298,8 @@ def _unspeakable(text: str) -> Optional[str]:
 def _parse(amount: str) -> Tuple[object, int, str]:
     """(value for num2words, absolute integer part, fraction digits without trailing zeros)."""
     s = re.sub(r"[ \u00a0\u202f]", "", amount).replace("−", "-").replace("–", "-")
+    if re.fullmatch(rf"-?{_EN_AMOUNT}", s):
+        s = s.replace(",", "")
     grouped = re.fullmatch(r"(-?[1-9]\d{0,2}(?:\.\d{3})+)(,\d+)?", s)  # "10.000", "10.000,50"; not "0.500"
     if grouped:
         s = grouped.group(1).replace(".", "") + (grouped.group(2) or "")
@@ -366,12 +370,18 @@ class _Tags:
         return next((w for w in self.words[i:] if w.upos != "PUNCT"), None)
 
     def head_after(self, pos: int) -> Optional[_Word]:
-        """The noun that a number or an adjective at `pos` counts or agrees with."""
+        """The noun that a number or an adjective at `pos` counts or agrees with; an adverb may
+        modify an adjective in between: "2 velmi staré knihy", but not the noun: "Vrátil 2 zpátky knihovně"."""
         i = bisect.bisect_left(self.starts, pos)
+        adverb = False
         for w in self.words[i:i + 5]:
             if w.upos in ("NOUN", "PROPN"):
-                return w
-            if w.upos not in ("ADJ", "DET") and w.text not in _QUOTES:
+                return None if adverb else w
+            if w.upos in ("ADV", "PART"):
+                adverb = True
+            elif w.upos in ("ADJ", "DET"):
+                adverb = False
+            elif w.text not in _QUOTES:
                 return None
         return None
 

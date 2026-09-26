@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**362 tests:** 102 for the TTS components, 94 for num2words, 162 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**376 tests:** 102 for the TTS components, 94 for num2words, 176 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -444,7 +444,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 162 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 176 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -521,6 +521,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                         "<en>Harry Potter</en> a <en>Harry</en>, ale ne Harrymu ani harry."),
     "hand-tagged-span": ("cs", None, "Četl <en>The Hobbit</en> 2 roky.", "Četl <en>The Hobbit</en> dva roky."),
     "sk-personal-masculine": ("sk", None, "Prišli 2 muži.", "Prišli dvaja muži."),
+    "adverb-before-adjective": ("cs", None, "Koupil 2 velmi staré knihy.", "Koupil dvě velmi staré knihy."),
+    "sk-adverb-before-adjective": ("sk", None, "Prišli 2 veľmi starí muži a 2 naozaj staré ženy.",
+                                   "Prišli dvaja veľmi starí muži a dve naozaj staré ženy."),
     "unit": ("cs", None, "Ujel 5 km.", "Ujel pět kilometrů."),
     "time-cs": ("cs", None, "Vlak jede v 14:30.", "Vlak jede ve čtrnáct třicet."),
     "time-sk": ("sk", None, "Stretneme sa o 14:30.", "Stretneme sa o štrnástej tridsať."),
@@ -566,6 +569,16 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sign-after-currency-symbol": ("cs", None, "Dluh $-4.50.", "Dluh mínus čtyři dolary padesát centů."),
     "comma-grouped-dollars": ("cs", None, "Stálo to $1,234.56.",
                               "Stálo to tisíc dvě stě třicet čtyři dolarů padesát šest centů."),
+    "comma-grouped-suffix-currency": ("cs", None, "Stálo to 1,234.56 USD.",
+                                      "Stálo to tisíc dvě stě třicet čtyři dolarů padesát šest centů."),
+    "comma-grouped-number-and-unit": ("cs", None, "Žilo tam 1,234,567 lidí, cesta měřila 1,234.5 km.",
+                                      "Žilo tam milion dvě stě třicet čtyři tisíc pět set šedesát sedm lidí, "
+                                      "cesta měřila tisíc dvě stě třicet čtyři celé pět desetin kilometru."),
+    "comma-grouped-range": ("sk", None, "Stálo to 1,234.50–2,000.75 €.",
+                            "Stálo to tisícdvestotridsaťštyri eur päťdesiat centov až dvetisíc eur "
+                            "sedemdesiatpäť centov."),
+    "comma-decimal-stays": ("cs", None, "Vážilo to 1,234 kg.",
+                            "Vážilo to jedna celá dvě stě třicet čtyři tisícin kilogramu."),
     "grouped-range": ("sk", None, "Stálo to 1 002–1 004 €.", "Stálo to tisícdve až tisícštyri eurá."),
     "vocalise-after-no-break-space": ("cs", None, "Šel s\u00a02 přáteli.", "Šel se\u00a0dvěma přáteli."),
     "num2words-variant": ("cs", {"num2words": {"construction": "inverted"}}, "Je mi 25 let.",
@@ -593,6 +606,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
     "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
+    "adverb-before-noun": ("cs", "Vrátil 2 zpátky knihovně.", "Vrátil dva zpátky knihovně.",
+                           "nominative masculine inanimate"),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -3511,7 +3526,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 361 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 375 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 

@@ -71,6 +71,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                         "<en>Harry Potter</en> a <en>Harry</en>, ale ne Harrymu ani harry."),
     "hand-tagged-span": ("cs", None, "Četl <en>The Hobbit</en> 2 roky.", "Četl <en>The Hobbit</en> dva roky."),
     "sk-personal-masculine": ("sk", None, "Prišli 2 muži.", "Prišli dvaja muži."),
+    "adverb-before-adjective": ("cs", None, "Koupil 2 velmi staré knihy.", "Koupil dvě velmi staré knihy."),
+    "sk-adverb-before-adjective": ("sk", None, "Prišli 2 veľmi starí muži a 2 naozaj staré ženy.",
+                                   "Prišli dvaja veľmi starí muži a dve naozaj staré ženy."),
     "unit": ("cs", None, "Ujel 5 km.", "Ujel pět kilometrů."),
     "time-cs": ("cs", None, "Vlak jede v 14:30.", "Vlak jede ve čtrnáct třicet."),
     "time-sk": ("sk", None, "Stretneme sa o 14:30.", "Stretneme sa o štrnástej tridsať."),
@@ -116,6 +119,16 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sign-after-currency-symbol": ("cs", None, "Dluh $-4.50.", "Dluh mínus čtyři dolary padesát centů."),
     "comma-grouped-dollars": ("cs", None, "Stálo to $1,234.56.",
                               "Stálo to tisíc dvě stě třicet čtyři dolarů padesát šest centů."),
+    "comma-grouped-suffix-currency": ("cs", None, "Stálo to 1,234.56 USD.",
+                                      "Stálo to tisíc dvě stě třicet čtyři dolarů padesát šest centů."),
+    "comma-grouped-number-and-unit": ("cs", None, "Žilo tam 1,234,567 lidí, cesta měřila 1,234.5 km.",
+                                      "Žilo tam milion dvě stě třicet čtyři tisíc pět set šedesát sedm lidí, "
+                                      "cesta měřila tisíc dvě stě třicet čtyři celé pět desetin kilometru."),
+    "comma-grouped-range": ("sk", None, "Stálo to 1,234.50–2,000.75 €.",
+                            "Stálo to tisícdvestotridsaťštyri eur päťdesiat centov až dvetisíc eur "
+                            "sedemdesiatpäť centov."),
+    "comma-decimal-stays": ("cs", None, "Vážilo to 1,234 kg.",
+                            "Vážilo to jedna celá dvě stě třicet čtyři tisícin kilogramu."),
     "grouped-range": ("sk", None, "Stálo to 1 002–1 004 €.", "Stálo to tisícdve až tisícštyri eurá."),
     "vocalise-after-no-break-space": ("cs", None, "Šel s\u00a02 přáteli.", "Šel se\u00a0dvěma přáteli."),
     "num2words-variant": ("cs", {"num2words": {"construction": "inverted"}}, "Je mi 25 let.",
@@ -143,6 +156,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
     "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
+    "adverb-before-noun": ("cs", "Vrátil 2 zpátky knihovně.", "Vrátil dva zpátky knihovně.",
+                           "nominative masculine inanimate"),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
