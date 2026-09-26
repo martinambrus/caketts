@@ -214,11 +214,11 @@ _SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/+])"
 _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.56 USD": never a Czech decimal
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
-_PER = rf"kg|ks|km|ml|hod|min|g|l|m|h|s(?!{_HS}+[^\W\d_])"  # "Kč/kg", "m / s"; not "Kč / s DPH"
+_POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
+_PER = rf"kg|ks|km{_POWER}|ml|hod|min|g|l|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
-_POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
 _UNIT = rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
 _CURRENCY = r"Kč|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
@@ -306,7 +306,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
         rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
-        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d)))"
+        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d)"
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
@@ -595,7 +595,7 @@ class TextNormalizer:
         elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
             words = f" {RANGE_WORD} ".join(
                 self._measure(m[end_], m[end_ + "unit"], start, tags, text, end)
-                + (f" za {PER_UNITS[self.language][m[end_ + 'per']]}" if m[end_ + "per"] else "")
+                + (f" {self._per(m[end_ + 'per'])}" if m[end_ + "per"] else "")
                 for end_ in ("low", "high"))
         elif kind == "range":
             words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
@@ -611,7 +611,7 @@ class TextNormalizer:
                                                  (_plain_price(m["pricehigh"]), scale)))
             elif m["lowmoneyper"]:  # "$4/kg–$5/kg"
                 words = f" {RANGE_WORD} ".join(
-                    f"{self._measure(amount, m['symbol'], start, tags, text, end)} za {PER_UNITS[self.language][per]}"
+                    f"{self._measure(amount, m['symbol'], start, tags, text, end)} {self._per(per)}"
                     for amount, per in ((sign + price, m["lowmoneyper"]),
                                         (_plain_price(m["highprice"]), m["highmoneyper"])))
             elif m["pricehigh"]:  # "$5–10" -> "pět až deset dolarů"
@@ -621,12 +621,12 @@ class TextNormalizer:
                 words = self._measure(sign + price, scale or m["symbol"], start, tags, text, end,
                                       scale_unit=m["symbol"] if scale else None)
                 if m["moneyper"]:
-                    words += " za " + PER_UNITS[self.language][m["moneyper"]]  # "$4/kg" -> "čtyři dolary za kilogram"
+                    words += " " + self._per(m["moneyper"])  # "$4/kg" -> "čtyři dolary za kilogram"
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_unit=m["scaleunit"])
             if m["per"] or m["scaleper"]:  # "100 Kč/kg" -> "sto korun za kilogram"
-                words += " za " + PER_UNITS[self.language][m["per"] or m["scaleper"]]
+                words += " " + self._per(m["per"] or m["scaleper"])
         elif kind == "ordinal":
             words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
@@ -738,17 +738,15 @@ class TextNormalizer:
             else:
                 gender = SCALE_GENDERS[self.language][scale] if scale else NOUNS[self.language][self._unit(unit)[0]][0]
                 case = NOM if decimal else self._preposition_case(start, tags) or NOM
-                words = f"{self._cardinal(low, case, gender, 'inanimate')} {RANGE_WORD} {high}"
+                words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
             if decimal:
                 case, gender, animacy = NOM, "masculine", "inanimate"
             else:
                 case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)
-            words = (f"{self._cardinal(low, case, gender, animacy)} {RANGE_WORD} "
-                     f"{self._cardinal(value, case, gender, animacy)}")
-        if _negative_zero(low_amount) and not words.startswith(self._numbers.MINUS):
-            words = f"{self._numbers.MINUS} {words}"
-        return words + (f" za {PER_UNITS[self.language][per]}" if per else "")
+            words = (f"{self._signed(low_amount, self._cardinal(low, case, gender, animacy))} {RANGE_WORD} "
+                     f"{self._signed(high_amount, self._cardinal(value, case, gender, animacy))}")
+        return words + (f" {self._per(per)}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
                  whole: bool = False, scale_unit: Optional[str] = None) -> str:
@@ -784,9 +782,16 @@ class TextNormalizer:
             self._warn(text, (start, end), words, "no preposition; nominative")
         if noun in MINOR_UNITS[self.language] and re.fullmatch(r"[-−–]?\d{1,3},\d{3}", amount):
             self._warn(text, (start, end), words, "comma read as decimal, not thousands; check it")
-        if _negative_zero(amount):
-            words = f"{self._numbers.MINUS} {words}"
-        return words + suffix
+        return self._signed(amount, words) + suffix
+
+    def _signed(self, amount: str, words: str) -> str:
+        return f"{self._numbers.MINUS} {words}" if _negative_zero(amount) else words
+
+    def _per(self, per: str) -> str:
+        """The unit after "/" in the accusative singular: "za kilogram", "za metr čtvereční"."""
+        power = {"2": "²", "3": "³"}.get(per[-1], per[-1]) if per[-1] in "²³23" else None
+        adjective = UNIT_ADJECTIVES[self.language].get(power)
+        return f"za {PER_UNITS[self.language][per[:-1] if power else per]}" + (f" {adjective}" if adjective else "")
 
     def _unit(self, unit: str) -> Tuple[str, Optional[str], str]:
         """(noun, agreeing adjective, suffix) of a unit symbol: "m²" -> metr, čtvereční."""
@@ -851,8 +856,7 @@ class TextNormalizer:
         else:
             words = self._cardinal(value, *self._context(value, m.start(), m.end(), text, tags,
                                                          after_label, m))
-        if _negative_zero(m["value"]):
-            words = f"{self._numbers.MINUS} {words}"
+        words = self._signed(m["value"], words)
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
         if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x\d", text[m.end():m.end() + 2]):
@@ -920,18 +924,18 @@ class TextNormalizer:
         "konec XIX. a začátek XX. století"."""
         i = bisect.bisect_left(tags.starts, pos)
         w = tags.words
-        if i + 3 < len(w) and w[i].upos == "CCONJ" and w[i + 1].upos == "NOUN":
+        if i + 3 < len(w) and w[i].upos == "CCONJ" and w[i + 1].upos == "NOUN" and w[i + 1].text.isalpha():
             i += 1
-        if (i + 2 < len(w) and (w[i].upos in ("CCONJ", "ADP", "NOUN") or w[i].text in ("–", "—", "-"))
+        if (i + 2 < len(w) and (w[i].upos in ("CCONJ", "ADP", "NOUN") or w[i].text in ("–", "—", "-", ","))
                 and (w[i + 1].text.isdigit() or re.fullmatch(_ROMAN, w[i + 1].text)) and w[i + 2].text == "."):
-            return tags.head_after(w[i + 2].end)
+            return tags.head_after(w[i + 2].end) or self._shared_head(w[i + 2].end, tags)  # "2., 3. a 4. díl"
         return None
 
     @staticmethod
     def _chain_start(pos: int, tags: _Tags) -> int:
         """Where "1.–5." or "XIX. a XX." starts, for an ordinal at `pos`: the whole chain has one governor."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
-        while (i >= 2 and (w[i].upos == "CCONJ" or w[i].text in ("–", "—", "-")) and w[i - 1].text == "."
+        while (i >= 2 and (w[i].upos == "CCONJ" or w[i].text in ("–", "—", "-", ",")) and w[i - 1].text == "."
                and (w[i - 2].text.isdigit() or re.fullmatch(_ROMAN, w[i - 2].text))):
             i -= 3
         return w[i + 1].start if i + 1 < len(w) else pos
