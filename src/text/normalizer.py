@@ -596,7 +596,8 @@ class TextNormalizer:
             if fraction and minor and len(fraction) <= 2 and not whole:
                 cents = int(fraction.ljust(2, "0"))
                 words = self._counted(cents, minor, c)
-                return words if integer == 0 else f"{self._counted(integer, noun, c)} {words}"
+                words = words if integer == 0 else f"{self._counted(integer, noun, c)} {words}"
+                return f"{self._numbers.MINUS} {words}" if str(value).startswith("-") else words
             if fraction:  # "tři celé pět desetin kilometru": the noun is genitive singular
                 return (f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} "
                         f"{self._noun_phrase(noun, 1, GEN, adjective)}")

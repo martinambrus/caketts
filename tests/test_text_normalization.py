@@ -76,6 +76,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "time-sk": ("sk", None, "Stretneme sa o 14:30.", "Stretneme sa o štrnástej tridsať."),
     "currency-cs": ("cs", None, "Zaplatil 4,50 €.", "Zaplatil čtyři eura padesát centů."),
     "currency-sk": ("sk", None, "Zaplatil 2 €.", "Zaplatil dve eurá."),
+    "negative-amount": ("cs", None, "Dlužil −4,50 € a -0,50 €.", "Dlužil mínus čtyři eura padesát centů a mínus padesát centů."),
     "num2words-variant": ("cs", {"num2words": {"construction": "inverted"}}, "Je mi 25 let.",
                           "Je mi pětadvacet let."),
     "period-ends-sentence": ("sk", None, "Kúpil chlieb, mlieko atď. Potom odišiel.",
