@@ -126,10 +126,10 @@ MINOR_UNITS = {"cs": {"koruna": "haléř", "euro": "cent", "dolar": "cent", "lib
 SCALES = {"tis": 3, "mil": 6, "mld": 9}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
-SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "±": "plus minus",
-               "#": "číslo"},
-         "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "±": "plus mínus",
-               "#": "číslo"}}
+SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát",
+               "±": "plus minus", "#": "číslo"},
+         "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát",
+               "±": "plus mínus", "#": "číslo"}}
 PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusative singular
     "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "m": "metr", "km": "kilometr",
            "ks": "kus", "hod": "hodinu", "h": "hodinu"},
@@ -257,11 +257,11 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*/{_HS}*(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
-        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER})?)"
+        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d))?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
-        rf"|(?P<sign>[&+@=×±]|#(?={_HS}?\d))"
-        rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?=[^\W\d_]{{2}})|(?<=\d){_HS}?/{_HS}?(?=\d))"
+        rf"|(?P<sign>[&+@=×±]|#(?={_HS}?\d)|(?<=\d)x(?=\d)|(?<=\d{_HS})x(?={_HS}\d))"
+        rf"|(?P<slash>(?<=[^\W\d_]{{2}}){_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}?/{_HS}?(?=\d))"
         rf"|(?P<dash>–|—|(?<!\S)-(?!\S))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
@@ -604,9 +604,11 @@ class TextNormalizer:
         decimal = isinstance(low, str) or isinstance(value, str)  # decimals are read in the nominative
         if m["rangeunit"]:
             high = self._measure(m["high"], m["rangeunit"], m.start(), tags, text, m.end())
-            gender = NOUNS[self.language][self._unit(m["rangeunit"])[0]][0]
+            noun = self._unit(m["rangeunit"])[0]
+            if decimal and noun in MINOR_UNITS[self.language]:  # "1,50–2,50 €": both ends are sums of money
+                return f"{self._measure(m['low'], m['rangeunit'], m.start(), tags, text, m.end())} {RANGE_WORD} {high}"
             case = NOM if decimal else self._preposition_case(m.start(), tags) or NOM
-            return f"{self._cardinal(low, case, gender, 'inanimate')} {RANGE_WORD} {high}"
+            return f"{self._cardinal(low, case, NOUNS[self.language][noun][0], 'inanimate')} {RANGE_WORD} {high}"
         if decimal:
             case, gender, animacy = NOM, "masculine", "inanimate"
         else:
@@ -702,8 +704,8 @@ class TextNormalizer:
                                                          after_label, m))
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
-        if m.end() < len(text) and text[m.end()].isalpha():
-            self._warn(text, m, words, "digits glued to a word")
+        if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x\d", text[m.end():m.end() + 2]):
+            self._warn(text, m, words, "digits glued to a word")  # "3x4" is a multiplication, read by the sign
             words += " "
         return words
 
