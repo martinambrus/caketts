@@ -208,6 +208,8 @@ _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}?[–—-]{_HS}?|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
              rf"{_HS}?hod{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(f"{_HS}*")
+# a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
+_ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
 _NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLC]\.)$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLC]+\.")
@@ -257,7 +259,8 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*/{_HS}*(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
-        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d))?)"
+        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d)"
+        rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±]|#(?={_HS}?\d)|(?<=\d)x(?=\d)|(?<=\d{_HS})x(?={_HS}\d))"
@@ -695,7 +698,12 @@ class TextNormalizer:
 
     def _number(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
         value, _, fraction = _parse(m["value"])
-        if fraction:  # decimals are read in the nominative (Step 2.1)
+        if m["compound"] and not fraction and value > 0:
+            words = self._combining(value) + m["compound"]  # "dvacetipětiletý", sk "päťročný"
+        elif m["compound"]:
+            words = f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} {m['compound']}"
+            self._warn(text, m, words, "no compound form for this number")
+        elif fraction:  # decimals are read in the nominative (Step 2.1)
             words = self._cardinal(value, NOM, "masculine", "inanimate")
         elif m["times"]:
             words = self._cardinal(value, NOM, "masculine", "inanimate") + "krát"
@@ -862,6 +870,14 @@ class TextNormalizer:
         if abs(value) == 1:
             return number == "Sing"
         return number == "Plur" or self._count_form(value) == "sg"
+
+    def _combining(self, n: int) -> str:
+        """The number as the first part of a compound word: pěti-, dvacetipěti-; sk päť-, dvoj-."""
+        if self.language == "cs":
+            special = {1: "jedno", 2: "dvou", 3: "tří", 4: "čtyř", 100: "sto", 1000: "tisíci"}
+            return special.get(n) or self._cardinal(n, GEN, "masculine", "inanimate").replace(" ", "")
+        special = {1: "jedno", 2: "dvoj", 3: "troj", 4: "štvor"}
+        return special.get(n) or self._cardinal(n, NOM, "masculine", "inanimate").replace(" ", "")
 
     def _ends_in_scale_noun(self, n) -> bool:
         """Whether n ends in a numeral that is a noun (Czech tisíc, milion; Slovak milión, miliarda)."""
