@@ -77,6 +77,8 @@ NOUNS = {  # gender and forms of every noun the normalizer writes after a number
         "koruna": ("feminine", _forms("korun", _CS_ZENA)),
         "hodina": ("feminine", _forms("hodin", _CS_ZENA)),
         "minuta": ("feminine", _forms("minut", _CS_ZENA)),
+        "sekunda": ("feminine", _forms("sekund", _CS_ZENA)),
+        "kus": ("masculine", _forms("kus", _CS_HRAD)),
         "libra": ("feminine", _forms("lib", "ra,ry,ře,ru,rou,ře,ry,er,rám,ry,rami,rách")),
         "euro": ("neuter", _forms("eur", _CS_MESTO)),
         "procento": ("neuter", _forms("procent", _CS_MESTO)),
@@ -99,6 +101,8 @@ NOUNS = {  # gender and forms of every noun the normalizer writes after a number
         "koruna": ("feminine", _forms("kor", "una,uny,une,unu,unou,une,uny,ún,unám,uny,unami,unách")),
         "hodina": ("feminine", _forms("hod", "ina,iny,ine,inu,inou,ine,iny,ín,inám,iny,inami,inách")),
         "minúta": ("feminine", _forms("minút", "a,y,e,u,ou,e,y,,am,y,ami,ach")),
+        "sekunda": ("feminine", _forms("sek", "unda,undy,unde,undu,undou,unde,undy,únd,undám,undy,undami,undách")),
+        "kus": ("masculine", _forms("kus", ",a,u,,om,e,y,ov,om,y,mi,och")),
         "libra": ("feminine", _forms("lib", "ra,ry,re,ru,rou,re,ry,ier,rám,ry,rami,rách")),
         "euro": ("neuter", _forms("eur", _SK_MESTO)),
         "percento": ("neuter", _forms("percent", _SK_MESTO)),
@@ -110,12 +114,14 @@ NOUNS = {  # gender and forms of every noun the normalizer writes after a number
 UNITS = {  # symbol -> noun in NOUNS
     "cs": {"km": "kilometr", "km/h": "kilometr", "m": "metr", "m/s": "metr", "cm": "centimetr", "mm": "milimetr",
            "kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "°C": "stupeň", "°": "stupeň",
-           "%": "procento", "‰": "promile", "hod": "hodina", "min": "minuta", "Kč": "koruna",
+           "%": "procento", "‰": "promile", "hod": "hodina", "h": "hodina", "min": "minuta", "s": "sekunda",
+           "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolar", "USD": "dolar", "£": "libra"},
     "sk": {"km": "kilometer", "km/h": "kilometer", "m": "meter", "m/s": "meter", "cm": "centimeter",
            "mm": "milimeter",
            "kg": "kilogram", "g": "gram", "l": "liter", "ml": "mililiter", "°C": "stupeň", "°": "stupeň",
-           "%": "percento", "‰": "promile", "hod": "hodina", "min": "minúta", "Kč": "koruna",
+           "%": "percento", "‰": "promile", "hod": "hodina", "h": "hodina", "min": "minúta", "s": "sekunda",
+           "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolár", "USD": "dolár", "£": "libra"},
 }
 UNIT_SUFFIXES = {"cs": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celsia"},
@@ -219,16 +225,17 @@ _PER = rf"kg|ks|km{_POWER}|ml|hod|min|g|l|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "K
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
-_UNIT = rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
+_UNIT = (rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|ks|g|ml|l|°C|°|%|‰|hod\.?|min\.?|h"
+         rf"|s(?!{_HS}+[^\W\d_])")  # "5 s.", but "Mám 5 s sebou"
 _CURRENCY = r"Kč|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _ONE_LETTER_WORDS = "aikosuvz"
 _INCLUSIVE_SUFFIXES = "kyně|yně|čka|čky|ka|ky|ce|a|á|é|y"  # "on/a", "Vážený/á", "student/ka", "přišli/y"
-# "14.30" is a time only when hod follows, also after a second time: "15.30–16.00 hod.", "od 8.00 do 12.00 hod."
+# "14.30" is a time only when hod follows, also after more times: "15.30–16.00 hod.", "v 8.30 a 9.30 hod."
 _HOUR_WORD = r"hod(?:\.|in[ay]?|ín)?"  # hod., hodin, hodiny, hodina, sk hodín
-_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—-]{_HS}*|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
+_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:do|až|a|nebo|alebo){_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)*"
              rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
@@ -701,7 +708,7 @@ class TextNormalizer:
 
     def _time(self, m: re.Match, tags: _Tags) -> str:
         hour, minute, second = int(m["hour"]), int(m["minute"]), m["second"]
-        prep = self._preposition(m.start(), tags)
+        prep = self._preposition(m.start(), tags) or self._shared_time_preposition(m.start(), tags)
         case = None
         if prep:
             case = (TIME_PREPOSITIONS[self.language].get(prep.text.lower())
@@ -989,6 +996,16 @@ class TextNormalizer:
             animal = form in SK_ANIMAL_PLURALS or (word.feats.get("Number") == "Plur" and form.endswith(("y", "e")))
             return gender, "animate" if animal else "personal"  # "dvaja muži", but "dva vlci", "dva psy"
         return gender, "inanimate"
+
+    @staticmethod
+    def _shared_time_preposition(pos: int, tags: _Tags) -> Optional[_Word]:
+        """The preposition of an earlier time that this one shares: sk "o 8.30 a 9.30 hod."."""
+        i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
+        if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ","):
+            return None
+        while i >= 0 and (w[i].text.isdigit() or w[i].text.lower() in (".", ":", ",", "a", "nebo", "alebo")):
+            i -= 1
+        return w[i] if i >= 0 and w[i].upos == "ADP" else None
 
     def _preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
         word = tags.before(pos, skip=("ADV", "PART"))
