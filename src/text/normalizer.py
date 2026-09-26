@@ -433,7 +433,7 @@ class _Tags:
         for w in self.words[i:]:
             if w.upos in ("NOUN", "PROPN"):
                 return None if adverb else w
-            if w.upos in ("ADV", "PART"):
+            if w.upos in ("ADV", "PART", "CCONJ") or w.text == ",":  # "2 velmi staré", "2 červené a modré knihy"
                 adverb = True
             elif w.upos in ("ADJ", "DET"):
                 adverb = False
@@ -732,7 +732,7 @@ class TextNormalizer:
                 words.append(self._minutes(int(second), NOM))
             return " ".join(words)
         case = case or NOM
-        words = [self._cardinal(hour, case, "feminine", "inanimate") if hour else "nula"]
+        words = [self._cardinal(hour, case, "feminine", "inanimate") if hour or case not in (NOM, ACC) else "nula"]
         mcase = case if self.language == "cs" and case not in (NOM, ACC) else NOM
         if minute or second:  # digital: "dvě patnáct třicet" for 2:15:30
             words.append(self._minutes(minute, mcase))

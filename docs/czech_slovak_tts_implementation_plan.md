@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**520 tests:** 102 for the TTS components, 94 for num2words, 320 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**526 tests:** 102 for the TTS components, 94 for num2words, 326 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -444,7 +444,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 320 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 326 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -522,6 +522,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "hand-tagged-span": ("cs", None, "Četl <en>The Hobbit</en> 2 roky.", "Četl <en>The Hobbit</en> dva roky."),
     "sk-personal-masculine": ("sk", None, "Prišli 2 muži.", "Prišli dvaja muži."),
     "adverb-before-adjective": ("cs", None, "Koupil 2 velmi staré knihy.", "Koupil dvě velmi staré knihy."),
+    "coordinated-adjectives": ("cs", None, "Koupil 2 červené a modré knihy.", "Koupil dvě červené a modré knihy."),
+    "count-before-comma-clause": ("cs", None, "Zůstali 2, ženy odešly.", "Zůstali dva, ženy odešly."),
     "coordinated-counts": ("cs", None, "Koupil 2 nebo 3 knihy a 2, 3 nebo 4 židle.",
                            "Koupil dvě nebo tři knihy a dvě, tři nebo čtyři židle."),
     "sk-coordinated-counts": ("sk", None, "Prišli 2 alebo 3 muži.", "Prišli dvaja alebo traja muži."),
@@ -563,6 +565,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "roman-ends-sentence-before-noun": ("cs", None, "Vládl Karel IV. Velký požár vypukl. Karel IV. Lucemburský zemřel.",
                                         "Vládl Karel čtvrtý. Velký požár vypukl. Karel čtvrtý Lucemburský zemřel."),
     "sk-zero-hour": ("sk", None, "Stretneme sa o 0:30.", "Stretneme sa o nultej tridsať."),
+    "zero-hour-after-preposition": ("cs", None, "Otevřeno od 0:00 do 6:00, sejdeme se v 0:00.",
+                                    "Otevřeno od nuly hodin do šesti hodin, sejdeme se v nula hodin."),
     "dot-time-with-hour-word": ("cs", None, "Sejdeme se ve 14.30 hodin, v 8.00 hodiny.",
                                 "Sejdeme se ve čtrnáct třicet, v osm hodin."),
     "sk-dot-time-with-hour-word": ("sk", None, "Stretneme sa o 14.30 hodín.", "Stretneme sa o štrnástej tridsať."),
@@ -3643,7 +3647,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 519 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 525 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
