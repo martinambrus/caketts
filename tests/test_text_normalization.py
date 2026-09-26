@@ -170,6 +170,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capital-one-letter-abbreviations": ("cs", None, "Č. 5 platí. R. 2024 byl dobrý, ale Č. Novák ne.",
                                          "Číslo pět platí. Roku dva tisíce dvacet čtyři byl dobrý, ale Č. Novák ne."),
     "sk-capital-one-letter-abbreviation": ("sk", None, "Č. 5 platí.", "Číslo päť platí."),
+    "acronyms-in-capitals": ("cs", None, "TURNAJ ATP. HRÁL ZA TJ. SOKOL.", "TURNAJ ATP. HRÁL ZA TJ. SOKOL."),
+    "unary-minus-after-plus": ("cs", None, "Platí 2+-3 = -1.", "Platí dva plus mínus tři rovná se mínus jedna."),
+    "spaced-two-digit-year": ("cs", None, "Narodil se 5. 6. 05, ne 5. 6. 24 lidí.",
+                              "Narodil se pátého června nula pět, ne pátého června dvacet čtyři lidí."),
     "per-unit-on-both-ends": ("cs", None, "Stojí 5 Kč/kg–10 Kč/kg nebo $4/kg–$5/kg.",
                               "Stojí pět korun za kilogram až deset korun za kilogram nebo čtyři dolary za kilogram "
                               "až pět dolarů za kilogram."),
