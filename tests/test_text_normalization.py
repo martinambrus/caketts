@@ -157,6 +157,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "hyphenated-ordinal-range": ("cs", None, "Od 1.-5. ledna.", "Od prvního až pátého ledna."),
     "en-dash-minus": ("cs", None, "Teplota –5 °C.", "Teplota mínus pět stupňů Celsia."),
     "en-dash-sign-after-symbol": ("cs", None, "Dluh $–5 a €–5.", "Dluh mínus pět dolarů a mínus pět eur."),
+    "plus-after-symbol": ("cs", None, "Změna $+5.", "Změna plus pět dolarů."),
     "en-dash-sign-at-upper-end": ("cs", None, "Teplota −5––1 °C.", "Teplota mínus pět až mínus jeden stupeň Celsia."),
     "dotted-numbers": ("cs", None, "Verze 1.2.3 vyšla, adresa 192.168.1.1.",
                        "Verze jedna tečka dva tečka tři vyšla, adresa sto devadesát dva tečka sto šedesát osm tečka "
@@ -237,7 +238,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "prefixed-scale-range": ("cs", None, "Stálo to $5 mil.–$10 mil. a $500 tis.–$1 mil.",
                              "Stálo to pět až deset milionů dolarů a pět set tisíc dolarů až milion dolarů."),
     "spaced-times": ("cs", None, "Rozměr 3  x  4 m, cvičím 3 x týdně, opakuj to 3 x.",
-                     "Rozměr tři  krát  čtyři metry, cvičím tři krát týdně, opakuj to tři krát."),
+                     "Rozměr tři krát čtyři metry, cvičím tři krát týdně, opakuj to tři krát."),
+    "multiplication-with-many-spaces": ("cs", None, "Rozměr 3    x 4 m.", "Rozměr tři krát čtyři metry."),
     "scale-in-capitals": ("cs", None, "Stálo to 5 TIS.–10 TIS. Kč a $5 MIL.",
                           "Stálo to pět tisíc až deset tisíc korun a pět milionů dolarů."),
     "scale-on-both-ends": ("cs", None, "Stálo to 5 tis. Kč–10 tis. Kč a 5 tis.–10 tis. Kč.",

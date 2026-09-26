@@ -233,7 +233,7 @@ _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typese
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
 _PER = rf"kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|mL|hod|min|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
-_PRICE = rf"[-−–]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
+_PRICE = rf"[-−–+]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _UNIT = (rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|ks\.?|g|ml|mL|l|L|°C|°|%|‰|hod\.?|min\.?|h\.?"
          rf"|s(?!{_HS}+[^\W\d_])\.?")  # "5 s.", but "Mám 5 s sebou"
@@ -333,7 +333,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±−]|#(?={_HS}*\d)"
-        rf"|(?:(?<=\d)|(?<=\d{_HS})|(?<=\d{_HS}{_HS})|(?<=\d{_HS}{_HS}{_HS}))x{_NOT_LETTER_AFTER})"  # "3 x 4", "3 x týdně"
+        rf"|(?<=\d){_HS}*x{_NOT_LETTER_AFTER}{_HS}*)"  # "3 x 4", "3    x 4", "3 x týdně"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}}|[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"
@@ -591,7 +591,7 @@ class TextNormalizer:
             return start, f" {DOT_WORDS[self.language]} ".join(
                 self._cardinal(int(part), *self._label(int(part))) for part in m.group(0).split("."))
         if kind == "sign":
-            return start, _spaced(text, start, end, SIGNS[self.language][m.group(0)])
+            return start, _spaced(text, start, end, SIGNS[self.language][m.group(0).strip()])
         if kind == "slash":
             if text[start - 1].isdigit():
                 return start, _spaced(text, start, end, SLASH_WORDS[self.language]["number"])
@@ -633,7 +633,8 @@ class TextNormalizer:
             words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
                                 m["rangeper"] or m["rangescaleper"], text, tags, after_label)
         elif kind == "money":
-            price = _plain_price(m["price"])
+            plus = m["price"].startswith("+")  # "$+5" -> "plus pět dolarů"
+            price = _plain_price(m["price"][1:] if plus else m["price"])
             sign = "" if price[0] in "-−–" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
             scale = (m["moneyscale"] or m["highmoneyscale"] or "").lower() or None
             if m["lowmoneyscale"] and m["lowmoneyscale"].lower() != scale:  # "$500 tis.–$1 mil."
@@ -655,6 +656,8 @@ class TextNormalizer:
                                       scale_unit=m["symbol"] if scale else None)
                 if m["moneyper"]:
                     words += " " + self._per(m["moneyper"])  # "$4/kg" -> "čtyři dolary za kilogram"
+            if plus:
+                words = f"{SIGNS[self.language]['+']} {words}"
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_unit=m["scaleunit"])
