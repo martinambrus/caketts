@@ -231,6 +231,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                        "Narodil se prvního ledna dvacet čtyři a pátého června nula pět."),
     "sk-two-digit-year": ("sk", None, "Stalo sa to 1.1.24.", "Stalo sa to prvého januára dvadsaťštyri."),
     "symbol-on-both-ends": ("cs", None, "Stojí $5–$10 a €5 – €10.", "Stojí pět až deset dolarů a pět až deset eur."),
+    "signed-symbol-on-both-ends": ("cs", None, "Změna -$5–-$10 a −€5–−€10.",
+                                   "Změna mínus pět až mínus deset dolarů a mínus pět až mínus deset eur."),
     "unit-on-both-ends": ("cs", None, "Ujel 5 km–10 m za 1,50 €–2,50 €.",
                           "Ujel pět kilometrů až deset metrů za jedno euro padesát centů až dvě eura padesát centů."),
     "dash-between-clauses": ("cs", None, "Ujel 5 km – 10 lidí ho sledovalo.", "Ujel pět kilometrů — deset lidí ho sledovalo."),
