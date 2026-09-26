@@ -277,16 +277,20 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
-        rf"(?:{_HS}*(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER})?)?{_HS}*[–—-]{_HS}*"
+        rf"(?:{_HS}*(?:(?P<lowscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}+(?P<lowscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"|(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER})?))?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−]?{_UNSIGNED})"
-        rf"(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?(lowscale){_HS}*(?P<highscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"|(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<highper>{_PER}){_NOT_LETTER_AFTER})?"
         rf"|(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<rangescaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?))"
+        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?)))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
         rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}{_HS}*[–—-]{_HS}*(?:(?P=symbol){_HS}*)?"
         rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{_PER}){_NOT_LETTER_AFTER}"
@@ -304,7 +308,8 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
-        rf"|(?P<sign>[&+@=×±]|#(?={_HS}*\d)|(?<=\d)x(?=\d)|(?<=\d{_HS})x(?={_HS}\d))"
+        rf"|(?P<sign>[&+@=×±]|#(?={_HS}*\d)"
+        rf"|(?:(?<=\d)|(?<=\d{_HS})|(?<=\d{_HS}{_HS})|(?<=\d{_HS}{_HS}{_HS}))x{_NOT_LETTER_AFTER})"  # "3 x 4", "3 x týdně"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=\d))"
@@ -347,7 +352,7 @@ def _roman_value(numeral: str) -> int:
 def _spaced(text: str, start: int, end: int, word: str) -> str:
     """`word` in place of text[start:end], with a space on each side that lacks one."""
     left = "" if start == 0 or text[start - 1].isspace() else " "
-    right = "" if end == len(text) or text[end].isspace() else " "
+    right = "" if end == len(text) or text[end].isspace() or text[end] in ".,;:!?…)]}“”’»›\"'" else " "
     return f"{left}{word}{right}"
 
 
@@ -573,6 +578,10 @@ class TextNormalizer:
                 words += "."
         elif kind == "time":
             words = self._time(m, tags)
+        elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč"
+            words = f" {RANGE_WORD} ".join(
+                self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"])
+                for end_ in ("low", "high"))
         elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
             words = f" {RANGE_WORD} ".join(
                 self._measure(m[end_], m[end_ + "unit"], start, tags, text, end)
@@ -972,10 +981,18 @@ class TextNormalizer:
 
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
-        """Whether the noun phrase after `pos` is followed by a verb, as the subject of a new sentence."""
+        """Whether the noun phrase after `pos` is followed by a verb, as the subject of a new sentence;
+        adverbs, particles and clitics may come between: "Malé děti se potom vrátily"."""
         head = tags.head_after(pos)
-        verb = tags.after(head.end) if head is not None else None
-        return verb is not None and verb.upos in ("VERB", "AUX")
+        if head is None:
+            return False
+        i = bisect.bisect_left(tags.starts, head.end)
+        for w in tags.words[i:i + 4]:
+            if w.upos in ("VERB", "AUX"):
+                return True
+            if w.upos not in ("ADV", "PART", "PRON"):
+                return False
+        return False
 
     @staticmethod
     def _clause_start(pos: int, tags: _Tags) -> bool:

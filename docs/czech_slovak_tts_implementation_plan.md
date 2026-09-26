@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**447 tests:** 102 for the TTS components, 94 for num2words, 247 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**453 tests:** 102 for the TTS components, 94 for num2words, 253 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -444,7 +444,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 247 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 253 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -547,6 +547,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "per-minute": ("sk", None, "Čerpadlo dá 20 l/min.", "Čerpadlo dá dvadsať litrov za minútu."),
     "ordinal-before-capitalised-noun": ("cs", None, "Hrála 5. Symfonie.", "Hrála pátá Symfonie."),
     "number-ends-sentence-before-noun": ("cs", None, "Měl jen 2. Děti odešly.", "Měl jen dva. Děti odešly."),
+    "subject-after-adverbs": ("cs", None, "Měl jen 2. Malé děti potom odešly.", "Měl jen dva. Malé děti potom odešly."),
     "sk-number-ends-sentence-before-noun": ("sk", None, "Mal len 2. Deti odišli.", "Mal len dva. Deti odišli."),
     "ordinal-inside-noun-phrase": ("cs", None, "Beethovenova 5. Symfonie zazněla.", "Beethovenova pátá Symfonie zazněla."),
     "roman-ends-sentence-before-noun": ("cs", None, "Vládl Karel IV. Velký požár vypukl. Karel IV. Lucemburský zemřel.",
@@ -619,6 +620,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-compact-labels": ("sk", None, "Podľa §5 ods.2 zákona.", "Podľa paragrafu päť odseku dva zákona."),
     "glued-to-next-word": ("cs", None, "Vyšel 5.díl, např.Praha.", "Vyšel pátý díl, například Praha."),
     "glued-multiplication": ("cs", None, "Stálo to 3x4.", "Stálo to tři krát čtyři."),
+    "spaced-times": ("cs", None, "Rozměr 3  x  4 m, cvičím 3 x týdně, opakuj to 3 x.",
+                     "Rozměr tři  krát  čtyři metry, cvičím tři krát týdně, opakuj to tři krát."),
+    "scale-on-both-ends": ("cs", None, "Stálo to 5 tis. Kč–10 tis. Kč a 5 tis.–10 tis. Kč.",
+                           "Stálo to pět tisíc korun až deset tisíc korun a pět tisíc až deset tisíc korun."),
     "two-digit-year": ("cs", None, "Narodil se 1.1.24 a 5.6.05.",
                        "Narodil se prvního ledna dvacet čtyři a pátého června nula pět."),
     "sk-two-digit-year": ("sk", None, "Stalo sa to 1.1.24.", "Stalo sa to prvého januára dvadsaťštyri."),
@@ -3581,7 +3586,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 446 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 452 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
