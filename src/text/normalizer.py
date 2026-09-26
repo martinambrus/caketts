@@ -81,6 +81,7 @@ NOUNS = {  # gender and forms of every noun the normalizer writes after a number
         "euro": ("neuter", _forms("eur", _CS_MESTO)),
         "procento": ("neuter", _forms("procent", _CS_MESTO)),
         "promile": ("neuter", _forms("promile", _INDECLINABLE)),
+        "penny": ("feminine", _forms("pen", "ny,ny,ny,ny,ny,ny,ce,cí,cím,ce,cemi,cích")),
     },
     "sk": {
         "kilometer": ("masculine", _forms("kilomet", _SK_METER)),
@@ -102,6 +103,7 @@ NOUNS = {  # gender and forms of every noun the normalizer writes after a number
         "euro": ("neuter", _forms("eur", _SK_MESTO)),
         "percento": ("neuter", _forms("percent", _SK_MESTO)),
         "promile": ("neuter", _forms("promile", _INDECLINABLE)),
+        "penny": ("feminine", _forms("pen", "ny,ny,ny,ny,ny,ny,ce,cí,ciam,ce,cami,ciach")),
     },
 }
 
@@ -119,8 +121,8 @@ UNITS = {  # symbol -> noun in NOUNS
 UNIT_SUFFIXES = {"cs": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celsia"},
                  "sk": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celzia"}}
 UNIT_ADJECTIVES = {"cs": {"²": "čtvereční", "³": "krychlový"}, "sk": {"²": "štvorcový", "³": "kubický"}}
-MINOR_UNITS = {"cs": {"koruna": "haléř", "euro": "cent", "dolar": "cent"},
-               "sk": {"koruna": "halier", "euro": "cent", "dolár": "cent"}}
+MINOR_UNITS = {"cs": {"koruna": "haléř", "euro": "cent", "dolar": "cent", "libra": "penny"},
+               "sk": {"koruna": "halier", "euro": "cent", "dolár": "cent", "libra": "penny"}}
 SCALES = {"tis": 3, "mil": 6, "mld": 9}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
@@ -397,7 +399,7 @@ class TextNormalizer:
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
-                lines[i] = "# " + self._paragraph(lines[i][2:])
+                lines[i] = "# " + self._paragraph(lines[i][2:], heading=True)
                 i += 1
             elif not lines[i].strip():
                 i += 1
@@ -410,7 +412,7 @@ class TextNormalizer:
         return "\n".join(lines)
 
     # ---- paragraphs ------------------------------------------------------------------------
-    def _paragraph(self, text: str) -> str:
+    def _paragraph(self, text: str, heading: bool = False) -> str:
         if self._english:
             text = self._wrap_english(text)
         spans = []
@@ -424,7 +426,7 @@ class TextNormalizer:
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
         out, pos, after_label = [], 0, -1
         for m in items:
-            start, words = self._resolve(m, text, tags, after_label == m.start())
+            start, words = self._resolve(m, text, tags, after_label == m.start(), heading)
             source_case = m.lastgroup == "abbreviation" and m.group(0)[0].isalpha()
             if start == m.start() and not source_case and _starts_sentence("".join(out) + text[pos:start]):
                 words = words[:1].upper() + words[1:]  # "5 lidí přišlo." -> "Pět lidí přišlo."
@@ -469,7 +471,7 @@ class TextNormalizer:
         return words
 
     # ---- items -----------------------------------------------------------------------------
-    def _resolve(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> Tuple[int, str]:
+    def _resolve(self, m: re.Match, text: str, tags: _Tags, after_label: bool, heading: bool) -> Tuple[int, str]:
         """(start of the replaced text, replacement) for one item."""
         kind, start, end = m.lastgroup, m.start(), m.end()
         if kind == "dash":
@@ -490,7 +492,7 @@ class TextNormalizer:
         if kind == "abbreviation":
             return start, self._abbreviation(m, text, tags)
         if kind == "roman":
-            return self._vocalise(text, start, self._roman(m, text, tags))
+            return self._vocalise(text, start, self._roman(m, text, tags, heading))
         if kind == "date":
             words = self._date(m)
             if m["year"] is None and self._ends_sentence(text, end, tags):
@@ -509,7 +511,7 @@ class TextNormalizer:
             if m["per"]:
                 words += " za " + PER_UNITS[self.language][m["per"]]  # "100 Kč/kg" -> "sto korun za kilogram"
         elif kind == "ordinal":
-            words = self._ordinal_digits(m, text, tags, after_label)
+            words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
             words = self._number(m, text, tags, after_label)
         if kind in ("range", "measure", "time") and m.group(0).endswith(".") and self._ends_sentence(text, end, tags):
@@ -541,13 +543,14 @@ class TextNormalizer:
             words += "."
         return words
 
-    def _roman(self, m: re.Match, text: str, tags: _Tags) -> str:
+    def _roman(self, m: re.Match, text: str, tags: _Tags, heading: bool) -> str:
         numeral, end = m["numeral"], m.end()
         nxt, prev = tags.after(end), tags.before(m.start())
         head = None
         if prev is None or prev.upos != "PROPN":
-            # "XXI. století", "XIX.–XX. století", but "Karel IV. univerzitu" agrees with Karel
-            head = (tags.head_after(end) if nxt and nxt.text[:1].islower() else None) or self._shared_head(end, tags)
+            # "XXI. století", "XIX.–XX. století", "# V. Kapitola", but "Karel IV. univerzitu" agrees with Karel
+            before_noun = nxt is not None and (nxt.text[:1].islower() or nxt.upos in ("NOUN", "ADJ") or heading)
+            head = (tags.head_after(end) if before_noun else None) or self._shared_head(end, tags)
         if head is None:
             if prev is None or prev.upos not in ("NOUN", "PROPN") or (len(numeral) == 1 and nxt
                                                                       and nxt.text[:1].isupper()):
@@ -561,8 +564,8 @@ class TextNormalizer:
             self._warn(text, m, words, "no noun to agree with; nominative masculine inanimate")
         elif doubt:
             self._warn(text, m, words, f"{doubt}; check it")
-        if self._ends_sentence(text, end, tags, roman=True):
-            words += "."
+        if head.start < m.start() and self._ends_sentence(text, end, tags, roman=True):
+            words += "."  # after "Karel IV." the period may end the sentence; before a noun it cannot
         return words
 
     def _date(self, m: re.Match) -> str:
@@ -580,7 +583,7 @@ class TextNormalizer:
             case = (TIME_PREPOSITIONS[self.language].get(prep.text.lower())
                     or _UD_CASES.get(prep.feats.get("Case")))
         if self.language == "sk" and case:  # "o štrnástej tridsať": the hour is an ordinal
-            words = [self._ordinal(hour, case, "feminine", "inanimate") if hour else "nula"]
+            words = [self._ordinal(hour, case, "feminine", "inanimate")]  # also "o nultej"
             if minute:
                 words.append(self._minutes(minute, NOM))
             return " ".join(words)
@@ -672,10 +675,11 @@ class TextNormalizer:
             words += " " + self._numbers.decline_ordinal(adjective, CASES.index(c), gender, "inanimate", plural)
         return words
 
-    def _ordinal_digits(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
+    def _ordinal_digits(self, m: re.Match, text: str, tags: _Tags, after_label: bool, heading: bool) -> str:
         value = int(m["ordinalvalue"])
-        following = text[m.end():].lstrip(" \t\u00a0\u202f")
-        if following[:1].isupper():  # "Bylo jich 5. Pak…": a number that ends the sentence
+        following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
+        if following[:1].isupper() and not heading and (nxt is None or nxt.upos not in ("NOUN", "ADJ")):
+            # "Bylo jich 5. Pak…": a number that ends the sentence; but "5. Symfonie", "# 2. Kapitola"
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
         head = tags.head_after(m.end()) or self._shared_head(m.end(), tags)
