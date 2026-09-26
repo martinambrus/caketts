@@ -176,6 +176,9 @@ LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative pl
 TIME_PREPOSITIONS = {"cs": {"v": ACC, "ve": ACC}, "sk": {"o": LOC}}
 # a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
 # cardinal ("za dve pätnásť")
+# verbs of placing, after which a number that ends the sentence is a rank: "Skončil 2." -> "druhý"
+RANK_VERBS = {"cs": ("skončil", "doběhl", "dojel", "doplaval", "umístil", "byl"),
+              "sk": ("skončil", "dobeh", "doplával", "umiestnil", "bol")}
 SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medzi", "k", "ku", "na"})
 
 # preposition -> (vocalised form, starts of the number words that call for it)
@@ -234,7 +237,7 @@ _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _ONE_LETTER_WORDS = "aikosuvz"
 _INCLUSIVE_SUFFIXES = "kyně|yně|čka|čky|ka|ky|ce|a|á|é|y"  # "on/a", "Vážený/á", "student/ka", "přišli/y"
 # "14.30" is a time only when hod follows, also after more times: "15.30–16.00 hod.", "v 8.30 a 9.30 hod."
-_HOUR_WORD = r"hod(?:\.|in[ay]?|ín)?"  # hod., hodin, hodiny, hodina, sk hodín
+_HOUR_WORD = r"(?:hod(?:\.|in[ay]?|ín)?|h\.?)"  # hod., hodin, hodiny, hodina, h., sk hodín
 _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:do|až|a|nebo|alebo){_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)*"
              rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(f"{_HS}*")
@@ -425,7 +428,7 @@ class _Tags:
         modify an adjective in between: "2 velmi staré knihy", but not the noun: "Vrátil 2 zpátky knihovně"."""
         i = bisect.bisect_left(self.starts, pos)
         adverb = False
-        for w in self.words[i:i + 5]:
+        for w in self.words[i:]:
             if w.upos in ("NOUN", "PROPN"):
                 return None if adverb else w
             if w.upos in ("ADV", "PART"):
@@ -844,6 +847,9 @@ class TextNormalizer:
                                                          or (not attributive and self._verb_follows(m.end(), tags))):
             # "Bylo jich 5. Pak…", "Měl jen 2. Děti odešly.": a number that ends the sentence; but "5. Symfonie",
             # "# 2. Kapitola"
+            verb = self._rank_verb(m.start(), tags)
+            if verb is not None:
+                return self._ordinal(value, NOM, *self._gender(verb)) + "."  # "Skončil 2. Pak…"
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
         head = tags.head_after(m.end()) or self._shared_head(m.end(), tags)
@@ -866,6 +872,8 @@ class TextNormalizer:
             words = self._cardinal(value, NOM, "masculine", "inanimate")
         elif m["times"]:
             words = self._cardinal(value, NOM, "masculine", "inanimate") + "krát"
+        elif text[m.end():m.end() + 1] == "." and self._rank_verb(m.start(), tags) is not None:
+            words = self._ordinal(value, NOM, *self._gender(self._rank_verb(m.start(), tags)))  # "Skončil 2."
         else:
             words = self._cardinal(value, *self._context(value, m.start(), m.end(), text, tags,
                                                          after_label, m))
@@ -999,6 +1007,15 @@ class TextNormalizer:
             animal = form in SK_ANIMAL_PLURALS or (word.feats.get("Number") == "Plur" and form.endswith(("y", "e")))
             return gender, "animate" if animal else "personal"  # "dvaja muži", but "dva vlci", "dva psy"
         return gender, "inanimate"
+
+    def _rank_verb(self, pos: int, tags: _Tags) -> Optional[_Word]:
+        """The placement verb before a number that ends a sentence, which makes the number a rank:
+        "Skončil 2." -> "druhý"; a count keeps its cardinal: "Koupil 5.", "Bylo jich 5."."""
+        verb = tags.before(pos, skip=("PRON",))  # "umístil se 3."
+        if (verb is None or verb.upos not in ("VERB", "AUX") or "Sing" not in verb.feats.get("Number", "Sing")
+                or self._gender(verb)[0] not in ("masculine", "feminine")):
+            return None
+        return verb if verb.text.lower().startswith(RANK_VERBS[self.language]) else None
 
     @staticmethod
     def _shared_time_preposition(pos: int, tags: _Tags) -> Optional[_Word]:
