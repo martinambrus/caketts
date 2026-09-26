@@ -81,6 +81,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                    "Dlužil mínus čtyři dolary padesát centů a mínus čtyři eura."),
     "sk-animals-count-like-things": ("sk", None, "Boli tam 2 vlci a videl som 2 psov.",
                                      "Boli tam dva vlci a videl som dvoch psov."),
+    "negative-range": ("cs", None, "Teplota byla −5–−1 °C.", "Teplota byla mínus pět až mínus jeden stupeň Celsia."),
+    "leading-zero-decimal": ("cs", None, "Vážilo to 0.500 kg.", "Vážilo to nula celá pět desetin kilogramu."),
     "num2words-variant": ("cs", {"num2words": {"construction": "inverted"}}, "Je mi 25 let.",
                           "Je mi pětadvacet let."),
     "period-ends-sentence": ("sk", None, "Kúpil chlieb, mlieko atď. Potom odišiel.",

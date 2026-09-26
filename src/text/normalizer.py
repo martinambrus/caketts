@@ -184,7 +184,7 @@ _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
-_INT = r"\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?!\d)|\d{1,3}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
+_INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
 _AMOUNT = rf"(?:(?<![^\s(\[])[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
@@ -196,7 +196,7 @@ _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _SPACES = re.compile(f"{_HS}*")
 _NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLC]\.)$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLC]+\.")
-_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:\d|[IVXLC]+\.)")
+_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−]?\d|[IVXLC]+\.)")
 
 
 @lru_cache(maxsize=None)
@@ -232,7 +232,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}?(?P<month>1[0-2]|0?[1-9])\."
         rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d):(?P<minute>[0-5]\d)(?![\d:]))"
-        rf"|(?P<range>(?<![\d.,])(?P<low>\d+){_HS}?[–—-]{_HS}?(?P<high>{_INT})"
+        rf"|(?P<range>(?<![\d.,])(?P<low>(?:(?<![^\s(\[])[-−])?\d+){_HS}?[–—-]{_HS}?(?P<high>[-−]?(?:{_INT}))"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
         rf"|(?P<money>(?P<moneysign>(?<![^\s(\[])[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>{_AMOUNT}))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
@@ -260,7 +260,7 @@ def _unspeakable(text: str) -> Optional[str]:
 def _parse(amount: str) -> Tuple[object, int, str]:
     """(value for num2words, absolute integer part, fraction digits without trailing zeros)."""
     s = re.sub(r"[ \u00a0\u202f]", "", amount).replace("−", "-")
-    grouped = re.fullmatch(r"(-?\d{1,3}(?:\.\d{3})+)(,\d+)?", s)  # "10.000", "10.000,50"
+    grouped = re.fullmatch(r"(-?[1-9]\d{0,2}(?:\.\d{3})+)(,\d+)?", s)  # "10.000", "10.000,50"; not "0.500"
     if grouped:
         s = grouped.group(1).replace(".", "") + (grouped.group(2) or "")
     whole, _, fraction = s.replace(".", ",").partition(",")
@@ -570,7 +570,7 @@ class TextNormalizer:
         return f"nula {words}" if minute < 10 else words
 
     def _range(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
-        low = int(m["low"])
+        low = _parse(m["low"])[0]
         if m["rangeunit"]:
             high = self._measure(m["high"], m["rangeunit"], m.start(), tags, text, m.end())
             gender = NOUNS[self.language][self._unit(m["rangeunit"])[0]][0]
