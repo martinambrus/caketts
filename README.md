@@ -25,6 +25,7 @@ The first commit holds the v1 plan and the v1 number modules, so `git log -p` sh
 
 These parts are implemented and tested on CPU:
 
+- Environment setup: the model config and the environment test
 - G2P: espeak-ng with post-rules, a lexicon and a strict vocabulary
 - Slovak and Czech number-to-words, with case, gender and animacy
 - Audio preprocessing with BigVGAN's exact mel spectrogram
@@ -36,7 +37,6 @@ These parts are implemented and tested on CPU:
 
 These are still prompts with acceptance criteria in the plan:
 
-- Environment setup: the model config and the environment test
 - The text normalizer and sentence segmentation
 - The G2P review and vocabulary scripts
 - Corpus preparation and the tempo-labelling script
@@ -51,7 +51,7 @@ These are still prompts with acceptance criteria in the plan:
 ```bash
 uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv; uv: https://docs.astral.sh/uv/
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
-uv run pytest tests/ -q -m "not slow"   # 195 tests, about 15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 199 tests, about 15 s on CPU
 uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 40 s
 ```
 

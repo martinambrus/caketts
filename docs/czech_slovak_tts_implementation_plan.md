@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**196 tests pass:** 102 for the TTS components and 94 for num2words. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**200 tests:** 102 for the TTS components, 94 for num2words and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -130,7 +130,7 @@ czech_slovak_tts/
 
 # Step 1: Environment Setup
 
-## Claude Code Prompt 1.1: Create Project Structure
+## Claude Code Prompt 1.1: Create Project Structure (v2: done)
 
 ```text
 Create the project structure shown in Section 1, with __init__.py in every package under src/.
@@ -156,7 +156,7 @@ Evaluation-only tools stay out of uv.lock:
 Create pytest.ini with pythonpath = . and a "slow" marker.
 ```
 
-## Claude Code Prompt 1.2: Create Base Configuration
+## Claude Code Prompt 1.2: Create Base Configuration (v2: done)
 
 ```text
 Create configs/model/matcha_base.yaml:
@@ -202,7 +202,7 @@ training:
   loss_weights: {duration: 1.0, prior: 1.0, cfm: 1.0}
 ```
 
-## Test 1: Environment Validation
+## Test 1: Environment Validation (tested)
 
 ```python
 # tests/test_environment.py
@@ -3345,12 +3345,13 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 195 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 199 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
 | File | Tests | Guards |
 |---|---|---|
+| test_environment.py | 4 | torch and torchaudio versions; espeak-ng for cs, sk and en; the audio config equals the vocoder's; CUDA (skips without a GPU) |
 | test_phonemizer.py | 52 | Defects 4 and 5; espeak-ng corrections; strict vocabulary; digits raise |
 | test_audio.py | 10 | Defects 6 and 7; exact BigVGAN mel equality; filterbank pinned to librosa 0.10.2; EBU R128; soft onsets kept |
 | test_data_pipeline.py | 5 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches |
