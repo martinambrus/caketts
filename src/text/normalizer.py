@@ -240,6 +240,12 @@ def _capitalise_like(source: str, words: str) -> str:
     return words[0].upper() + words[1:] if source[:1].isupper() else words
 
 
+def _starts_sentence(before: str) -> bool:
+    """Whether text after `before` (the paragraph up to it) starts a sentence."""
+    before = _SPAN_RE.sub(lambda s: s.group(2), before).rstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›([—–-")
+    return not before or before[-1] in ".!?…"
+
+
 @dataclass
 class _Word:
     start: int
@@ -349,6 +355,9 @@ class TextNormalizer:
         out, pos, after_abbreviation = [], 0, -1
         for m in items:
             start, words = self._resolve(m, text, tags, after_abbreviation == m.start())
+            source_case = m.lastgroup == "abbreviation" and m.group(0)[0].isalpha()
+            if start == m.start() and not source_case and _starts_sentence("".join(out) + text[pos:start]):
+                words = words[:1].upper() + words[1:]  # "5 lidí přišlo." -> "Pět lidí přišlo."
             out += [text[pos:start], words]
             pos = m.end()
             if m.lastgroup == "abbreviation":
@@ -443,7 +452,8 @@ class TextNormalizer:
             if case:
                 words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
         words = _capitalise_like(raw, words)
-        if key.endswith(".") and key not in NON_FINAL_ABBREVIATIONS and self._ends_sentence(text, m.end(), tags):
+        if key.endswith(".") and self._ends_sentence(text, m.end(), tags,
+                                                     introduces=key in NON_FINAL_ABBREVIATIONS):
             words += "."
         return words
 
@@ -683,12 +693,16 @@ class TextNormalizer:
             return {1: "sg", 2: "pl", 3: "pl", 4: "pl"}.get(unit, "gen_pl")
         return "gen_pl"
 
-    def _ends_sentence(self, text: str, end: int, tags: _Tags, roman: bool = False) -> bool:
+    def _ends_sentence(self, text: str, end: int, tags: _Tags, roman: bool = False,
+                       introduces: bool = False) -> bool:
         """Whether the period of an abbreviation, date or Roman numeral that ends at `end` also ends a
-        sentence with more text after it in the paragraph (Slovak "atď. Potom", but not "např. Prahu")."""
+        sentence: at the end of the paragraph, or before an uppercase word (Slovak "atď. Potom", but
+        not "např. Prahu")."""
         rest = _SPAN_RE.sub(lambda s: s.group(2), text[end:])
         nxt = rest.lstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›()[]—–-")
-        if not nxt[:1].isupper():
+        if not nxt:
+            return True
+        if introduces or not nxt[:1].isupper():
             return False
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…" does not
             word = tags.after(end)

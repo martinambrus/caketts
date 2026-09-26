@@ -31,15 +31,15 @@ def test_case_from_context_cs(cs):
 
 
 @pytest.mark.parametrize("text,expected", [
-    ("1. ledna 2024", "prvního ledna dva tisíce dvacet čtyři"),
-    ("15.3.2024", "patnáctého března dva tisíce dvacet čtyři"),
+    ("1. ledna 2024", "Prvního ledna dva tisíce dvacet čtyři"),
+    ("15.3.2024", "Patnáctého března dva tisíce dvacet čtyři"),
 ])
 def test_dates_cs(cs, text, expected):
     assert cs.normalize(text) == expected
 
 
 @pytest.mark.parametrize("text,expected", [
-    ("Karel IV.", "Karel čtvrtý"), ("XXI. století", "dvacáté první století"), ("III. díl", "třetí díl"),
+    ("Karel IV.", "Karel čtvrtý."), ("XXI. století", "Dvacáté první století"), ("III. díl", "Třetí díl"),
 ])
 def test_roman_numerals_cs(cs, text, expected):
     assert cs.normalize(text) == expected
@@ -47,7 +47,7 @@ def test_roman_numerals_cs(cs, text, expected):
 
 def test_abbreviations(cs, sk):
     assert cs.normalize("např. toto") == "například toto"
-    assert sk.normalize("atď.") == "a tak ďalej"
+    assert sk.normalize("atď.") == "a tak ďalej."
 
 
 def test_dashes_and_ellipsis(cs):
@@ -70,8 +70,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                         "Harry Potter a Harry, ale ne Harrymu ani harry.",
                         "<en>Harry Potter</en> a <en>Harry</en>, ale ne Harrymu ani harry."),
     "hand-tagged-span": ("cs", None, "Četl <en>The Hobbit</en> 2 roky.", "Četl <en>The Hobbit</en> dva roky."),
-    "sk-personal-masculine": ("sk", None, "2 muži", "dvaja muži"),
-    "unit": ("cs", None, "5 km", "pět kilometrů"),
+    "sk-personal-masculine": ("sk", None, "Prišli 2 muži.", "Prišli dvaja muži."),
+    "unit": ("cs", None, "Ujel 5 km.", "Ujel pět kilometrů."),
     "time-cs": ("cs", None, "Vlak jede v 14:30.", "Vlak jede ve čtrnáct třicet."),
     "time-sk": ("sk", None, "Stretneme sa o 14:30.", "Stretneme sa o štrnástej tridsať."),
     "currency-cs": ("cs", None, "Zaplatil 4,50 €.", "Zaplatil čtyři eura padesát centů."),
@@ -81,10 +81,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "period-ends-sentence": ("sk", None, "Kúpil chlieb, mlieko atď. Potom odišiel.",
                              "Kúpil chlieb, mlieko a tak ďalej. Potom odišiel."),
     "period-inside-sentence": ("cs", None, "Navštívil např. Prahu a Brno.", "Navštívil například Prahu a Brno."),
+    "capital-at-sentence-start": ("cs", None, "5 lidí přišlo. 3 lidé odešli.", "Pět lidí přišlo. Tři lidé odešli."),
 }
 FALLBACK = ("cs", "Zbyl jen 1.", "Zbyl jen jeden.")
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. kapitola\n\nBylo 8:00.\n",
-            "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# druhá kapitola\n\nBylo osm hodin.\n")
+            "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá kapitola\n\nBylo osm hodin.\n")
 TEST2_INPUTS = [  # every input of the Test 2 block above
     ("cs", "Dne 1.1.2024 v 14:30 zaplatil 100 Kč, tj. cca 4 € (20 %)."), ("cs", "Mám 5 jablek."),
     ("cs", "Je mi 25 let."), ("sk", "Mám 25 rokov."), ("cs", "Šel s 5 přáteli."), ("cs", "1. ledna 2024"),

@@ -455,15 +455,15 @@ def test_case_from_context_cs(cs):
 
 
 @pytest.mark.parametrize("text,expected", [
-    ("1. ledna 2024", "prvního ledna dva tisíce dvacet čtyři"),
-    ("15.3.2024", "patnáctého března dva tisíce dvacet čtyři"),
+    ("1. ledna 2024", "Prvního ledna dva tisíce dvacet čtyři"),
+    ("15.3.2024", "Patnáctého března dva tisíce dvacet čtyři"),
 ])
 def test_dates_cs(cs, text, expected):
     assert cs.normalize(text) == expected
 
 
 @pytest.mark.parametrize("text,expected", [
-    ("Karel IV.", "Karel čtvrtý"), ("XXI. století", "dvacáté první století"), ("III. díl", "třetí díl"),
+    ("Karel IV.", "Karel čtvrtý."), ("XXI. století", "Dvacáté první století"), ("III. díl", "Třetí díl"),
 ])
 def test_roman_numerals_cs(cs, text, expected):
     assert cs.normalize(text) == expected
@@ -471,7 +471,7 @@ def test_roman_numerals_cs(cs, text, expected):
 
 def test_abbreviations(cs, sk):
     assert cs.normalize("např. toto") == "například toto"
-    assert sk.normalize("atď.") == "a tak ďalej"
+    assert sk.normalize("atď.") == "a tak ďalej."
 
 
 def test_dashes_and_ellipsis(cs):
