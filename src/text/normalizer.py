@@ -295,8 +295,10 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
         rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}{_HS}*[–—-]{_HS}*(?:(?P=symbol){_HS}*)?"
         rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{_PER}){_NOT_LETTER_AFTER}"
-        rf"|(?:{_HS}*[–—-]{_HS}*(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"
-        rf"(?:{_HS}+(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?"
+        rf"|(?:(?:{_HS}+(?P<lowmoneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
+        rf"(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"
+        rf"(?(lowmoneyscale){_HS}+(?P<highmoneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"|(?:{_HS}+(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?)"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
         rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
@@ -502,6 +504,8 @@ class TextNormalizer:
                 words = words[:1].upper() + words[1:]  # "5 lidí přišlo." -> "Pět lidí přišlo."
             if text[m.end():m.end() + 1].isalnum() and not words[-1:].isspace():
                 words += " "  # "§5", "č.5", "5.díl"
+            if start == m.start() and text[start - 1:start].isalnum() and words[:1].isalnum():
+                words = " " + words  # "v14:30", "dne1.1.2024"
             if start == pos and out and out[-1].endswith(" ") and words.startswith(" "):
                 words = words[1:]  # "3x4", "Cca5": both replacements brought a space
             out += [text[pos:start], words]
@@ -599,8 +603,13 @@ class TextNormalizer:
         elif kind == "money":
             price = _plain_price(m["price"])
             sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
-            scale = m["moneyscale"]
-            if m["lowmoneyper"]:  # "$4/kg–$5/kg"
+            scale = m["moneyscale"] or m["highmoneyscale"]
+            if m["lowmoneyscale"] and m["lowmoneyscale"] != scale:  # "$500 tis.–$1 mil."
+                words = f" {RANGE_WORD} ".join(
+                    self._measure(amount, amount_scale, start, tags, text, end, scale_unit=m["symbol"])
+                    for amount, amount_scale in ((sign + price, m["lowmoneyscale"]),
+                                                 (_plain_price(m["pricehigh"]), scale)))
+            elif m["lowmoneyper"]:  # "$4/kg–$5/kg"
                 words = f" {RANGE_WORD} ".join(
                     f"{self._measure(amount, m['symbol'], start, tags, text, end)} za {PER_UNITS[self.language][per]}"
                     for amount, per in ((sign + price, m["lowmoneyper"]),
