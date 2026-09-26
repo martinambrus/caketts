@@ -56,6 +56,8 @@ uv run pytest tests/ -q -m "not slow"   # 199 tests, about 15 s on CPU
 uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 40 s
 ```
 
+The first test run downloads the text normalizer's Stanza models for Czech and Slovak (250 MB) into `~/.cache/stanza`. Stanza fetches them through huggingface_hub, which keeps a second copy in `~/.cache/huggingface/hub`; delete its `models--stanfordnlp--stanza-*` folders to free that space.
+
 Numbers to words:
 
 ```python
