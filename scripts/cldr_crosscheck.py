@@ -4,10 +4,10 @@ Cross-check num2words_cs / num2words_sk against Unicode CLDR spell-out rules (St
 
 CLDR is NOT ground truth (its Slovak data writes 2000 as "dve tisíce", and older ICU builds
 cannot render every rule), so this prints DISAGREEMENTS FOR NATIVE REVIEW, grouped by
-gender x case, ignoring spacing and soft hyphens. Needs PyICU (apt install libicu-dev;
-pip install PyICU) and network access to GitHub for the current CLDR rule files.
+gender x case, ignoring spacing and soft hyphens. Needs PyICU, which builds against ICU
+(apt install libicu-dev), and network access to GitHub for the current CLDR rule files.
 
-usage: python scripts/cldr_crosscheck.py --module-dir src/text --out cldr_diff.tsv
+usage: uv run --with PyICU scripts/cldr_crosscheck.py --module-dir src/text --out cldr_diff.tsv
 """
 import argparse
 import collections

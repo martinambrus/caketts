@@ -43,7 +43,7 @@ _BACKENDS: Dict[Tuple[str, bool], object] = {}
 
 
 def _ensure_espeak_library() -> None:
-    """Use the system libespeak-ng if phonemizer finds it, else the pip `espeakng-loader` copy."""
+    """Use the system libespeak-ng if phonemizer finds it, else the copy bundled by `espeakng-loader`."""
     from phonemizer.backend import EspeakBackend
 
     try:
@@ -51,7 +51,7 @@ def _ensure_espeak_library() -> None:
         return
     except RuntimeError:
         pass
-    import espeakng_loader  # pip install espeakng-loader (bundles espeak-ng 1.52)
+    import espeakng_loader  # bundles espeak-ng 1.52 (a dependency in pyproject.toml)
     from phonemizer.backend.espeak.wrapper import EspeakWrapper
 
     EspeakWrapper.set_library(espeakng_loader.get_library_path())

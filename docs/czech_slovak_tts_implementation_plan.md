@@ -60,9 +60,9 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 ### Reference implementation status
 
-Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts), also packaged as `czech_slovak_tts_reference_v2.zip`.
+Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**195 tests pass:** 101 for the TTS components and 94 for num2words. They were run with torch 2.14, torchaudio 2.11, phonemizer 3.4.0, espeak-ng 1.52 (via espeakng-loader 0.2.4), numba 0.67, transformers 5.17 and BigVGAN `main`.
+**195 tests pass:** 101 for the TTS components and 94 for num2words. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -118,7 +118,9 @@ czech_slovak_tts/
 │                  train.py  synthesize_book.py  evaluate.py
 ├── NUM2WORDS_CHANGES.md             # num2words v2: changes, sources, native-review decisions
 ├── third_party/BigVGAN/             # git clone https://github.com/NVIDIA/BigVGAN
-├── requirements.txt
+├── pyproject.toml                   # dependencies (uv); uv.lock pins every version (Prompt 1.1)
+├── uv.lock
+├── .python-version                  # 3.13
 └── pytest.ini                       # [pytest] pythonpath = .   markers = slow
 ```
 
@@ -133,28 +135,21 @@ Create the project structure shown in Section 1, with __init__.py in every packa
 Clone https://github.com/NVIDIA/BigVGAN into third_party/BigVGAN (its mel code is the reference
 for our features and its model is our vocoder).
 
-Create requirements.txt:
-  torch>=2.4
-  torchaudio>=2.4          # only resample / forced_align; audio I/O goes through soundfile
-  soundfile>=0.12
-  librosa>=0.10
-  numpy>=1.26
-  scipy>=1.11
-  numba>=0.59              # Monotonic Alignment Search
-  phonemizer>=3.3
-  espeakng-loader>=0.2     # bundles espeak-ng 1.52 when the system package is missing
-  pyloudnorm>=0.1.1        # EBU R128 loudness
-  transformers>=4.40       # SSL discriminator backbones
-  jiwer>=3.0               # ASR verification
-  einops>=0.7
-  pyyaml>=6.0
-  hydra-core>=1.3
-  wandb>=0.16
-  pytest>=8.0
-  tqdm>=4.66
-Evaluation-only dependencies go in requirements-eval.txt (separate environment recommended):
-  nemo_toolkit[asr]>=2.3   # Parakeet-TDT-0.6B-v3, Canary-1B-v2
-  PyICU>=2.12              # CLDR cross-check (Step 2.4); needs libicu-dev
+Dependencies are managed with uv and are already in the repository: pyproject.toml lists them
+(minimums = the versions the tests were run with), uv.lock pins every version, .python-version
+pins Python 3.13, and python-preference = "only-managed" keeps an active conda or system Python
+out of the project. `uv sync` creates .venv; run every command with `uv run`.
+  - torch and torchaudio come from the PyTorch CPU index. On a CUDA machine, delete the
+    pytorch-cpu index and the [tool.uv.sources] entries (PyPI's Linux torch wheels are the
+    CUDA 13 build), then run `uv lock`.
+  - torchaudio is used only for resample / forced_align; audio I/O goes through soundfile.
+  - link-mode = "hardlink" shares installed files with the uv cache instead of copying them.
+  - To upgrade: `uv lock --upgrade`, run the whole test suite, commit uv.lock.
+Evaluation-only tools stay out of uv.lock:
+  - PyICU (CLDR cross-check, Step 2.4): `uv run --with PyICU scripts/cldr_crosscheck.py`;
+    needs libicu-dev
+  - nemo_toolkit[asr]>=2.3 (Parakeet-TDT-0.6B-v3, Canary-1B-v2): its own environment, created
+    when Steps 4.2, 12 and 14 start, because it pins many packages
 
 Create pytest.ini with pythonpath = . and a "slow" marker.
 ```
@@ -218,8 +213,8 @@ from packaging.version import Version
 
 def test_versions():
     import torch, torchaudio
-    assert Version(torch.__version__.split("+")[0]) >= Version("2.4")   # not a string comparison
-    assert Version(torchaudio.__version__.split("+")[0]) >= Version("2.4")
+    assert Version(torch.__version__.split("+")[0]) >= Version("2.14")   # not a string comparison
+    assert Version(torchaudio.__version__.split("+")[0]) >= Version("2.11")
 
 
 def test_espeak_languages():
@@ -332,10 +327,10 @@ Cross-check num2words_cs / num2words_sk against Unicode CLDR spell-out rules (St
 
 CLDR is NOT ground truth (its Slovak data writes 2000 as "dve tisíce", and older ICU builds
 cannot render every rule), so this prints DISAGREEMENTS FOR NATIVE REVIEW, grouped by
-gender x case, ignoring spacing and soft hyphens. Needs PyICU (apt install libicu-dev;
-pip install PyICU) and network access to GitHub for the current CLDR rule files.
+gender x case, ignoring spacing and soft hyphens. Needs PyICU, which builds against ICU
+(apt install libicu-dev), and network access to GitHub for the current CLDR rule files.
 
-usage: python scripts/cldr_crosscheck.py --module-dir src/text --out cldr_diff.tsv
+usage: uv run --with PyICU scripts/cldr_crosscheck.py --module-dir src/text --out cldr_diff.tsv
 """
 import argparse
 import collections
@@ -571,7 +566,7 @@ _BACKENDS: Dict[Tuple[str, bool], object] = {}
 
 
 def _ensure_espeak_library() -> None:
-    """Use the system libespeak-ng if phonemizer finds it, else the pip `espeakng-loader` copy."""
+    """Use the system libespeak-ng if phonemizer finds it, else the copy bundled by `espeakng-loader`."""
     from phonemizer.backend import EspeakBackend
 
     try:
@@ -579,7 +574,7 @@ def _ensure_espeak_library() -> None:
         return
     except RuntimeError:
         pass
-    import espeakng_loader  # pip install espeakng-loader (bundles espeak-ng 1.52)
+    import espeakng_loader  # bundles espeak-ng 1.52 (a dependency in pyproject.toml)
     from phonemizer.backend.espeak.wrapper import EspeakWrapper
 
     EspeakWrapper.set_library(espeakng_loader.get_library_path())
@@ -3301,8 +3296,8 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-pytest tests/ -q -m "not slow"   # 194 tests, ~20 s on CPU
-pytest tests/ -q                 # + end-to-end synthetic training test, ~45 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 194 tests, ~20 s on CPU
+uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~45 s on CPU
 ```
 
 | File | Tests | Guards |
@@ -3408,22 +3403,21 @@ def test_tiny_matcha_learns_alignment_durations_and_content():
 # Quick Start
 
 ```bash
-# 1. environment
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+# 1. environment (uv: https://docs.astral.sh/uv/)
+uv sync
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN
-pytest tests/ -q
+uv run pytest tests/ -q
 
 # 2. data (Step 4.2) and G2P review (Step 3.2)
-python scripts/prepare_corpus.py --audio raw/ --text book.txt --lang sk --out data/narrator.jsonl
-python scripts/g2p_review.py --manifest data/narrator.jsonl --out review/sk_words.tsv
-python scripts/build_vocab.py --manifests data/*.jsonl --lexicon lexicon/lexicon.json --out lexicon/vocab.json
+uv run scripts/prepare_corpus.py --audio raw/ --text book.txt --lang sk --out data/narrator.jsonl
+uv run scripts/g2p_review.py --manifest data/narrator.jsonl --out review/sk_words.tsv
+uv run scripts/build_vocab.py --manifests data/*.jsonl --lexicon lexicon/lexicon.json --out lexicon/vocab.json
 
 # 3. training (Step 11)
-python scripts/train.py --config configs/training/pretrain.yaml
-python scripts/tempo_labels.py --checkpoint checkpoints/pretrain.pt --manifest data/narrator.jsonl
-python scripts/train.py --config configs/training/finetune_narrator.yaml
+uv run scripts/train.py --config configs/training/pretrain.yaml
+uv run scripts/tempo_labels.py --checkpoint checkpoints/pretrain.pt --manifest data/narrator.jsonl
+uv run scripts/train.py --config configs/training/finetune_narrator.yaml
 
 # 4. a book with verification and a QA report (Step 12)
-python scripts/synthesize_book.py --checkpoint checkpoints/narrator.pt --book book.txt --lang sk --out out/
+uv run scripts/synthesize_book.py --checkpoint checkpoints/narrator.pt --book book.txt --lang sk --out out/
 ```

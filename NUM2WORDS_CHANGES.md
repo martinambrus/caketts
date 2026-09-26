@@ -182,7 +182,7 @@ I reviewed every group of differences. **None of them is a v2 bug.** Either CLDR
 | file | what it is |
 |---|---|
 | `src/text/num2words_sk.py`, `src/text/num2words_cs.py` | the v2 modules |
-| `tests/test_num2words_sk.py`, `tests/test_num2words_cs.py` | 44 + 50 tests; run `pytest tests/test_num2words_sk.py tests/test_num2words_cs.py` |
+| `tests/test_num2words_sk.py`, `tests/test_num2words_cs.py` | 44 + 50 tests; run `uv run pytest tests/test_num2words_sk.py tests/test_num2words_cs.py` |
 | `scripts/validate_all_sk.py`, `scripts/validate_all_cs.py` | print every form for your notebook's numbers. Extra rows (animate, personal, agreement, inverted, undeclined, codified, all-ordinal) appear only where they differ from the default, followed by a decimals section. |
 | `docs/NUM2WORDS_v1_v2_diff.csv` | every v1 → v2 change, with its rule; filter the `change` column |
 | `docs/research/num2words_spec_sk.md`, `docs/research/num2words_spec_cs.md` | the research notes behind the modules, with every quote and URL. They were written before the review, so §4 takes precedence. |

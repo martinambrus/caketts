@@ -44,10 +44,10 @@ These are still prompts with acceptance criteria in the plan:
 ## Quick start
 
 ```bash
-pip install -r requirements.txt
+uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv; uv: https://docs.astral.sh/uv/
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
-pytest tests/ -q -m "not slow"   # 194 tests, about 20 s on CPU
-pytest tests/ -q                 # adds the end-to-end synthetic training test, about 1 min
+uv run pytest tests/ -q -m "not slow"   # 194 tests, about 20 s on CPU
+uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 1 min
 ```
 
 Numbers to words:
@@ -62,7 +62,7 @@ cs(1991, to="ordinal")                       # 'tisíc devět set devadesátý p
 cs(3.14)                                     # 'tři celé čtrnáct setin'
 ```
 
-To print every form for review, run `python scripts/validate_all_sk.py` or `python scripts/validate_all_cs.py`. `python scripts/cldr_crosscheck.py` compares both modules with the Unicode CLDR rules; it needs PyICU (`apt install libicu-dev; pip install PyICU`).
+To print every form for review, run `uv run scripts/validate_all_sk.py` or `uv run scripts/validate_all_cs.py`. `uv run --with PyICU scripts/cldr_crosscheck.py` compares both modules with the Unicode CLDR rules; PyICU builds against ICU, so install `libicu-dev` first.
 
 ## License
 
