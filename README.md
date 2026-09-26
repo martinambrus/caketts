@@ -36,10 +36,15 @@ These parts are implemented and tested on CPU:
 
 These are still prompts with acceptance criteria in the plan:
 
-- The text normalizer
-- Corpus preparation
+- Environment setup: the model config and the environment test
+- The text normalizer and sentence segmentation
+- The G2P review and vocabulary scripts
+- Corpus preparation and the tempo-labelling script
+- The vocoder wrapper
 - The training loops and stages
 - Book-length inference
+- The production API
+- Evaluation and the QA report
 
 ## Quick start
 

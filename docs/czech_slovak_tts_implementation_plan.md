@@ -103,7 +103,7 @@ czech_slovak_tts/
 │   ├── lexicon.json                 # {"cs": {...}, "sk": {...}, "en": {...}} word -> phones
 │   └── vocab.json                   # built from real espeak-ng output (Step 3.3)
 ├── src/
-│   ├── text/      normalizer.py  num2words_cs.py  num2words_sk.py  phonemizer.py
+│   ├── text/      normalizer.py  segmenter.py  num2words_cs.py  num2words_sk.py  phonemizer.py
 │   ├── data/      audio.py  dataset.py  tempo.py  prepare.py
 │   ├── model/     text_encoder.py  duration.py  flow_matching.py  matcha_tts.py  discriminators.py
 │   ├── vocoder/   bigvgan.py
@@ -113,9 +113,11 @@ czech_slovak_tts/
 ├── tests/         test_phonemizer.py  test_audio.py  test_data_pipeline.py  test_model_components.py
 │                  test_eval_and_discriminator.py  test_integration.py
 │                  test_num2words_sk.py  test_num2words_cs.py
+│                  test_environment.py  test_text_normalization.py  test_report.py
+│                  fixtures/mel_basis_24k_100.npz
 ├── scripts/       prepare_corpus.py  build_vocab.py  g2p_review.py  cldr_crosscheck.py
 │                  validate_all_sk.py  validate_all_cs.py
-│                  train.py  synthesize_book.py  evaluate.py
+│                  train.py  tempo_labels.py  synthesize_book.py  evaluate.py
 ├── NUM2WORDS_CHANGES.md             # num2words v2: changes, sources, native-review decisions
 ├── third_party/BigVGAN/             # git clone https://github.com/NVIDIA/BigVGAN
 ├── pyproject.toml                   # dependencies (uv); uv.lock pins every version (Prompt 1.1)
@@ -2929,7 +2931,12 @@ universal test set. Verify that its mel settings match before comparing; decide 
 | 5 | RL last: GRPO on the duration predictor (DMOSpeech 2 pattern: AAAI 2026, inference code and checkpoints released, training code "under construction"), then optionally advantage-weighted decoder RL (GROW, Aug 2026; FlowTTS-GRPO, Jun 2026) | Narrator | Rewards must include a **rate-consistency term** (distance from the target rate, and the slope of rate against paragraph position) next to CER and similarity, or RL can drift toward slower "safer" durations |
 
 ```text
-Claude Code Prompt 11.1: Create src/training/trainer.py and stages.py for stages 1-4:
+Claude Code Prompt 11.1: Create src/training/trainer.py and stages.py for stages 1-4, the entry
+point scripts/train.py --config <stage config>, and one config per stage in configs/training/:
+pretrain.yaml (1), finetune_narrator.yaml (2), vocoder.yaml (3, for the Prompt 10.1 fine-tuning
+entry point) and adversarial.yaml (4). A stage config names its data manifests, the checkpoint it
+starts from and only the training settings it overrides from configs/model/matcha_base.yaml
+(stage 2: learning_rate 3e-5).
  - batches by total mel frames (bucketed by length), bf16, DDP, grad clip 1.0, EMA of weights
  - loss = duration + prior + CFM (Step 8); optional negatives / p_uncond from Step 7.3
  - log every N steps: losses, MAS duration histogram, % tokens with 1 frame, and every eval
@@ -2957,7 +2964,10 @@ Rules that make pace consistent:
 7. Insert pauses by rule from the narrator's measured medians per boundary type (comma, sentence, paragraph, chapter).
 
 ```text
-Claude Code Prompt 12.1: Create src/inference/synthesizer.py and scripts/synthesize_book.py:
+Claude Code Prompt 12.1: Create src/inference/synthesizer.py, scripts/synthesize_book.py and
+configs/inference/inference.yaml (n_steps, temperature, the pause per boundary type from the
+narrator's medians, the chapter loudness for masters, the ASR judges and the retry order; tempo
+and length_scale stay in configs/model/matcha_base.yaml):
  1. normalise -> segment (boundary labels) -> G2P tokens (strict vocabulary) per sentence
  2. MatchaTTS.synthesize(..., rates=[inference_rate, median pause ratio], boundary=label,
     length_scale=config[lang], n_steps=10, temperature=0.667) -> BigVGAN
@@ -2969,7 +2979,8 @@ Claude Code Prompt 12.1: Create src/inference/synthesizer.py and scripts/synthes
     LLM-ASR). Durations are deterministic, so a retry that only re-seeds the decoder cannot fix
     a duration-caused skip. Retry actions, in order: local token_scale x1.15 on the suspect
     words -> lexicon check -> re-split the sentence -> human review queue.
- 5. Write a per-chapter QA report: failures, retries, pace metrics (Step 14).
+ 5. Write a per-chapter QA report with src/eval/report.py (Prompt 14.1): failures, retries,
+    pace metrics.
 ```
 
 ### Reference: `src/eval/asr_check.py` (tested)
@@ -3125,6 +3136,28 @@ The binding constraint is measurement, not modelling. No MOS predictor is valida
 | M6 distribution match | Wasserstein distance between synthetic and human sentence-rate distributions | Track |
 
 The thresholds are proposals anchored to the roughly 5% just-noticeable difference for tempo; no industry standard exists.
+
+```text
+Claude Code Prompt 14.1: Create src/eval/report.py, scripts/evaluate.py and tests/test_report.py.
+ - report.py builds the per-chapter QA report of Prompt 12.1 as JSON (the API in Prompt 13.1
+   returns it): each sentence's check result from src/eval/asr_check.py with its retries, the
+   narrator baseline CER it was judged against, and M1-M6 from src/eval/pace.py next to the
+   proposed gates in the table above.
+ - scripts/evaluate.py scores a checkpoint on held-out sets in two modes:
+     fast: what the trainer runs at every eval interval (Prompt 11.1) on 50 held-out sentences:
+           the sentence-level failure shapes of src/eval/asr_check.py and M1
+     full: a chapter-level regression run: Argmax's counts (skips of >= 10 contiguous deleted
+           words, hallucinations of >= 20 contiguous inserted or substituted words), worst-of-N
+           WER across seeds, the catastrophic-failure rate, wSIM (8 s windows at a 4 s stride),
+           M1-M6, and TTSDS2 as a relative same-text signal only
+ - rates for M1-M6 come from an aligner independent of the model (Parakeet word/char
+   timestamps), never from the model's own durations; speaker similarity uses one extractor
+   (Prompt 8.1) and compares within one language
+ - the ASR model, the aligner and the speaker extractor sit behind small interfaces, so
+   tests/test_report.py runs on CPU with stubs: gates flag the right sentences, the Argmax
+   counts match hand-built alignments, and wSIM uses the right windows
+Native listening (item 5 above) stays manual.
+```
 
 ### Reference: `src/eval/pace.py` (tested)
 
