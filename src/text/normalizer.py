@@ -265,17 +265,19 @@ def _items_pattern(abbreviations) -> re.Pattern:
     return re.compile(
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
         rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
-        rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d))?)"
+        rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d)|(?P<shortyear>\d{{2}})(?!\d))?)"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
-        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED}){_HS}*[–—-]{_HS}*"
+        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
+        rf"(?:{_HS}*(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−]?{_UNSIGNED})"
-        rf"(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"|(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?)"
+        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
-        rf"(?:{_HS}*[–—-]{_HS}*(?P<pricehigh>{_PRICE}))?"
+        rf"(?:{_HS}*[–—-]{_HS}*(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"
         rf"(?:{_HS}+(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
@@ -557,11 +559,15 @@ class TextNormalizer:
         if kind == "isodate":
             words = self._date(int(m["isoday"]), int(m["isomonth"]), m["isoyear"])
         elif kind == "date":
-            words = self._date(int(m["day"]), int(m["month"]), m["year"])
-            if m["year"] is None and self._ends_sentence(text, end, tags):
+            year = m["year"] or m["shortyear"]
+            words = self._date(int(m["day"]), int(m["month"]), year)
+            if year is None and self._ends_sentence(text, end, tags):
                 words += "."
         elif kind == "time":
             words = self._time(m, tags)
+        elif kind == "range" and m["lowunit"]:
+            words = (f"{self._measure(m['low'], m['lowunit'], start, tags, text, end)} {RANGE_WORD} "
+                     f"{self._measure(m['high'], m['highunit'], start, tags, text, end)}")
         elif kind == "range":
             words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
                                 m["rangeper"], text, tags, after_label)
@@ -647,7 +653,8 @@ class TextNormalizer:
     def _date(self, day: int, month: int, year: Optional[str]) -> str:
         words = [self._ordinal(day, GEN, "masculine", "inanimate"), MONTHS_GENITIVE[self.language][month - 1]]
         if year:
-            words.append(self._cardinal(int(year), NOM, "masculine", "inanimate"))
+            zero = f"{self._cardinal(0, NOM, 'masculine', 'inanimate')} " if year[0] == "0" else ""
+            words.append(zero + self._cardinal(int(year), NOM, "masculine", "inanimate"))
         return " ".join(words)
 
     def _time(self, m: re.Match, tags: _Tags) -> str:
