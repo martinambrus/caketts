@@ -113,6 +113,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "dot-time-with-hour-word": ("cs", None, "Sejdeme se ve 14.30 hodin, v 8.00 hodiny.",
                                 "Sejdeme se ve čtrnáct třicet, v osm hodin."),
     "sk-dot-time-with-hour-word": ("sk", None, "Stretneme sa o 14.30 hodín.", "Stretneme sa o štrnástej tridsať."),
+    "negative-zero-scaled": ("cs", None, "Dluh -0 tis. Kč a $-0 mil.", "Dluh mínus nula korun a mínus nula dolarů."),
+    "preposition-before-time-range": ("cs", None, "Otevřeno od 2:00–3:00.", "Otevřeno od dvou hodin až tří hodin."),
+    "sk-preposition-before-time-range": ("sk", None, "Otvorené od 2:00–3:00.", "Otvorené od druhej až tretej."),
     "negative-zero": ("cs", None, "Bylo −0 °C, dluh $-0 a hodnota -0,0.",
                       "Bylo mínus nula stupňů Celsia, dluh mínus nula dolarů a hodnota mínus nula."),
     "sk-duration-time": ("sk", None, "Trať zabehol za 2:15, štart bol o 2:15.",
@@ -297,6 +300,12 @@ def test_digit_or_symbol_in_span_raises(cs, text):
 def test_symbol_without_reading_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)
+
+
+def test_dates_need_no_tagger(monkeypatch):
+    monkeypatch.setattr("src.text.normalizer._tagger", lambda language: pytest.fail("tagger loaded"))
+    assert (TextNormalizer("cs").normalize("Dne 2024-01-15 a 1. 1.")
+            == "Dne patnáctého ledna dva tisíce dvacet čtyři a prvního ledna.")
 
 
 def test_unknown_num2words_variant_raises():

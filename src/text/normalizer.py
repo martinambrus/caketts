@@ -546,7 +546,7 @@ class TextNormalizer:
     def _needs_tags(self, m: re.Match) -> bool:
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
-        return m.lastgroup not in ("date", "sign", "slash", "dash", "ellipsis")
+        return m.lastgroup not in ("isodate", "date", "sign", "slash", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
         view = _SPAN_RE.sub(lambda s: " " * (s.start(2) - s.start()) + s.group(2) + " " * (s.end() - s.end(2)),
@@ -778,7 +778,7 @@ class TextNormalizer:
                 noun, adjective, suffix = self._unit(scale_unit)
                 count = 1000 if fraction else integer * 10 ** SCALES[unit]
                 words += f" {self._noun_phrase(noun, count, NOM if fraction else case or NOM, adjective)}{suffix}"
-            return words
+            return self._signed(amount, words)
         noun, adjective, suffix = self._unit(unit)
 
         def read(c: str) -> str:
@@ -1019,11 +1019,12 @@ class TextNormalizer:
 
     @staticmethod
     def _shared_time_preposition(pos: int, tags: _Tags) -> Optional[_Word]:
-        """The preposition of an earlier time that this one shares: sk "o 8.30 a 9.30 hod."."""
+        """The preposition of an earlier time that this one shares: sk "o 8.30 a 9.30 hod.", "od 2:00–3:00"."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
-        if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ","):
+        if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
-        while i >= 0 and (w[i].text.isdigit() or w[i].text.lower() in (".", ":", ",", "a", "nebo", "alebo")):
+        while i >= 0 and (w[i].text.isdigit()
+                          or w[i].text.lower() in (".", ":", ",", "a", "nebo", "alebo", "–", "—", "-")):
             i -= 1
         return w[i] if i >= 0 and w[i].upos == "ADP" else None
 
