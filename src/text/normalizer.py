@@ -141,6 +141,12 @@ PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusa
 }
 SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
 RANGE_WORD = "až"
+# the feminine of an inclusive "Vážený/á", "přišel/a", "studenti/ky": (suffixes after the slash,
+# endings of the masculine form, the feminine ending); any other suffix is appended: "on/a", "student/ka"
+FEMININE_ENDINGS = [(("a", "á"), ("ý",), "á"), (("é",), ("í",), "é"), (("a",), ("šel", "šiel"), "šla"),
+                    (("a",), ("sám",), "sama"), (("y",), ("i",), "y"), (("ky",), ("i", "é"), "ky"),
+                    (("ce",), ("ník", "níci"), "nice"), (("čka",), ("k",), "čka"), (("čky",), ("ci",), "čky"),
+                    (("yně",), ("a",), "yně")]
 
 # Slovak animal plurals in -i that the tagger may mark animate like people; animals count with
 # dva/tri/štyri, people with dvaja/traja/štyria
@@ -214,7 +220,7 @@ _ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: 
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _ONE_LETTER_WORDS = "aikosuvz"
-_INCLUSIVE_SUFFIXES = "kyně|yně|čka|ka|ce|a|á"  # "on/a", "Vážený/á", "student/ka"
+_INCLUSIVE_SUFFIXES = "kyně|yně|čka|čky|ka|ky|ce|a|á|é|y"  # "on/a", "Vážený/á", "student/ka", "přišli/y"
 # "14.30" is a time only when hod follows, also after a second time: "15.30–16.00 hod.", "od 8.00 do 12.00 hod."
 _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—-]{_HS}*|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
              rf"{_HS}*hod{_NOT_LETTER_AFTER})")
@@ -995,24 +1001,15 @@ class TextNormalizer:
         return True
 
     def _feminine(self, word: str, suffix: str) -> str:
-        """The feminine form that "on/a", "přišel/a", "Vážený/á", "student/ka", "zákazník/ce", "sám/a" or
-        sk "mohol/a", "zákazník/čka" stands for."""
+        """The feminine form that an inclusive "on/a", "přišel/a" or sk "mohol/a" stands for."""
         lower = word.lower()
-        if suffix in ("a", "á") and lower.endswith("ý"):
-            return word[:-1] + "á"
-        if suffix == "a" and lower.endswith(("šel", "šiel")):
-            return word[:lower.rindex("š") + 1] + "la"
-        if suffix == "a" and lower == "sám":
-            return word[0] + "ama"
+        for suffixes, endings, feminine in FEMININE_ENDINGS:
+            ending = next((e for e in endings if lower.endswith(e)), None)
+            if suffix in suffixes and ending:
+                return _capitalise_like(word, word[:len(word) - len(ending)] + feminine)
         if (suffix == "a" and self.language == "sk" and len(lower) > 3 and lower.endswith("ol")
                 and lower[-3] not in "aeiouyáéíóúýäô"):
             return word[:-2] + "la"
-        if suffix == "ce" and lower.endswith("ník"):
-            return word[:-2] + "ice"
-        if suffix == "čka" and lower.endswith("k"):
-            return word[:-1] + suffix
-        if suffix.startswith("y") and lower.endswith("a"):
-            return word[:-1] + suffix
         return word + suffix
 
     def _vocalise(self, text: str, start: int, words: str) -> Tuple[int, str]:
