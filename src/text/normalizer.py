@@ -787,8 +787,12 @@ class TextNormalizer:
     def _ordinal_digits(self, m: re.Match, text: str, tags: _Tags, after_label: bool, heading: bool) -> str:
         value = int(m["ordinalvalue"])
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
-        if following[:1].isupper() and not heading and (nxt is None or nxt.upos not in ("NOUN", "ADJ")):
-            # "Bylo jich 5. Pak…": a number that ends the sentence; but "5. Symfonie", "# 2. Kapitola"
+        prev = tags.before(m.start())
+        attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT")  # "Beethovenova 5. Symfonie"
+        if following[:1].isupper() and not heading and (nxt is None or nxt.upos not in ("NOUN", "ADJ")
+                                                         or (not attributive and self._verb_follows(m.end(), tags))):
+            # "Bylo jich 5. Pak…", "Měl jen 2. Děti odešly.": a number that ends the sentence; but "5. Symfonie",
+            # "# 2. Kapitola"
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
         head = tags.head_after(m.end()) or self._shared_head(m.end(), tags)
@@ -962,6 +966,13 @@ class TextNormalizer:
         return _UD_CASES.get(prep.feats.get("Case")) if prep else None
 
     @staticmethod
+    def _verb_follows(pos: int, tags: _Tags) -> bool:
+        """Whether the noun phrase after `pos` is followed by a verb, as the subject of a new sentence."""
+        head = tags.head_after(pos)
+        verb = tags.after(head.end) if head is not None else None
+        return verb is not None and verb.upos in ("VERB", "AUX")
+
+    @staticmethod
     def _clause_start(pos: int, tags: _Tags) -> bool:
         prev = tags.before(pos)
         return prev is None or (prev.upos == "PUNCT" and prev.text in ".!?…")
@@ -1016,9 +1027,10 @@ class TextNormalizer:
             return True
         if introduces or not nxt[:1].isupper():
             return False
-        if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…" does not
+        if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             word = tags.after(end)
-            return word is None or word.upos not in ("PROPN", "ADJ")
+            return (word is None or word.upos not in ("PROPN", "ADJ")
+                    or (word.upos == "ADJ" and self._verb_follows(end, tags)))
         return True
 
     def _feminine(self, word: str, suffix: str) -> str:
