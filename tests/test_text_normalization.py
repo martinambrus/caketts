@@ -84,6 +84,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "negative-range": ("cs", None, "Teplota byla −5–−1 °C.", "Teplota byla mínus pět až mínus jeden stupeň Celsia."),
     "leading-zero-decimal": ("cs", None, "Vážilo to 0.500 kg.", "Vážilo to nula celá pět desetin kilogramu."),
     "time-with-hod": ("cs", None, "Sraz je ve 14.30 hod. Pak odjedeme.", "Sraz je ve čtrnáct třicet. Pak odjedeme."),
+    "dot-time-range": ("cs", None, "Otevřeno 15.30–16.00 hod.", "Otevřeno patnáct třicet až šestnáct hodin."),
     "price-per-unit": ("cs", None, "Stojí to 100 Kč/kg.", "Stojí to sto korun za kilogram."),
     "sign-after-currency-symbol": ("cs", None, "Dluh $-4.50.", "Dluh mínus čtyři dolary padesát centů."),
     "comma-grouped-dollars": ("cs", None, "Stálo to $1,234.56.",

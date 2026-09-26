@@ -200,6 +200,9 @@ _CURRENCY = r"Kč|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: "CD.", "DC." are acronyms
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
+# "14.30" is a time only when hod follows, also after a second time: "15.30–16.00 hod.", "od 8.00 do 12.00 hod."
+_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}?[–—-]{_HS}?|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
+             rf"{_HS}?hod{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(f"{_HS}*")
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
 _NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLC]\.)$")  # a dash between these reads "až"
@@ -239,7 +242,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
     return re.compile(
         rf"(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}?(?P<month>1[0-2]|0?[1-9])\."
         rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
-        rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.(?=[0-5]\d{_HS}?hod))(?P<minute>[0-5]\d)(?![\d:])"
+        rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?![\d:])"
         rf"(?:{_HS}?hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:(?<![^\s(\[])[-−])?(?:{_INT})){_HS}?[–—-]{_HS}?(?P<high>[-−]?(?:{_INT}))"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
