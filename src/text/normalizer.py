@@ -373,7 +373,7 @@ def _negative_zero(amount: str) -> bool:
 
 def _plain_price(price: str) -> str:
     """"1,234.56" after $ or £ groups thousands with commas."""
-    return price.replace(",", "") if re.fullmatch(rf"[-−–]?{_EN_GROUPED}", price) else price
+    return price.replace(",", "") if re.fullmatch(rf"[-−–+]?{_EN_GROUPED}", price) else price
 
 
 def _roman_value(numeral: str) -> int:
@@ -773,6 +773,8 @@ class TextNormalizer:
             high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit)
             if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:
                 words = f"{self._measure(low_amount, unit, start, tags, text, end)} {RANGE_WORD} {high}"  # "1,50–2,50 €"
+            elif scale and scale.lower() == "tis" and self.language == "sk":  # "dvetisíc až tritisíc": one word each
+                words = f"{self._measure(low_amount, scale, start, tags, text, end)} {RANGE_WORD} {high}"
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
@@ -825,6 +827,8 @@ class TextNormalizer:
         return self._signed(amount, words) + suffix
 
     def _signed(self, amount: str, words: str) -> str:
+        if amount.startswith("+"):
+            return f"{SIGNS[self.language]['+']} {words}"  # "$5–$+10"
         return f"{self._numbers.MINUS} {words}" if _negative_zero(amount) else words
 
     def _per(self, per: str) -> str:

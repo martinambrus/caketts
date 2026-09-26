@@ -158,6 +158,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "en-dash-minus": ("cs", None, "Teplota –5 °C.", "Teplota mínus pět stupňů Celsia."),
     "en-dash-sign-after-symbol": ("cs", None, "Dluh $–5 a €–5.", "Dluh mínus pět dolarů a mínus pět eur."),
     "plus-after-symbol": ("cs", None, "Změna $+5.", "Změna plus pět dolarů."),
+    "plus-at-upper-end": ("cs", None, "Změna $5–$+10.", "Změna pět až plus deset dolarů."),
     "en-dash-sign-at-upper-end": ("cs", None, "Teplota −5––1 °C.", "Teplota mínus pět až mínus jeden stupeň Celsia."),
     "dotted-numbers": ("cs", None, "Verze 1.2.3 vyšla, adresa 192.168.1.1.",
                        "Verze jedna tečka dva tečka tři vyšla, adresa sto devadesát dva tečka sto šedesát osm tečka "
@@ -240,6 +241,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "spaced-times": ("cs", None, "Rozměr 3  x  4 m, cvičím 3 x týdně, opakuj to 3 x.",
                      "Rozměr tři krát čtyři metry, cvičím tři krát týdně, opakuj to tři krát."),
     "multiplication-with-many-spaces": ("cs", None, "Rozměr 3    x 4 m.", "Rozměr tři krát čtyři metry."),
+    "sk-thousand-range": ("sk", None, "Stálo to 2–3 tis. Kč a 2–3 mil. €.",
+                          "Stálo to dvetisíc až tritisíc korún a dva až tri milióny eur."),
     "scale-in-capitals": ("cs", None, "Stálo to 5 TIS.–10 TIS. Kč a $5 MIL.",
                           "Stálo to pět tisíc až deset tisíc korun a pět milionů dolarů."),
     "scale-on-both-ends": ("cs", None, "Stálo to 5 tis. Kč–10 tis. Kč a 5 tis.–10 tis. Kč.",
