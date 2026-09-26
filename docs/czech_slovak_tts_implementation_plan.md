@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**200 tests:** 102 for the TTS components, 94 for num2words and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**288 tests:** 102 for the TTS components, 94 for num2words, 88 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -287,28 +287,54 @@ Decimals are accepted as a float, a `Decimal` or a string.
 
 Keep per-book choices in the book config, so that training and inference normalise alike.
 
-## 2.2 Claude Code Prompt 2.2: Create Text Normalizer
+## 2.2 Claude Code Prompt 2.2: Create Text Normalizer (v2: done)
 
 ```text
-Create src/text/normalizer.py. Contract: its output contains NO digits and NO symbols such as
-% / & + @ # (the G2P raises on them, because dropping them would be a skipped word).
+Create src/text/normalizer.py: TextNormalizer(language, book_config=None).normalize(text) -> str,
+for "cs" and "sk". Contract: outside <cs>/<sk>/<en> spans the output contains NO digits and NO
+symbols (the G2P raises on them, because dropping them would be a skipped word); a symbol with no
+reading raises ValueError. Book text is Markdown-style: a blank line ends a paragraph, a line
+starting with "# " is a chapter heading. Every line break stays where it is and the leading "# "
+is kept (Prompt 2.3 segments this output). book_config is the per-book config as a dict:
+book_config["english"] lists phrases the narrator reads in English, book_config["num2words"] holds
+the Step 2.1 variant keywords, passed to every num2words call (unknown keywords raise, because
+num2words ignores them silently).
 
 Handle:
- 1. Numbers -> words through num2words(n, to=..., gender=..., case=..., animacy=...). The hard part
-    is choosing case, gender and animacy from context: "s 5 lidmi" -> instrumental "s pěti lidmi";
-    Slovak "2 muži" -> animacy="personal" -> "dvaja muži". Use a morphological tagger on the sentence
-    (UDPipe 2 or Stanza, both with Czech and Slovak models) to read the case, gender and animacy of
-    the governing noun or preposition. Fall back to the nominative masculine inanimate and LOG the
-    fallback, so native review can catch it. Keep the module defaults unless the book config sets a
-    variant (Step 2.1). Decimals are read in the nominative ("tri celé štrnásť stotín").
- 2. Dates ("1. ledna 2024" -> "prvního ledna dva tisíce dvacet čtyři"), times, currency, units that
-    agree with their number ("5 km" -> "pět kilometrů"), Roman numerals ("Karel IV." -> "Karel čtvrtý").
- 3. Abbreviations (keep the v1 tables for cs and sk and extend them).
- 4. Dashes: normalise "–" and " - " to "—"; normalise "..." to "…".
- 5. English spans the narrator reads in English: wrap them as <en>Harry Potter</en> (Step 3).
-    Names the narrator adapts to Slovak/Czech stay untagged and go through the lexicon instead.
- 6. Optional LLM proposals for hard cases must be verified by rules; reject any edit that
-    changes more than 5% of characters outside the number span (the Granary pattern).
+ 1. Numbers -> words through num2words(n, to=..., gender=..., case=..., animacy=...), with the
+    case, gender and animacy of the counted noun or the governing preposition: "s 5 přáteli" ->
+    "s pěti přáteli", Slovak "2 muži" -> "dvaja muži". They come from Stanza: Czech package "cac"
+    (UD Czech-CAC, CC BY-SA 4.0) and Slovak "snk", never "pdt" or "fictree" (non-commercial); only
+    the tokenize and pos processors, each pipeline built once per process, the models downloaded
+    on first use. Stanza's own sentence splitter ends a Czech sentence at every period ("Karel
+    IV. | založil") and the false splits corrupt the tags, so each paragraph is tagged as one
+    pretokenized sentence. Check the tags against the word forms: a plural in -ech/-ách is
+    locative, a Czech neuter in -í ("století") takes its case from the context, and a small table
+    fixes forms the tagger misreads (Slovak "diel"). A number with no governing word is read in
+    the nominative masculine inanimate and LOGGED as a WARNING, so native review can catch it;
+    labels and years ("kapitola 5", "č. 5", "v roce 2024") are nominative, Czech "jedna" for 1.
+    Decimals are read in the nominative.
+ 2. Dates ("1. ledna 2024" -> "Prvního ledna dva tisíce dvacet čtyři"), times read digitally
+    ("ve čtrnáct třicet", Slovak "o štrnástej tridsať"), currency ("sto korun", "čtyři eura
+    padesát centů"), units that agree with their number ("5 km" -> "pět kilometrů", "80 m²" ->
+    "osmdesát metrů čtverečních"), ranges ("5–10" -> "pět až deset"), Roman numerals ("Karel
+    IV." -> "Karel čtvrtý."), and ordinals that share a noun ("od XIX. do XX. století").
+ 3. Abbreviations: the v1 tables for cs and sk, extended. č., str., r., §, odst. and písm. decline
+    after a preposition ("na str. 45" -> "na straně čtyřicet pět"); sv. and tzv. agree with their
+    noun. Symbols with a reading: & + @ = × ± #1, and / between words ("nebo") or numbers
+    ("lomeno").
+ 4. Dashes: normalise "–" and " - " to "—", or to "až" between numbers; normalise "..." to "…".
+ 5. English spans: wrap every exact, case-sensitive, whole-word occurrence of a
+    book_config["english"] phrase in <en>…</en>, longest phrase first. <cs>/<sk>/<en> spans
+    already in the text are kept unchanged; a digit or symbol inside one raises ValueError.
+
+Where the period of an abbreviation, date or Roman numeral also ends a sentence (an uppercase
+word follows, or the paragraph ends), keep a "." there: Slovak "mlieko atď. Potom" -> "mlieko a
+tak ďalej. Potom", but Czech "např. Prahu" -> "například Prahu". Capitalise number words that start
+a sentence ("5 lidí přišlo." -> "Pět lidí přišlo.").
+
+Not implemented: optional LLM proposals for hard cases, verified by rules (reject any edit that
+changes more than 5% of characters outside the number span, the Granary pattern).
 ```
 
 ## 2.3 Claude Code Prompt 2.3: Sentence and boundary segmentation
@@ -411,14 +437,14 @@ if __name__ == "__main__":
     main()
 ```
 
-## Test 2: Text Normalization Tests
+## Test 2: Text Normalization Tests (tested)
 
 The num2words suites ship with the reference implementation:
 
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (to be written with Prompt 2.2):
+Normalizer tests (tested, 88 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -482,6 +508,97 @@ def test_punctuation_and_empty(cs):
     assert cs.normalize("Máš 5 jablek?").endswith("?")
     assert cs.normalize("") == ""
     assert cs.normalize("Toto je věta bez čísel.") == "Toto je věta bez čísel."
+
+
+# ---- added with Prompt 2.2 ------------------------------------------------------------------
+import logging
+
+from src.text.phonemizer import CzechSlovakPhonemizer
+
+EXAMPLES = {  # id: (language, book_config, input, expected output)
+    "english-phrases": ("cs", {"english": ["Harry", "Harry Potter"]},
+                        "Harry Potter a Harry, ale ne Harrymu ani harry.",
+                        "<en>Harry Potter</en> a <en>Harry</en>, ale ne Harrymu ani harry."),
+    "hand-tagged-span": ("cs", None, "Četl <en>The Hobbit</en> 2 roky.", "Četl <en>The Hobbit</en> dva roky."),
+    "sk-personal-masculine": ("sk", None, "Prišli 2 muži.", "Prišli dvaja muži."),
+    "unit": ("cs", None, "Ujel 5 km.", "Ujel pět kilometrů."),
+    "time-cs": ("cs", None, "Vlak jede v 14:30.", "Vlak jede ve čtrnáct třicet."),
+    "time-sk": ("sk", None, "Stretneme sa o 14:30.", "Stretneme sa o štrnástej tridsať."),
+    "currency-cs": ("cs", None, "Zaplatil 4,50 €.", "Zaplatil čtyři eura padesát centů."),
+    "currency-sk": ("sk", None, "Zaplatil 2 €.", "Zaplatil dve eurá."),
+    "num2words-variant": ("cs", {"num2words": {"construction": "inverted"}}, "Je mi 25 let.",
+                          "Je mi pětadvacet let."),
+    "period-ends-sentence": ("sk", None, "Kúpil chlieb, mlieko atď. Potom odišiel.",
+                             "Kúpil chlieb, mlieko a tak ďalej. Potom odišiel."),
+    "period-inside-sentence": ("cs", None, "Navštívil např. Prahu a Brno.", "Navštívil například Prahu a Brno."),
+    "capital-at-sentence-start": ("cs", None, "5 lidí přišlo. 3 lidé odešli.", "Pět lidí přišlo. Tři lidé odešli."),
+    "locative-abbreviation": ("sk", None, "Na str. 45 sa píše o tom.", "Na strane štyridsaťpäť sa píše o tom."),
+    "slash-between-words": ("cs", None, "Přijde on a/nebo ona, on/ona.", "Přijde on a nebo ona, on nebo ona."),
+    "legal-reference": ("cs", None, "Podle § 5 odst. 2 platí.", "Podle paragrafu pět odstavce dva platí."),
+    "math-signs": ("sk", None, "Platí 3 × 4 = 12.", "Platí tri krát štyri rovná sa dvanásť."),
+    "square-metres": ("cs", None, "Byt má 80 m² a sklep 2 m2.",
+                      "Byt má osmdesát metrů čtverečních a sklep dva metry čtvereční."),
+    "dot-thousands": ("cs", None, "Stálo to 10.000 Kč.", "Stálo to deset tisíc korun."),
+    "time-range": ("cs", None, "Otevřeno 10:00–12:00.", "Otevřeno deset hodin až dvanáct hodin."),
+    "label-cs": ("cs", None, "Kapitola 1 začíná.", "Kapitola jedna začíná."),
+    "same-form-in-every-case": ("cs", None, "Pak začalo XXI. století.", "Pak začalo dvacáté první století."),
+    "tagger-gender-fix": ("sk", None, "Potom vyšiel 2. diel.", "Potom vyšiel druhý diel."),
+    "ordinal-range": ("cs", None, "Od 1.–5. ledna.", "Od prvního až pátého ledna."),
+    "shared-noun": ("cs", None, "Přelom XIX. a XX. století.", "Přelom devatenáctého a dvacátého století."),
+    "noun-after-tisíc": ("cs", None, "S 1 000 Kč vyrazil.", "S tisícem korun vyrazil."),
+    "grouped-digits": ("cs", None, "Po 1 000 letech.", "Po tisíci letech."),
+}
+LOGGED = {  # id: (language, input, expected output, part of the WARNING)
+    "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
+    "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
+}
+HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. kapitola\n\nBylo 8:00.\n",
+            "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá kapitola\n\nBylo osm hodin.\n")
+TEST2_INPUTS = [  # every input of the Test 2 block above
+    ("cs", "Dne 1.1.2024 v 14:30 zaplatil 100 Kč, tj. cca 4 € (20 %)."), ("cs", "Mám 5 jablek."),
+    ("cs", "Je mi 25 let."), ("sk", "Mám 25 rokov."), ("cs", "Šel s 5 přáteli."), ("cs", "1. ledna 2024"),
+    ("cs", "15.3.2024"), ("cs", "Karel IV."), ("cs", "XXI. století"), ("cs", "III. díl"), ("cs", "např. toto"),
+    ("sk", "atď."), ("cs", "A pak – nic..."), ("cs", "Máš 5 jablek?"), ("cs", ""), ("cs", "Toto je věta bez čísel."),
+]
+G2P = {"cs": CzechSlovakPhonemizer("cs"), "sk": CzechSlovakPhonemizer("sk")}
+
+
+@pytest.mark.parametrize("language,config,text,expected", EXAMPLES.values(), ids=list(EXAMPLES))
+def test_examples(language, config, text, expected):
+    assert TextNormalizer(language, config).normalize(text) == expected
+
+
+@pytest.mark.parametrize("language,text,expected,warning", LOGGED.values(), ids=list(LOGGED))
+def test_reading_is_logged_for_review(caplog, language, text, expected, warning):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        assert TextNormalizer(language).normalize(text) == expected
+    records = [r for r in caplog.records if r.name == "src.text.normalizer"]
+    assert [r.levelno for r in records] == [logging.WARNING]
+    assert warning in records[0].getMessage()
+
+
+def test_line_structure_and_headings(cs):
+    text, expected = HEADINGS
+    assert cs.normalize(text) == expected
+
+
+@pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>."])
+def test_digit_or_symbol_in_span_raises(cs, text):
+    with pytest.raises(ValueError):
+        cs.normalize(text)
+
+
+def test_unknown_num2words_variant_raises():
+    with pytest.raises(ValueError):
+        TextNormalizer("sk", {"num2words": {"inverted": True}})  # a Czech-only keyword
+
+
+# inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
+@pytest.mark.parametrize("language,config,text", [(lang, None, text) for lang, text in TEST2_INPUTS]
+                         + [example[:3] for example in EXAMPLES.values()]
+                         + [(language, None, text) for language, text, _, _ in LOGGED.values()])
+def test_output_is_tokenizable(language, config, text):
+    G2P[language].tokenize(TextNormalizer(language, config).normalize(text))
 ```
 
 ---
@@ -3346,7 +3463,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 199 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 287 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
