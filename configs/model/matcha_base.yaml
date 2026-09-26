@@ -1,0 +1,37 @@
+model:
+  n_langs: 3              # cs=0, sk=1, en=2 (must match src/text/phonemizer.py LANG_IDS)
+  n_speakers: 1           # pretraining speakers + the narrator (Step 8)
+  n_boundaries: 3         # 0 mid-paragraph, 1 paragraph-final, 2 chapter-final sentence
+  n_mels: 100             # MUST equal the vocoder's num_mels
+  encoder:   {dim: 192, layers: 6, heads: 2, ff: 768, convnext: 2, dropout: 0.1}
+  duration:  {hidden: 256, kernel: 3, layers: 2, dropout: 0.1}
+  conditioning: {spk_dim: 64, cond_dim: 64}
+  decoder:   {dim: 256, levels: 2, sigma_min: 1.0e-4, p_uncond: 0.0}   # fixed width per level
+  discriminators:           # only used in the late adversarial stage (Step 11, stage 4)
+    ssl: {backbone: facebook/wav2vec2-xls-r-300m, n_layers: 25, hidden: 1024, head_dim: 256}
+    mpd: {periods: [2, 3, 5, 7, 11]}
+    mrd: {resolutions: [[1024, 120, 600], [2048, 240, 1200], [512, 50, 240]]}
+
+audio:                    # identical to nvidia/bigvgan_v2_24khz_100band_256x config.json
+  sample_rate: 24000
+  n_fft: 1024
+  hop_length: 256
+  win_length: 1024
+  n_mels: 100
+  fmin: 0
+  fmax: null              # = sample_rate / 2, exactly as BigVGAN
+  target_lufs: -23.0      # EBU R128, applied per source file before segmentation
+
+tempo:                    # filled from the narrator corpus in Step 4.4
+  rate_mean: null         # phones per second of speech
+  rate_std: null
+  inference_rate: null    # the narrator's median; fixed for every sentence of a book
+  length_scale: {cs: 1.0, sk: 1.0, en: 1.0}
+
+training:
+  batch_frames: 40000     # batch by total mel frames, not by utterance count
+  learning_rate: 1.0e-4
+  weight_decay: 0.0
+  grad_clip: 1.0
+  precision: bf16
+  loss_weights: {duration: 1.0, prior: 1.0, cfm: 1.0}
