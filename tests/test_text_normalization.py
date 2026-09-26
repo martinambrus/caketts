@@ -98,6 +98,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "ordinal-before-capitalised-noun": ("cs", None, "Hrála 5. Symfonie.", "Hrála pátá Symfonie."),
     "number-ends-sentence-before-noun": ("cs", None, "Měl jen 2. Děti odešly.", "Měl jen dva. Děti odešly."),
     "subject-after-adverbs": ("cs", None, "Měl jen 2. Malé děti potom odešly.", "Měl jen dva. Malé děti potom odešly."),
+    "subject-after-many-modifiers": ("cs", None, "Měl jen 2. Malé děti se tam potom už nikdy nevrátily.",
+                                     "Měl jen dva. Malé děti se tam potom už nikdy nevrátily."),
     "sk-number-ends-sentence-before-noun": ("sk", None, "Mal len 2. Deti odišli.", "Mal len dva. Deti odišli."),
     "ordinal-inside-noun-phrase": ("cs", None, "Beethovenova 5. Symfonie zazněla.", "Beethovenova pátá Symfonie zazněla."),
     "roman-ends-sentence-before-noun": ("cs", None, "Vládl Karel IV. Velký požár vypukl. Karel IV. Lucemburský zemřel.",
@@ -148,6 +150,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "repeated-spaces": ("cs", None, "Ujel 5  km.", "Ujel pět kilometrů."),
     "spaced-word-slash": ("cs", None, "Přijde on / ona.", "Přijde on nebo ona."),
     "one-letter-word-slash": ("cs", None, "Káva s/bez mléka.", "Káva s nebo bez mléka."),
+    "one-letter-words-slash": ("cs", None, "Volba a/i záleží. Pohyb v/z budovy.",
+                               "Volba a nebo i záleží. Pohyb v nebo z budovy."),
     "inclusive-forms": ("cs", None, "Vážený/á zákazník/ce, každý/á student/ka by měl/a přijít sám/a, "
                                     "i když přišel/a pozdě.",
                         "Vážený nebo vážená zákazník nebo zákaznice, každý nebo každá student nebo studentka "

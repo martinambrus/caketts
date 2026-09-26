@@ -324,7 +324,10 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?:(?<=\d)|(?<=\d{_HS})|(?<=\d{_HS}{_HS})|(?<=\d{_HS}{_HS}{_HS}))x{_NOT_LETTER_AFTER})"  # "3 x 4", "3 x týdně"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
-        rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=[-−–]?\d))"
+        rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})"
+        rf"|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]){_HS}*/{_HS}*"
+        rf"(?=[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"  # "a/i", "v/z"
+        rf"|(?<=\d){_HS}*/{_HS}*(?=[-−–]?\d))"
         rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d)-(?=\d)|(?<=\d\.)-(?=\d)|(?<=[IVXLCDM]\.)-(?=[IVXLCDM]+\.))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
@@ -1032,7 +1035,7 @@ class TextNormalizer:
         if head is None:
             return False
         i = bisect.bisect_left(tags.starts, head.end)
-        for w in tags.words[i:i + 4]:
+        for w in tags.words[i:]:
             if w.upos in ("VERB", "AUX"):
                 return True
             if w.upos not in ("ADV", "PART", "PRON"):
