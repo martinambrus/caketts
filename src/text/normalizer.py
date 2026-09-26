@@ -131,6 +131,11 @@ SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×":
 SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
 RANGE_WORD = "až"
 
+# Slovak animal plurals in -i that the tagger may mark animate like people; animals count with
+# dva/tri/štyri, people with dvaja/traja/štyria
+SK_ANIMAL_PLURALS = frozenset("vlci býci vtáci psi orli sokoli holubi levi tigri sloni barani kocúri "
+                              "kohúti capi diviaci jeleni kanci".split())
+
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone
 FEATURE_FIXES = {"cs": {},
@@ -229,7 +234,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d):(?P<minute>[0-5]\d)(?![\d:]))"
         rf"|(?P<range>(?<![\d.,])(?P<low>\d+){_HS}?[–—-]{_HS}?(?P<high>{_INT})"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
-        rf"|(?P<money>(?P<symbol>[€$£]){_HS}?(?P<price>{_AMOUNT}))"
+        rf"|(?P<money>(?P<moneysign>(?<![^\s(\[])[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>{_AMOUNT}))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
         rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scalecurrency>{_CURRENCY}))?|(?P<unit>{_UNIT}|{_CURRENCY}))"
         rf"{_NOT_LETTER_AFTER})"
@@ -472,7 +477,7 @@ class TextNormalizer:
         elif kind == "range":
             words = self._range(m, text, tags, after_label)
         elif kind == "money":
-            words = self._measure(m["price"], m["symbol"], start, tags, text, end)
+            words = self._measure((m["moneysign"] or "") + m["price"], m["symbol"], start, tags, text, end)
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_currency=m["scalecurrency"])
@@ -698,8 +703,12 @@ class TextNormalizer:
             case = ACC if prep_case == ACC or tagged_case in (NOM, ACC, GEN) else prep_case
         elif noun is not None:
             # no governor: "Mám pět jablek" (the noun is genitive, the number nominative);
-            # Slovak "videl troch mužov" (A = G of masculine personal nouns)
-            case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
+            # Slovak "videl troch mužov" (A = G of masculine personal nouns), "dvoch psov"
+            if (self.language == "sk" and noun_case == GEN and noun.text.lower().endswith("ov")
+                    and self._count_form(value) != "gen_pl"):
+                case = GEN
+            else:
+                case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:
             prev = tags.before(start)
             if prev is not None and prev.upos in ("NOUN", "PROPN"):
@@ -780,7 +789,11 @@ class TextNormalizer:
         if gender is None:
             return None, None
         if gender == "masculine" and word.feats.get("Animacy") == "Anim":
-            return gender, "personal" if self.language == "sk" else "animate"
+            if self.language == "cs":
+                return gender, "animate"
+            form = word.text.lower()
+            animal = form in SK_ANIMAL_PLURALS or (word.feats.get("Number") == "Plur" and form.endswith(("y", "e")))
+            return gender, "animate" if animal else "personal"  # "dvaja muži", but "dva vlci", "dva psy"
         return gender, "inanimate"
 
     def _preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
