@@ -113,13 +113,15 @@ NOUNS = {  # gender and forms of every noun the normalizer writes after a number
 
 UNITS = {  # symbol -> noun in NOUNS
     "cs": {"km": "kilometr", "km/h": "kilometr", "m": "metr", "m/s": "metr", "cm": "centimetr", "mm": "milimetr",
-           "kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "°C": "stupeň", "°": "stupeň",
+           "kg": "kilogram", "g": "gram", "l": "litr", "L": "litr", "ml": "mililitr", "mL": "mililitr",
+           "°C": "stupeň", "°": "stupeň",
            "%": "procento", "‰": "promile", "hod": "hodina", "h": "hodina", "min": "minuta", "s": "sekunda",
            "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolar", "USD": "dolar", "£": "libra"},
     "sk": {"km": "kilometer", "km/h": "kilometer", "m": "meter", "m/s": "meter", "cm": "centimeter",
            "mm": "milimeter",
-           "kg": "kilogram", "g": "gram", "l": "liter", "ml": "mililiter", "°C": "stupeň", "°": "stupeň",
+           "kg": "kilogram", "g": "gram", "l": "liter", "L": "liter", "ml": "mililiter", "mL": "mililiter",
+           "°C": "stupeň", "°": "stupeň",
            "%": "percento", "‰": "promile", "hod": "hodina", "h": "hodina", "min": "minúta", "s": "sekunda",
            "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolár", "USD": "dolár", "£": "libra"},
@@ -136,14 +138,16 @@ SCALE_GENDERS = {"cs": {"tis": "masculine", "mil": "masculine", "mld": "feminine
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
 SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát",
-               "±": "plus minus", "#": "číslo"},
+               "±": "plus minus", "#": "číslo", "−": "mínus"},
          "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát",
-               "±": "plus mínus", "#": "číslo"}}
+               "±": "plus mínus", "#": "číslo", "−": "mínus"}}
 PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusative singular
-    "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "m": "metr", "km": "kilometr",
+    "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "L": "litr", "ml": "mililitr", "mL": "mililitr", "m": "metr",
+           "km": "kilometr",
            "cm": "centimetr", "mm": "milimetr",
            "ks": "kus", "hod": "hodinu", "h": "hodinu", "min": "minutu", "s": "sekundu"},
-    "sk": {"kg": "kilogram", "g": "gram", "l": "liter", "ml": "mililiter", "m": "meter", "km": "kilometer",
+    "sk": {"kg": "kilogram", "g": "gram", "l": "liter", "L": "liter", "ml": "mililiter", "mL": "mililiter", "m": "meter",
+           "km": "kilometer",
            "cm": "centimeter", "mm": "milimeter",
            "ks": "kus", "hod": "hodinu", "h": "hodinu", "min": "minútu", "s": "sekundu"},
 }
@@ -214,7 +218,7 @@ DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" ->
 
 _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹›`´*_~")
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
-_MATH_SIGNS = frozenset("×=+±/")
+_MATH_SIGNS = frozenset("×=+±/−")
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
@@ -227,11 +231,11 @@ _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
-_PER = rf"kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|hod|min|g|l|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
+_PER = rf"kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|mL|hod|min|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−–]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
-_UNIT = (rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|ks\.?|g|ml|l|°C|°|%|‰|hod\.?|min\.?|h\.?"
+_UNIT = (rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|ks\.?|g|ml|mL|l|L|°C|°|%|‰|hod\.?|min\.?|h\.?"
          rf"|s(?!{_HS}+[^\W\d_])\.?")  # "5 s.", but "Mám 5 s sebou"
 _CURRENCY = r"Kč|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
@@ -328,7 +332,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
-        rf"|(?P<sign>[&+@=×±]|#(?={_HS}*\d)"
+        rf"|(?P<sign>[&+@=×±−]|#(?={_HS}*\d)"
         rf"|(?:(?<=\d)|(?<=\d{_HS})|(?<=\d{_HS}{_HS})|(?<=\d{_HS}{_HS}{_HS}))x{_NOT_LETTER_AFTER})"  # "3 x 4", "3 x týdně"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
@@ -699,12 +703,14 @@ class TextNormalizer:
         head = None
         if prev is None or prev.upos != "PROPN":
             # "XXI. století", "XIX.–XX. století", "# V. Kapitola", but "Karel IV. univerzitu" agrees with Karel
-            before_noun = nxt is not None and (nxt.text[:1].islower() or nxt.upos in ("NOUN", "ADJ") or heading)
+            before_noun = nxt is not None and (nxt.text[:1].islower() or heading or (
+                nxt.upos in ("NOUN", "ADJ") and (len(numeral) > 1 or numeral in "IVX")
+                and not self._verb_follows(end, tags)))  # not "D. Kapitola byla…", "Příloha C. Varianta D."
             head = (tags.head_after(end) if before_noun else None) or self._shared_head(end, tags)
         if head is None:
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
-                    or (len(numeral) == 1 and nxt and nxt.text[:1].isupper())):
-                return m.group(0)  # an initial such as "V. Havel", "Washington DC.", or no noun to agree with
+                    or (len(numeral) == 1 and (numeral not in "IVX" or (nxt and nxt.text[:1].isupper())))):
+                return m.group(0)  # "V. Havel", "Washington DC.", "Příloha C.", "Velikost L.", or no noun to agree with
             head = prev
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags,
                                                                following=head.start > m.start())
