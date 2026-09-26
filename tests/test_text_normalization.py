@@ -137,6 +137,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "range-per-unit": ("cs", None, "Stojí to 5–10 Kč/kg.", "Stojí to pět až deset korun za kilogram."),
     "prefixed-price-range-and-scale": ("cs", None, "Stálo to $5–10 mil.", "Stálo to pět až deset milionů dolarů."),
     "compact-time-range": ("cs", None, "Otevřeno 10:00-12:00.", "Otevřeno deset hodin až dvanáct hodin."),
+    "time-range-with-hour-words": ("cs", None, "Otevřeno 10:00 hod.–12:00 hod. a 10.00 hod.–12.00 hod.",
+                                   "Otevřeno deset hodin až dvanáct hodin a deset hodin až dvanáct hodin."),
     "repeated-spaces": ("cs", None, "Ujel 5  km.", "Ujel pět kilometrů."),
     "spaced-word-slash": ("cs", None, "Přijde on / ona.", "Přijde on nebo ona."),
     "one-letter-word-slash": ("cs", None, "Káva s/bez mléka.", "Káva s nebo bez mléka."),

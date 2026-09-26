@@ -234,7 +234,7 @@ _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
-_NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLCDM]\.)$")  # a dash between these reads "až"
+_NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d{_HS}*{_HOUR_WORD})$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−]?\d|[IVXLCDM]+\.)")
 
