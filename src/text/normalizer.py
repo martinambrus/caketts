@@ -140,6 +140,7 @@ FEATURE_FIXES = {"cs": {},
 
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}
+LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative plural ends so
 
 # Clock times: Czech "ve čtrnáct třicet" is accusative, Slovak "o štrnástej" locative,
 # whatever case the tagger gives the preposition.
@@ -175,12 +176,12 @@ _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹�
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
 _MATH_SIGNS = frozenset("×=+±/")
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
-_TAG_TOKEN = re.compile(r"[^\W\d_]+|\d+|\S")
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?!\d)|\d{1,3}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
 _AMOUNT = rf"(?:(?<![^\s(\[])[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
+_TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
 _UNIT = rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
 _CURRENCY = r"Kč|€|EUR|USD|\$|£"
@@ -621,7 +622,9 @@ class TextNormalizer:
     def _noun_phrase(self, noun: str, count: int, case: str, adjective: Optional[str] = None) -> str:
         """The noun (and adjective) as `count` calls for: "pět kilometrů" is genitive plural."""
         gender, forms = NOUNS[self.language][noun]
-        if count == 1:
+        if self._ends_in_scale_noun(count):
+            c, plural = GEN, True  # "s tisícem korun", sk "s miliónom eur"
+        elif count == 1:
             c, plural = case, False
         elif case not in (NOM, ACC):
             c, plural = case, True
@@ -676,7 +679,9 @@ class TextNormalizer:
         if noun is not None:
             gender, animacy = self._gender(noun)
             tagged_case = _UD_CASES.get(noun.feats.get("Case"))
-            if (tagged_case in PLURAL_ENDINGS and noun.feats.get("Number") == "Plur"
+            if noun.feats.get("Number") == "Plur" and noun.text.lower().endswith(LOCATIVE_PLURAL_ENDINGS):
+                tagged_case = LOC  # "po tisíci letech"
+            elif (tagged_case in PLURAL_ENDINGS and noun.feats.get("Number") == "Plur"
                     and not noun.text.lower().endswith(PLURAL_ENDINGS[tagged_case])):
                 tagged_case = GEN  # "o 5 minút": a genitive plural tagged with the preposition's case
             if self._number_fits(value, noun):
@@ -685,6 +690,8 @@ class TextNormalizer:
             case = noun_case  # "s pěti přáteli"
         elif prep_case == GEN:
             case = GEN  # "bez pěti jablek", "do dvou hodin"
+        elif prep_case and self._ends_in_scale_noun(value):
+            case = prep_case  # "s tisícem lidí": after tisíc the noun is genitive in every case
         elif prep_case:
             # "ve dvě hodiny", "v pět hodin": the tagger often gives v/na/o the locative here
             case = ACC if prep_case == ACC or tagged_case in (NOM, ACC, GEN) else prep_case
@@ -805,6 +812,11 @@ class TextNormalizer:
         if abs(value) == 1:
             return number == "Sing"
         return number == "Plur" or self._count_form(value) == "sg"
+
+    def _ends_in_scale_noun(self, n) -> bool:
+        """Whether n ends in a numeral that is a noun (Czech tisíc, milion; Slovak milión, miliarda)."""
+        scale = 1000 if self.language == "cs" else 10 ** 6
+        return isinstance(n, int) and n != 0 and n % scale == 0
 
     def _count_form(self, n: int) -> str:
         """How a counted noun follows n in the nominative and accusative: "sg", "pl" or "gen_pl"."""
