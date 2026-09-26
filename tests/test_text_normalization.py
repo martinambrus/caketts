@@ -175,6 +175,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "seconds-hours-pieces": ("cs", None, "Trvalo to 5 s. Balení má 5 ks, let trval 3 h, mám 5 s sebou.",
                              "Trvalo to pět sekund. Balení má pět kusů, let trval tři hodiny, mám pět s sebou."),
     "sk-seconds-pieces": ("sk", None, "Trvalo to 5 s, balenie má 5 ks.", "Trvalo to päť sekúnd, balenie má päť kusov."),
+    "dotted-units-range": ("cs", None, "Trvalo to 5 s.–10 s. a balení má 5 ks.–10 ks.",
+                           "Trvalo to pět sekund až deset sekund a balení má pět kusů až deset kusů."),
     "time-range-with-hour-words": ("cs", None, "Otevřeno 10:00 hod.–12:00 hod. a 10.00 hod.–12.00 hod.",
                                    "Otevřeno deset hodin až dvanáct hodin a deset hodin až dvanáct hodin."),
     "repeated-spaces": ("cs", None, "Ujel 5  km.", "Ujel pět kilometrů."),
