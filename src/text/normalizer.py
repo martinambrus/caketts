@@ -181,8 +181,8 @@ VOCALISATION = {
 NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "cca.", "č.", "str.", "r.",
                            "mj.", "popř.", "příp.", "príp.", "zejm.", "vč.", "vr.", "max.", "sv.", "tzv.",
                            "odst.", "ods.", "písm."}
-# keys that written in capitals are acronyms, names or initials: "TURNAJ ATP.", "TJ SOKOL", "N. L. NOVÁK"
-CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "t.j.", "tj.", "vr."})
+# keys whose capital form is an acronym, a name or initials: "TURNAJ ATP.", "TJ SOKOL", "voliči ODS."
+CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j.", "tj.", "vr."})
 AGREEING_ABBREVIATIONS = {"sv.", "tzv."}  # adjectives: they take the case and gender of the next word
 LABEL_ABBREVIATIONS = {"č.", "str.", "r.", "§", "odst.", "ods.", "písm."}  # the number after them names
 # prepositions with the accusative or the locative; before a page, number or year the locative
@@ -201,7 +201,7 @@ _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹�
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
 _MATH_SIGNS = frozenset("×=+±/")
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
-_ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
+_ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
@@ -218,7 +218,7 @@ _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split,
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
 _UNIT = rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
 _CURRENCY = r"Kč|€|EUR|USD|\$|£"
-_ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: "CD.", "DC." are acronyms
+_ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _ONE_LETTER_WORDS = "aikosuvz"
@@ -230,9 +230,9 @@ _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
-_NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLC]\.)$")  # a dash between these reads "až"
-_NUMBER_AFTER = re.compile(r"\d|[IVXLC]+\.")
-_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−]?\d|[IVXLC]+\.)")
+_NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLCDM]\.)$")  # a dash between these reads "až"
+_NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
+_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−]?\d|[IVXLCDM]+\.)")
 
 
 @lru_cache(maxsize=None)
@@ -303,7 +303,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=\d))"
-        rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d)-(?=\d)|(?<=\d\.)-(?=\d)|(?<=[IVXLC]\.)-(?=[IVXLC]+\.))"
+        rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d)-(?=\d)|(?<=\d\.)-(?=\d)|(?<=[IVXLCDM]\.)-(?=[IVXLCDM]+\.))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
 
@@ -349,13 +349,6 @@ def _spaced(text: str, start: int, end: int, word: str) -> str:
 def _key_of(m: re.Match) -> str:
     """The table key of a matched abbreviation: "Např." -> "např.", "t. j." -> "t.j."."""
     return _abbreviation_key(m.group(0).lower())
-
-
-def _in_capitals(text: str, start: int, end: int) -> bool:
-    """Whether a word next to text[start:end] is in capitals too: "NAPŘ. PRAHA", but not "turnaj ATP."."""
-    before = re.search(r"([^\W\d_]+)\W*$", text[:start])
-    after = re.match(r"\W*([^\W\d_]+)", text[end:])
-    return any(w is not None and len(w.group(1)) > 1 and w.group(1).isupper() for w in (before, after))
 
 
 def _capitalise_like(source: str, words: str) -> str:
@@ -532,7 +525,8 @@ class TextNormalizer:
             for w in token.words:
                 feats = dict(f.split("=", 1) for f in (w.feats or "").split("|") if f)
                 feats.update(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
-                words.append(_Word(t.start(), t.end(), w.text, w.upos, feats))
+                upos = w.upos if any(ch.isalnum() for ch in w.text) else "PUNCT"  # CAC tags "–" as a noun at times
+                words.append(_Word(t.start(), t.end(), w.text, upos, feats))
         return words
 
     # ---- items -----------------------------------------------------------------------------
@@ -615,8 +609,8 @@ class TextNormalizer:
 
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
         raw, key = m.group(0), _key_of(m)
-        if raw.isupper() and len(key) > 2 and (key in CAPITAL_ACRONYMS or not _in_capitals(text, m.start(), m.end())):
-            return raw  # an acronym such as "ATP." or "TJ."
+        if raw.isupper() and len(key) > 2 and key in CAPITAL_ACRONYMS:
+            return raw
         words = self.abbreviations[key]
         if key in AGREEING_ABBREVIATIONS:
             head = tags.head_after(m.end())
@@ -650,9 +644,9 @@ class TextNormalizer:
             before_noun = nxt is not None and (nxt.text[:1].islower() or nxt.upos in ("NOUN", "ADJ") or heading)
             head = (tags.head_after(end) if before_noun else None) or self._shared_head(end, tags)
         if head is None:
-            if prev is None or prev.upos not in ("NOUN", "PROPN") or (len(numeral) == 1 and nxt
-                                                                      and nxt.text[:1].isupper()):
-                return m.group(0)  # an initial such as "V. Havel", or no noun to agree with
+            if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
+                    or (len(numeral) == 1 and nxt and nxt.text[:1].isupper())):
+                return m.group(0)  # an initial such as "V. Havel", "Washington DC.", or no noun to agree with
             head = prev
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags,
                                                                following=head.start > m.start())

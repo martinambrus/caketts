@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**427 tests:** 102 for the TTS components, 94 for num2words, 227 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**435 tests:** 102 for the TTS components, 94 for num2words, 235 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -444,7 +444,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 227 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 235 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -621,6 +621,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                          "Číslo pět platí. Roku dva tisíce dvacet čtyři byl dobrý, ale Č. Novák ne."),
     "sk-capital-one-letter-abbreviation": ("sk", None, "Č. 5 platí.", "Číslo päť platí."),
     "acronyms-in-capitals": ("cs", None, "TURNAJ ATP. HRÁL ZA TJ. SOKOL.", "TURNAJ ATP. HRÁL ZA TJ. SOKOL."),
+    "capital-abbreviations-in-mixed-text": ("cs", None, "Viděl NAPŘ. Prahu, Brno ATD.",
+                                            "Viděl například Prahu, Brno a tak dále."),
+    "sk-party-acronym": ("sk", None, "Voliči ODS. sa radovali.", "Voliči ODS. sa radovali."),
+    "roman-with-d-and-m": ("cs", None, "D. kapitola, ale Washington DC. a nové CD.",
+                           "Pětistá kapitola, ale Washington DC. a nové CD."),
+    "roman-range-without-preposition": ("cs", None, "XIX.–XX. století bylo bouřlivé. Od XIX.–XX. století.",
+                                        "Devatenácté až dvacáté století bylo bouřlivé. Od devatenáctého až dvacátého století."),
     "unary-minus-after-plus": ("cs", None, "Platí 2+-3 = -1.", "Platí dva plus mínus tři rovná se mínus jedna."),
     "spaced-two-digit-year": ("cs", None, "Narodil se 5. 6. 05, ne 5. 6. 24 lidí.",
                               "Narodil se pátého června nula pět, ne pátého června dvacet čtyři lidí."),
@@ -3565,7 +3572,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 426 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 434 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
