@@ -154,6 +154,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "unit-after-scale": ("cs", None, "Ujel 5 tis. km.", "Ujel pět tisíc kilometrů."),
     "hyphenated-ordinal-range": ("cs", None, "Od 1.-5. ledna.", "Od prvního až pátého ledna."),
     "en-dash-minus": ("cs", None, "Teplota –5 °C.", "Teplota mínus pět stupňů Celsia."),
+    "en-dash-sign-after-symbol": ("cs", None, "Dluh $–5 a €–5.", "Dluh mínus pět dolarů a mínus pět eur."),
+    "en-dash-sign-at-upper-end": ("cs", None, "Teplota −5––1 °C.", "Teplota mínus pět až mínus jeden stupeň Celsia."),
     "dotted-numbers": ("cs", None, "Verze 1.2.3 vyšla, adresa 192.168.1.1.",
                        "Verze jedna tečka dva tečka tři vyšla, adresa sto devadesát dva tečka sto šedesát osm tečka "
                        "jedna tečka jedna."),

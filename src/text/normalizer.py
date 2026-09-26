@@ -229,7 +229,7 @@ _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typese
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
 _PER = rf"kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|hod|min|g|l|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
-_PRICE = rf"[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
+_PRICE = rf"[-−–]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _UNIT = (rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|ks|g|ml|l|°C|°|%|‰|hod\.?|min\.?|h"
          rf"|s(?!{_HS}+[^\W\d_])")  # "5 s.", but "Mám 5 s sebou"
@@ -249,7 +249,7 @@ _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
 _NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d[:.]\d\d{_HS}*{_HOUR_WORD})$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
-_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−]?\d|[IVXLCDM]+\.)")
+_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–]?\d|[IVXLCDM]+\.)")
 
 
 @lru_cache(maxsize=None)
@@ -297,7 +297,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER})?))?{_HS}*[–—-]{_HS}*"
-        rf"(?P<high>[-−]?{_UNSIGNED})"
+        rf"(?P<high>[-−–]?{_UNSIGNED})"
         rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
@@ -309,11 +309,11 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?)))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
-        rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}{_HS}*[–—-]{_HS}*(?P<highpersign>[-−])?"
+        rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}{_HS}*[–—-]{_HS}*(?P<highpersign>[-−–])?"
         rf"(?:(?P=symbol){_HS}*)?"
         rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{_PER}){_NOT_LETTER_AFTER}"
         rf"|(?:(?:{_HS}+(?P<lowmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
-        rf"(?P<highsign>[-−])?(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"  # "-$5–-$10"
+        rf"(?P<highsign>[-−–])?(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"  # "-$5–-$10"
         rf"(?(lowmoneyscale){_HS}+(?P<highmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"|(?:{_HS}+(?P<moneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?)"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?))"
@@ -369,7 +369,7 @@ def _negative_zero(amount: str) -> bool:
 
 def _plain_price(price: str) -> str:
     """"1,234.56" after $ or £ groups thousands with commas."""
-    return price.replace(",", "") if re.fullmatch(rf"[-−]?{_EN_GROUPED}", price) else price
+    return price.replace(",", "") if re.fullmatch(rf"[-−–]?{_EN_GROUPED}", price) else price
 
 
 def _roman_value(numeral: str) -> int:
@@ -630,7 +630,7 @@ class TextNormalizer:
                                 m["rangeper"] or m["rangescaleper"], text, tags, after_label)
         elif kind == "money":
             price = _plain_price(m["price"])
-            sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
+            sign = "" if price[0] in "-−–" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
             scale = (m["moneyscale"] or m["highmoneyscale"] or "").lower() or None
             if m["lowmoneyscale"] and m["lowmoneyscale"].lower() != scale:  # "$500 tis.–$1 mil."
                 words = f" {RANGE_WORD} ".join(
