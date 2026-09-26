@@ -10,7 +10,7 @@ import torch
 
 from src.data.audio import AudioProcessor, MelConfig
 
-# git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   (or set BIGVGAN_DIR)
+# git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN, then check out 7d2b454   (or set BIGVGAN_DIR)
 BIGVGAN_DIR = Path(os.environ.get("BIGVGAN_DIR", Path(__file__).resolve().parents[1] / "third_party" / "BigVGAN"))
 
 

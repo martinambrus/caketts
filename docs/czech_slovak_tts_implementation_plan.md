@@ -119,7 +119,7 @@ czech_slovak_tts/
 │                  validate_all_sk.py  validate_all_cs.py
 │                  train.py  tempo_labels.py  synthesize_book.py  evaluate.py
 ├── NUM2WORDS_CHANGES.md             # num2words v2: changes, sources, native-review decisions
-├── third_party/BigVGAN/             # git clone https://github.com/NVIDIA/BigVGAN
+├── third_party/BigVGAN/             # git clone https://github.com/NVIDIA/BigVGAN, then check out 7d2b454 (Prompt 1.1)
 ├── pyproject.toml                   # dependencies (uv); uv.lock pins every version (Prompt 1.1)
 ├── uv.lock
 ├── .python-version                  # 3.13
@@ -134,8 +134,9 @@ czech_slovak_tts/
 
 ```text
 Create the project structure shown in Section 1, with __init__.py in every package under src/.
-Clone https://github.com/NVIDIA/BigVGAN into third_party/BigVGAN (its mel code is the reference
-for our features and its model is our vocoder).
+Clone https://github.com/NVIDIA/BigVGAN into third_party/BigVGAN and check out commit 7d2b454,
+the one the tests ran with (its mel code is the reference for our features and its model is our
+vocoder).
 
 Dependencies are managed with uv and are already in the repository: pyproject.toml lists them
 (minimums = the versions the tests were run with), uv.lock pins every version, .python-version
@@ -1715,7 +1716,7 @@ import torch
 
 from src.data.audio import AudioProcessor, MelConfig
 
-# git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   (or set BIGVGAN_DIR)
+# git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN, then check out 7d2b454   (or set BIGVGAN_DIR)
 BIGVGAN_DIR = Path(os.environ.get("BIGVGAN_DIR", Path(__file__).resolve().parents[1] / "third_party" / "BigVGAN"))
 
 
@@ -3456,6 +3457,7 @@ def test_tiny_matcha_learns_alignment_durations_and_content():
 # 1. environment (uv: https://docs.astral.sh/uv/)
 uv sync
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN
+git -C third_party/BigVGAN checkout 7d2b454
 uv run pytest tests/ -q
 
 # 2. data (Step 4.2) and G2P review (Step 3.2)
