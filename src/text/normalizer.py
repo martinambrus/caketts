@@ -146,6 +146,7 @@ PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusa
            "ks": "kus", "hod": "hodinu", "h": "hodinu", "min": "minútu", "s": "sekundu"},
 }
 SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
+DOT_WORDS = {"cs": "tečka", "sk": "bodka"}  # "1.2.3", "192.168.1.1": read part by part
 RANGE_WORD = "až"
 # the feminine of an inclusive "Vážený/á", "přišel/a", "studenti/ky": (suffixes after the slash,
 # endings of the masculine form, the feminine ending); any other suffix is appended: "on/a", "student/ka"
@@ -216,7 +217,7 @@ _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
-_INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
+_INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
 _SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/+])"
@@ -284,7 +285,8 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
         rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
         rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d)|{_HS}*(?P<shortyear>(?<=\.)\d{{2}}"
-        rf"|(?<={_HS})(?:0\d|\d{{2}}(?!\d)(?!{_HS}*[^\W\d_])))(?!\d))?)"  # "5. 6. 05", not "5. 6. 24 lidí"
+        rf"|(?<={_HS})(?:0\d|\d{{2}}(?!\d)(?!{_HS}*[^\W\d_])))(?!\d))?(?!\d))"  # "5. 6. 05", not "5. 6. 24 lidí"
+        rf"|(?P<dotted>(?<![\d.,])(?![1-9]\d{{0,2}}(?:\.\d{{3}})+(?!\d|\.\d))\d+(?:\.\d+){{2,}}(?!\d))"  # "1.2.3"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
@@ -546,7 +548,7 @@ class TextNormalizer:
     def _needs_tags(self, m: re.Match) -> bool:
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
-        return m.lastgroup not in ("isodate", "date", "sign", "slash", "dash", "ellipsis")
+        return m.lastgroup not in ("isodate", "date", "dotted", "sign", "slash", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
         view = _SPAN_RE.sub(lambda s: " " * (s.start(2) - s.start()) + s.group(2) + " " * (s.end() - s.end(2)),
@@ -574,6 +576,9 @@ class TextNormalizer:
             return start, "—"
         if kind == "ellipsis":
             return start, "…"
+        if kind == "dotted":
+            return start, f" {DOT_WORDS[self.language]} ".join(
+                self._cardinal(int(part), *self._label(int(part))) for part in m.group(0).split("."))
         if kind == "sign":
             return start, _spaced(text, start, end, SIGNS[self.language][m.group(0)])
         if kind == "slash":

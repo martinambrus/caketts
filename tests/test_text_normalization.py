@@ -145,6 +145,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "unit-after-scale": ("cs", None, "Ujel 5 tis. km.", "Ujel pět tisíc kilometrů."),
     "hyphenated-ordinal-range": ("cs", None, "Od 1.-5. ledna.", "Od prvního až pátého ledna."),
     "en-dash-minus": ("cs", None, "Teplota –5 °C.", "Teplota mínus pět stupňů Celsia."),
+    "dotted-numbers": ("cs", None, "Verze 1.2.3 vyšla, adresa 192.168.1.1.",
+                       "Verze jedna tečka dva tečka tři vyšla, adresa sto devadesát dva tečka sto šedesát osm tečka "
+                       "jedna tečka jedna."),
+    "sk-dotted-numbers": ("sk", None, "Verzia 1.2.3 vyšla.", "Verzia jeden bodka dva bodka tri vyšla."),
+    "mixed-dot-groups": ("cs", None, "Číslo 1.234.56.", "Číslo jedna tečka dvě stě třicet čtyři tečka padesát šest."),
+    "count-before-exclamation": ("cs", None, "Zůstali 2! Ženy odešly.", "Zůstali dva! Ženy odešly."),
     "iso-date": ("cs", None, "Dne 2024-01-15 odjel.", "Dne patnáctého ledna dva tisíce dvacet čtyři odjel."),
     "time-with-seconds": ("cs", None, "Doběhl za 2:15:30.", "Doběhl za dvě patnáct třicet."),
     "range-with-scale": ("cs", None, "Stálo to 5–10 tis. Kč.", "Stálo to pět až deset tisíc korun."),
