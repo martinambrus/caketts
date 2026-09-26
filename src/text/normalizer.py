@@ -131,6 +131,13 @@ SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×":
 SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
 RANGE_WORD = "až"
 
+# forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
+# volume, masculine) for feminine, even alone
+FEATURE_FIXES = {"cs": {},
+                 "sk": {"diel": {"Gender": "Masc", "Animacy": "Inan", "Number": "Sing", "Case": "Nom"},
+                        "diely": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
+                        "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"}}}
+
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}
 
@@ -181,6 +188,9 @@ _ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: 
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _SPACES = re.compile(f"{_HS}*")
+_NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLC]\.)$")  # a dash between these reads "až"
+_NUMBER_AFTER = re.compile(r"\d|[IVXLC]+\.")
+_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:\d|[IVXLC]+\.)")
 
 
 @lru_cache(maxsize=None)
@@ -222,7 +232,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
         rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scalecurrency>{_CURRENCY}))?|(?P<unit>{_UNIT}|{_CURRENCY}))"
         rf"{_NOT_LETTER_AFTER})"
-        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*[^\W\d_]))"
+        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
@@ -416,7 +426,7 @@ class TextNormalizer:
     def _needs_tags(self, m: re.Match) -> bool:
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
-        return m.lastgroup not in ("date", "sign", "dash", "ellipsis")
+        return m.lastgroup not in ("date", "sign", "slash", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
         view = _SPAN_RE.sub(lambda s: " " * (s.start(2) - s.start()) + s.group(2) + " " * (s.end() - s.end(2)),
@@ -429,6 +439,7 @@ class TextNormalizer:
         for t, token in zip(tokens, sentence.tokens):
             for w in token.words:
                 feats = dict(f.split("=", 1) for f in (w.feats or "").split("|") if f)
+                feats.update(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
                 words.append(_Word(t.start(), t.end(), w.text, w.upos, feats))
         return words
 
@@ -437,8 +448,8 @@ class TextNormalizer:
         """(start of the replaced text, replacement) for one item."""
         kind, start, end = m.lastgroup, m.start(), m.end()
         if kind == "dash":
-            if text[:start].rstrip()[-1:].isdigit() and text[end:].lstrip()[:1].isdigit():
-                return start, _spaced(text, start, end, RANGE_WORD)  # "10:00–12:00"
+            if _NUMBER_BEFORE.search(text[:start].rstrip()) and _NUMBER_AFTER.match(text[end:].lstrip()):
+                return start, _spaced(text, start, end, RANGE_WORD)  # "10:00–12:00", "XIX.–XX. století"
             return start, "—"
         if kind == "ellipsis":
             return start, "…"
@@ -501,8 +512,9 @@ class TextNormalizer:
         numeral, end = m["numeral"], m.end()
         nxt, prev = tags.after(end), tags.before(m.start())
         head = None
-        if (prev is None or prev.upos != "PROPN") and nxt and nxt.text[:1].islower():
-            head = tags.head_after(end)  # "XXI. století", but "Karel IV. univerzitu" agrees with Karel
+        if prev is None or prev.upos != "PROPN":
+            # "XXI. století", "XIX.–XX. století", but "Karel IV. univerzitu" agrees with Karel
+            head = (tags.head_after(end) if nxt and nxt.text[:1].islower() else None) or self._shared_head(end, tags)
         if head is None:
             if prev is None or prev.upos not in ("NOUN", "PROPN") or (len(numeral) == 1 and nxt
                                                                       and nxt.text[:1].isupper()):
@@ -603,8 +615,8 @@ class TextNormalizer:
                 UNIT_SUFFIXES[self.language].get(base, ""))
 
     def _counted(self, value: int, noun: str, case: str, adjective: Optional[str] = None) -> str:
-        gender = NOUNS[self.language][noun][0]
-        return f"{self._cardinal(value, case, gender, 'inanimate')} {self._noun_phrase(noun, abs(value), case, adjective)}"
+        number = self._cardinal(value, case, NOUNS[self.language][noun][0], "inanimate")
+        return f"{number} {self._noun_phrase(noun, abs(value), case, adjective)}"
 
     def _noun_phrase(self, noun: str, count: int, case: str, adjective: Optional[str] = None) -> str:
         """The noun (and adjective) as `count` calls for: "pět kilometrů" is genitive plural."""
@@ -627,7 +639,7 @@ class TextNormalizer:
         if following[:1].isupper():  # "Bylo jich 5. Pak…": a number that ends the sentence
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
-        head = tags.head_after(m.end())
+        head = tags.head_after(m.end()) or self._shared_head(m.end(), tags)
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags)
         words = self._ordinal(value, case or NOM, gender or "masculine", animacy or "inanimate", plural)
         if case is None or gender is None:
@@ -699,6 +711,27 @@ class TextNormalizer:
             return case, "masculine", "inanimate"
         return case, gender, animacy
 
+    def _shared_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
+        """The noun of the next ordinal, which this one shares: "1. a 2. díl", "od XIX. do XX. století",
+        "konec XIX. a začátek XX. století"."""
+        i = bisect.bisect_left(tags.starts, pos)
+        w = tags.words
+        if i + 3 < len(w) and w[i].upos == "CCONJ" and w[i + 1].upos == "NOUN":
+            i += 1
+        if (i + 2 < len(w) and (w[i].upos in ("CCONJ", "ADP", "NOUN") or w[i].text in ("–", "—", "-"))
+                and (w[i + 1].text.isdigit() or re.fullmatch(_ROMAN, w[i + 1].text)) and w[i + 2].text == "."):
+            return tags.head_after(w[i + 2].end)
+        return None
+
+    @staticmethod
+    def _chain_start(pos: int, tags: _Tags) -> int:
+        """Where "1.–5." or "XIX. a XX." starts, for an ordinal at `pos`: the whole chain has one governor."""
+        i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
+        while (i >= 2 and (w[i].upos == "CCONJ" or w[i].text in ("–", "—", "-")) and w[i - 1].text == "."
+               and (w[i - 2].text.isdigit() or re.fullmatch(_ROMAN, w[i - 2].text))):
+            i -= 3
+        return w[i + 1].start if i + 1 < len(w) else pos
+
     def _label(self, value: int) -> Tuple[str, str, str]:
         """A number that names rather than counts is nominative; Czech labels and counts with "jedna"."""
         return NOM, "feminine" if self.language == "cs" and abs(value) == 1 else "masculine", "inanimate"
@@ -714,9 +747,16 @@ class TextNormalizer:
         plural = head.feats.get("Number") == "Plur"
         doubt = None
         if following:
+            start = self._chain_start(start, tags)
             prev = tags.before(start)
             prep_case = _UD_CASES.get(prev.feats.get("Case")) if prev is not None and prev.upos == "ADP" else None
-            if prep_case and (case == NOM or (case == GEN and prep_case != GEN)):
+            if self.language == "cs" and head.feats.get("Gender") == "Neut" and head.text.lower().endswith("í"):
+                # "století" has one form for every case but the instrumental, so the context decides
+                context = prep_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
+                if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
+                    doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
+                case = context
+            elif prep_case and (case == NOM or (case == GEN and prep_case != GEN)):
                 case = prep_case  # "v XXI. století" tagged nominative or genitive
             elif case == GEN and head.text.lower() not in MONTHS_GENITIVE[self.language]:
                 if self._clause_start(start, tags):
@@ -787,6 +827,8 @@ class TextNormalizer:
         sentence: at the end of the paragraph, or before an uppercase word (Slovak "atď. Potom", but
         not "např. Prahu")."""
         rest = _SPAN_RE.sub(lambda s: s.group(2), text[end:])
+        if _RANGE_AHEAD.match(rest):
+            return False  # "XIX.–XX. století"
         nxt = rest.lstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›()[]—–-")
         if not nxt:
             return True

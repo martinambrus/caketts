@@ -91,6 +91,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "dot-thousands": ("cs", None, "Stálo to 10.000 Kč.", "Stálo to deset tisíc korun."),
     "time-range": ("cs", None, "Otevřeno 10:00–12:00.", "Otevřeno deset hodin až dvanáct hodin."),
     "label-cs": ("cs", None, "Kapitola 1 začíná.", "Kapitola jedna začíná."),
+    "same-form-in-every-case": ("cs", None, "Pak začalo XXI. století.", "Pak začalo dvacáté první století."),
+    "tagger-gender-fix": ("sk", None, "Potom vyšiel 2. diel.", "Potom vyšiel druhý diel."),
+    "ordinal-range": ("cs", None, "Od 1.–5. ledna.", "Od prvního až pátého ledna."),
+    "shared-noun": ("cs", None, "Přelom XIX. a XX. století.", "Přelom devatenáctého a dvacátého století."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
