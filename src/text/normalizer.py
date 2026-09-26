@@ -143,6 +143,9 @@ VOCALISATION = {
 NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "cca.", "č.", "str.", "r.",
                            "mj.", "popř.", "příp.", "príp.", "zejm.", "vč.", "vr.", "max.", "sv.", "tzv."}
 AGREEING_ABBREVIATIONS = {"sv.", "tzv."}  # adjectives: they take the case and gender of the next word
+# prepositions with the accusative or the locative; before a page, number or year the locative
+# is meant: "na str. 45" -> "na straně"
+LOCATIVE_PREPOSITIONS = {"cs": {"v", "ve", "na", "o", "po"}, "sk": {"v", "vo", "na", "o", "po"}}
 DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" -> "v roce"
     "cs": {"č.": _forms("čísl", "o,a,u,o,em,e"), "str.": _forms("stran", "a,y,ě,u,ou,ě"),
            "r.": _forms("ro", "k,ku,ku,k,kem,ce")},
@@ -414,7 +417,7 @@ class TextNormalizer:
         if kind == "abbreviation":
             return start, self._abbreviation(m, text, tags)
         if kind == "roman":
-            return start, self._roman(m, text, tags)
+            return self._vocalise(text, start, self._roman(m, text, tags))
         if kind == "date":
             words = self._date(m)
             if m["year"] is None and self._ends_sentence(text, end, tags):
@@ -442,15 +445,20 @@ class TextNormalizer:
         words = self.abbreviations[key]
         if key in AGREEING_ABBREVIATIONS:
             head = tags.head_after(m.end())
-            case, gender, animacy, plural = self._agreement(head, m.start(), tags)
+            case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags, ordinal=False)
             if case is None or gender is None:
                 self._warn(text, m, words, "no noun to agree with")
             else:
                 words = self._numbers.decline_ordinal(words, CASES.index(case), gender, animacy, plural)
+                if doubt:
+                    self._warn(text, m, words, f"{doubt}; check it")
         elif key in DECLINED_ABBREVIATIONS[self.language]:
-            case = self._preposition_case(m.start(), tags)
-            if case:
-                words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
+            prep = self._preposition(m.start(), tags)
+            if prep is not None:
+                case = (LOC if prep.text.lower() in LOCATIVE_PREPOSITIONS[self.language]
+                        else _UD_CASES.get(prep.feats.get("Case")))
+                if case:
+                    words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
         words = _capitalise_like(raw, words)
         if key.endswith(".") and self._ends_sentence(text, m.end(), tags,
                                                      introduces=key in NON_FINAL_ABBREVIATIONS):
@@ -468,11 +476,14 @@ class TextNormalizer:
                                                                       and nxt.text[:1].isupper()):
                 return m.group(0)  # an initial such as "V. Havel", or no noun to agree with
             head = prev
-        case, gender, animacy, plural = self._agreement(head, m.start(), tags, following=head.start > m.start())
+        case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags,
+                                                               following=head.start > m.start())
         words = self._ordinal(_roman_value(numeral), case or NOM, gender or "masculine", animacy or "inanimate",
                               plural)
         if case is None or gender is None:
             self._warn(text, m, words, "no noun to agree with; nominative masculine inanimate")
+        elif doubt:
+            self._warn(text, m, words, f"{doubt}; check it")
         if self._ends_sentence(text, end, tags, roman=True):
             words += "."
         return words
@@ -570,10 +581,12 @@ class TextNormalizer:
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_abbreviation, m)
             return self._cardinal(value, case, gender, animacy) + "."
         head = tags.head_after(m.end())
-        case, gender, animacy, plural = self._agreement(head, m.start(), tags)
+        case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags)
         words = self._ordinal(value, case or NOM, gender or "masculine", animacy or "inanimate", plural)
         if case is None or gender is None:
             self._warn(text, m, words, "no noun to agree with; nominative masculine inanimate")
+        elif doubt:
+            self._warn(text, m, words, f"{doubt}; check it")
         return words
 
     def _number(self, m: re.Match, text: str, tags: _Tags, after_abbreviation: bool) -> str:
@@ -637,16 +650,29 @@ class TextNormalizer:
             return case, "masculine", "inanimate"
         return case, gender, animacy
 
-    def _agreement(self, head: Optional[_Word], start: int, tags: _Tags, following: bool = True):
-        """Case, gender, animacy and plural of an adjective (an ordinal) agreeing with `head`."""
+    def _agreement(self, head: Optional[_Word], start: int, tags: _Tags, following: bool = True,
+                   ordinal: bool = True):
+        """Case, gender, animacy and plural of an adjective (an ordinal) agreeing with `head`, and a
+        doubt to log when the tags look wrong."""
         if head is None:
-            return None, None, None, False
+            return None, None, None, False, None
         case = _UD_CASES.get(head.feats.get("Case"))
-        if (following and case == GEN and self._clause_start(start, tags)
-                and head.text.lower() not in MONTHS_GENITIVE[self.language]):
-            case = NOM  # nothing governs a genitive here: "XXI. století" at the start of a sentence
         gender, animacy = self._gender(head)
-        return case, gender, animacy, head.feats.get("Number") == "Plur"
+        plural = head.feats.get("Number") == "Plur"
+        doubt = None
+        if following:
+            prev = tags.before(start)
+            prep_case = _UD_CASES.get(prev.feats.get("Case")) if prev is not None and prev.upos == "ADP" else None
+            if prep_case and (case == NOM or (case == GEN and prep_case != GEN)):
+                case = prep_case  # "v XXI. století" tagged nominative or genitive
+            elif case == GEN and head.text.lower() not in MONTHS_GENITIVE[self.language]:
+                if self._clause_start(start, tags):
+                    case = NOM  # nothing governs a genitive here: "XXI. století" at the start of a sentence
+                elif ordinal and prev.upos in ("CCONJ", "PUNCT"):
+                    doubt = "genitive noun with no governing word"  # sk "a III. diel" tagged genitive plural
+            if ordinal and plural and doubt is None:
+                doubt = "ordinal agrees with a plural noun"
+        return case, gender, animacy, plural, doubt
 
     def _gender(self, word: _Word) -> Tuple[Optional[str], Optional[str]]:
         gender = _UD_GENDERS.get(word.feats.get("Gender", "").split(",")[0])

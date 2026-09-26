@@ -82,8 +82,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                              "Kúpil chlieb, mlieko a tak ďalej. Potom odišiel."),
     "period-inside-sentence": ("cs", None, "Navštívil např. Prahu a Brno.", "Navštívil například Prahu a Brno."),
     "capital-at-sentence-start": ("cs", None, "5 lidí přišlo. 3 lidé odešli.", "Pět lidí přišlo. Tři lidé odešli."),
+    "locative-abbreviation": ("sk", None, "Na str. 45 sa píše o tom.", "Na strane štyridsaťpäť sa píše o tom."),
 }
-FALLBACK = ("cs", "Zbyl jen 1.", "Zbyl jen jeden.")
+LOGGED = {  # id: (language, input, expected output, part of the WARNING)
+    "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
+    "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
+}
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá kapitola\n\nBylo osm hodin.\n")
 TEST2_INPUTS = [  # every input of the Test 2 block above
@@ -100,13 +104,13 @@ def test_examples(language, config, text, expected):
     assert TextNormalizer(language, config).normalize(text) == expected
 
 
-def test_fallback_is_logged(caplog):
-    language, text, expected = FALLBACK
+@pytest.mark.parametrize("language,text,expected,warning", LOGGED.values(), ids=list(LOGGED))
+def test_reading_is_logged_for_review(caplog, language, text, expected, warning):
     with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
         assert TextNormalizer(language).normalize(text) == expected
     records = [r for r in caplog.records if r.name == "src.text.normalizer"]
     assert [r.levelno for r in records] == [logging.WARNING]
-    assert "nominative masculine inanimate" in records[0].getMessage()
+    assert warning in records[0].getMessage()
 
 
 def test_line_structure_and_headings(cs):
@@ -127,6 +131,7 @@ def test_unknown_num2words_variant_raises():
 
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
 @pytest.mark.parametrize("language,config,text", [(lang, None, text) for lang, text in TEST2_INPUTS]
-                         + [example[:3] for example in EXAMPLES.values()] + [(FALLBACK[0], None, FALLBACK[1])])
+                         + [example[:3] for example in EXAMPLES.values()]
+                         + [(language, None, text) for language, text, _, _ in LOGGED.values()])
 def test_output_is_tokenizable(language, config, text):
     G2P[language].tokenize(TextNormalizer(language, config).normalize(text))
