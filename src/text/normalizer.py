@@ -124,6 +124,9 @@ UNIT_ADJECTIVES = {"cs": {"²": "čtvereční", "³": "krychlový"}, "sk": {"²"
 MINOR_UNITS = {"cs": {"koruna": "haléř", "euro": "cent", "dolar": "cent", "libra": "penny"},
                "sk": {"koruna": "halier", "euro": "cent", "dolár": "cent", "libra": "penny"}}
 SCALES = {"tis": 3, "mil": 6, "mld": 9}
+# gender of the multiplier in "dva tisíce", "dve miliardy", sk "dvetisíc"
+SCALE_GENDERS = {"cs": {"tis": "masculine", "mil": "masculine", "mld": "feminine"},
+                 "sk": {"tis": "feminine", "mil": "masculine", "mld": "feminine"}}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
 SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát",
@@ -197,8 +200,10 @@ _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
 _SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/])"
-_AMOUNT = rf"(?:{_SIGN_START}[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
+_AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?(?:{_INT})(?:[.,]\d+)?"  # "–5 °C": typeset text uses – for minus
+_PER = "kg|ks|km|ml|hod|g|l|m|h"  # units a price can be per: "Kč/kg"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
+_PRICE = rf"[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
 _UNIT = rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
@@ -248,19 +253,25 @@ def _abbreviation_pattern(key: str) -> str:
 def _items_pattern(abbreviations) -> re.Pattern:
     abbr = "|".join(_abbreviation_pattern(k) for k in sorted(abbreviations, key=len, reverse=True))
     return re.compile(
-        rf"(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}?(?P<month>1[0-2]|0?[1-9])\."
+        rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
+        rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}?(?P<month>1[0-2]|0?[1-9])\."
         rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
-        rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?![\d:])"
+        rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}?hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
-        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−])?(?:{_INT})(?:[.,]\d+)?){_HS}?[–—-]{_HS}?"
+        rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?(?:{_INT})(?:[.,]\d+)?){_HS}?[–—-]{_HS}?"
         rf"(?P<high>[-−]?(?:{_INT})(?:[.,]\d+)?)"
-        rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
-        rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?))"
-        rf"(?:{_HS}*/{_HS}*(?P<moneyper>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
+        rf"(?:{_HS}?(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?)"
+        rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}?(?P<price>{_PRICE})"
+        rf"(?:{_HS}?[–—-]{_HS}?(?P<pricehigh>{_PRICE}))?"
+        rf"(?:{_HS}(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?"
+        rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
         rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
         rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
-        rf"(?:{_HS}*/{_HS}*(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
+        rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d)"
@@ -284,13 +295,18 @@ def _unspeakable(text: str) -> Optional[str]:
 
 def _parse(amount: str) -> Tuple[object, int, str]:
     """(value for num2words, absolute integer part, fraction digits without trailing zeros)."""
-    s = re.sub(r"[ \u00a0\u202f]", "", amount).replace("−", "-")
+    s = re.sub(r"[ \u00a0\u202f]", "", amount).replace("−", "-").replace("–", "-")
     grouped = re.fullmatch(r"(-?[1-9]\d{0,2}(?:\.\d{3})+)(,\d+)?", s)  # "10.000", "10.000,50"; not "0.500"
     if grouped:
         s = grouped.group(1).replace(".", "") + (grouped.group(2) or "")
     whole, _, fraction = s.replace(".", ",").partition(",")
     fraction = fraction.rstrip("0")
     return (f"{whole},{fraction}" if fraction else int(whole)), abs(int(whole)), fraction
+
+
+def _plain_price(price: str) -> str:
+    """"1,234.56" after $ or £ groups thousands with commas."""
+    return price.replace(",", "") if re.fullmatch(rf"[-−]?{_EN_GROUPED}", price) else price
 
 
 def _roman_value(numeral: str) -> int:
@@ -500,20 +516,29 @@ class TextNormalizer:
             return start, self._abbreviation(m, text, tags)
         if kind == "roman":
             return self._vocalise(text, start, self._roman(m, text, tags, heading))
-        if kind == "date":
-            words = self._date(m)
+        if kind == "isodate":
+            words = self._date(int(m["isoday"]), int(m["isomonth"]), m["isoyear"])
+        elif kind == "date":
+            words = self._date(int(m["day"]), int(m["month"]), m["year"])
             if m["year"] is None and self._ends_sentence(text, end, tags):
                 words += "."
         elif kind == "time":
             words = self._time(m, tags)
         elif kind == "range":
-            words = self._range(m, text, tags, after_label)
+            words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
+                                m["rangeper"], text, tags, after_label)
         elif kind == "money":
-            price = m["price"].replace(",", "") if re.fullmatch(rf"[-−]?{_EN_GROUPED}", m["price"]) else m["price"]
+            price = _plain_price(m["price"])
             sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
-            words = self._measure(sign + price, m["symbol"], start, tags, text, end)
-            if m["moneyper"]:
-                words += " za " + PER_UNITS[self.language][m["moneyper"]]  # "$4/kg" -> "čtyři dolary za kilogram"
+            scale = m["moneyscale"]
+            if m["pricehigh"]:  # "$5–10" -> "pět až deset dolarů"
+                words = self._range(m, sign + price, _plain_price(m["pricehigh"]), None if scale else m["symbol"],
+                                    scale, m["symbol"] if scale else None, m["moneyper"], text, tags, after_label)
+            else:  # "$5 mil." -> "pět milionů dolarů"
+                words = self._measure(sign + price, scale or m["symbol"], start, tags, text, end,
+                                      scale_unit=m["symbol"] if scale else None)
+                if m["moneyper"]:
+                    words += " za " + PER_UNITS[self.language][m["moneyper"]]  # "$4/kg" -> "čtyři dolary za kilogram"
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_unit=m["scaleunit"])
@@ -523,7 +548,8 @@ class TextNormalizer:
             words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
             words = self._number(m, text, tags, after_label)
-        if kind in ("range", "measure", "time") and m.group(0).endswith(".") and self._ends_sentence(text, end, tags):
+        if (kind in ("range", "measure", "time", "money") and m.group(0).endswith(".")
+                and self._ends_sentence(text, end, tags)):
             words += "."  # the period of "min.", "mil." or "hod." also ends the sentence
         return self._vocalise(text, start, words)
 
@@ -577,15 +603,14 @@ class TextNormalizer:
             words += "."  # after "Karel IV." the period may end the sentence; before a noun it cannot
         return words
 
-    def _date(self, m: re.Match) -> str:
-        words = [self._ordinal(int(m["day"]), GEN, "masculine", "inanimate"),
-                 MONTHS_GENITIVE[self.language][int(m["month"]) - 1]]
-        if m["year"]:
-            words.append(self._cardinal(int(m["year"]), NOM, "masculine", "inanimate"))
+    def _date(self, day: int, month: int, year: Optional[str]) -> str:
+        words = [self._ordinal(day, GEN, "masculine", "inanimate"), MONTHS_GENITIVE[self.language][month - 1]]
+        if year:
+            words.append(self._cardinal(int(year), NOM, "masculine", "inanimate"))
         return " ".join(words)
 
     def _time(self, m: re.Match, tags: _Tags) -> str:
-        hour, minute = int(m["hour"]), int(m["minute"])
+        hour, minute, second = int(m["hour"]), int(m["minute"]), m["second"]
         prep = self._preposition(m.start(), tags)
         case = None
         if prep:
@@ -593,13 +618,18 @@ class TextNormalizer:
                     or _UD_CASES.get(prep.feats.get("Case")))
         if self.language == "sk" and case:  # "o štrnástej tridsať": the hour is an ordinal
             words = [self._ordinal(hour, case, "feminine", "inanimate")]  # also "o nultej"
-            if minute:
+            if minute or second:
                 words.append(self._minutes(minute, NOM))
+            if second:
+                words.append(self._minutes(int(second), NOM))
             return " ".join(words)
         case = case or NOM
         words = [self._cardinal(hour, case, "feminine", "inanimate") if hour else "nula"]
-        if minute:
-            words.append(self._minutes(minute, case if self.language == "cs" and case not in (NOM, ACC) else NOM))
+        mcase = case if self.language == "cs" and case not in (NOM, ACC) else NOM
+        if minute or second:  # digital: "dvě patnáct třicet" for 2:15:30
+            words.append(self._minutes(minute, mcase))
+            if second:
+                words.append(self._minutes(int(second), mcase))
         else:
             words.append(self._noun_phrase("hodina", hour, case))
         return " ".join(words)
@@ -608,22 +638,28 @@ class TextNormalizer:
         words = self._cardinal(minute, case, "feminine", "inanimate")
         return f"nula {words}" if minute < 10 else words
 
-    def _range(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
-        low, value = _parse(m["low"])[0], _parse(m["high"])[0]
+    def _range(self, m: re.Match, low_amount: str, high_amount: str, unit: Optional[str], scale: Optional[str],
+               scale_unit: Optional[str], per: Optional[str], text: str, tags: _Tags, after_label: bool) -> str:
+        """"5–10 km", "5–10 tis. Kč", "$5–10": a unit or scale after the upper end serves both."""
+        start, end = m.start(), m.end()
+        low, value = _parse(low_amount)[0], _parse(high_amount)[0]
         decimal = isinstance(low, str) or isinstance(value, str)  # decimals are read in the nominative
-        if m["rangeunit"]:
-            high = self._measure(m["high"], m["rangeunit"], m.start(), tags, text, m.end())
-            noun = self._unit(m["rangeunit"])[0]
-            if decimal and noun in MINOR_UNITS[self.language]:  # "1,50–2,50 €": both ends are sums of money
-                return f"{self._measure(m['low'], m['rangeunit'], m.start(), tags, text, m.end())} {RANGE_WORD} {high}"
-            case = NOM if decimal else self._preposition_case(m.start(), tags) or NOM
-            return f"{self._cardinal(low, case, NOUNS[self.language][noun][0], 'inanimate')} {RANGE_WORD} {high}"
-        if decimal:
-            case, gender, animacy = NOM, "masculine", "inanimate"
+        if unit or scale:
+            high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit)
+            if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:
+                words = f"{self._measure(low_amount, unit, start, tags, text, end)} {RANGE_WORD} {high}"  # "1,50–2,50 €"
+            else:
+                gender = SCALE_GENDERS[self.language][scale] if scale else NOUNS[self.language][self._unit(unit)[0]][0]
+                case = NOM if decimal else self._preposition_case(start, tags) or NOM
+                words = f"{self._cardinal(low, case, gender, 'inanimate')} {RANGE_WORD} {high}"
         else:
-            case, gender, animacy = self._context(value, m.start(), m.end(), text, tags, after_label, m)
-        return (f"{self._cardinal(low, case, gender, animacy)} {RANGE_WORD} "
-                f"{self._cardinal(value, case, gender, animacy)}")
+            if decimal:
+                case, gender, animacy = NOM, "masculine", "inanimate"
+            else:
+                case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)
+            words = (f"{self._cardinal(low, case, gender, animacy)} {RANGE_WORD} "
+                     f"{self._cardinal(value, case, gender, animacy)}")
+        return words + (f" za {PER_UNITS[self.language][per]}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
                  whole: bool = False, scale_unit: Optional[str] = None) -> str:
