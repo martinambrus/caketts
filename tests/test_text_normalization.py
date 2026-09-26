@@ -83,6 +83,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                      "Boli tam dva vlci a videl som dvoch psov."),
     "negative-range": ("cs", None, "Teplota byla −5–−1 °C.", "Teplota byla mínus pět až mínus jeden stupeň Celsia."),
     "leading-zero-decimal": ("cs", None, "Vážilo to 0.500 kg.", "Vážilo to nula celá pět desetin kilogramu."),
+    "time-with-hod": ("cs", None, "Sraz je ve 14.30 hod. Pak odjedeme.", "Sraz je ve čtrnáct třicet. Pak odjedeme."),
+    "price-per-unit": ("cs", None, "Stojí to 100 Kč/kg.", "Stojí to sto korun za kilogram."),
+    "sign-after-currency-symbol": ("cs", None, "Dluh $-4.50.", "Dluh mínus čtyři dolary padesát centů."),
     "num2words-variant": ("cs", {"num2words": {"construction": "inverted"}}, "Je mi 25 let.",
                           "Je mi pětadvacet let."),
     "period-ends-sentence": ("sk", None, "Kúpil chlieb, mlieko atď. Potom odišiel.",
@@ -141,6 +144,12 @@ def test_line_structure_and_headings(cs):
 
 @pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>."])
 def test_digit_or_symbol_in_span_raises(cs, text):
+    with pytest.raises(ValueError):
+        cs.normalize(text)
+
+
+@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra."])
+def test_symbol_without_reading_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)
 

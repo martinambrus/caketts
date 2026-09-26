@@ -128,6 +128,12 @@ SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×":
                "#": "číslo"},
          "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "±": "plus mínus",
                "#": "číslo"}}
+PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusative singular
+    "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "m": "metr", "km": "kilometr",
+           "ks": "kus", "hod": "hodinu", "h": "hodinu"},
+    "sk": {"kg": "kilogram", "g": "gram", "l": "liter", "ml": "mililiter", "m": "meter", "km": "kilometer",
+           "ks": "kus", "hod": "hodinu", "h": "hodinu"},
+}
 SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
 RANGE_WORD = "až"
 
@@ -231,12 +237,14 @@ def _items_pattern(abbreviations) -> re.Pattern:
     return re.compile(
         rf"(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}?(?P<month>1[0-2]|0?[1-9])\."
         rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
-        rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d):(?P<minute>[0-5]\d)(?![\d:]))"
+        rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.(?=[0-5]\d{_HS}?hod))(?P<minute>[0-5]\d)(?![\d:])"
+        rf"(?:{_HS}?hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:(?<![^\s(\[])[-−])?\d+){_HS}?[–—-]{_HS}?(?P<high>[-−]?(?:{_INT}))"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
-        rf"|(?P<money>(?P<moneysign>(?<![^\s(\[])[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>{_AMOUNT}))"
+        rf"|(?P<money>(?P<moneysign>(?<![^\s(\[])[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_INT})(?:[.,]\d+)?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
-        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scalecurrency>{_CURRENCY}))?|(?P<unit>{_UNIT}|{_CURRENCY}))"
+        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scalecurrency>{_CURRENCY}))?|(?P<unit>{_UNIT}|{_CURRENCY})"
+        rf"(?:/(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER})?)"
@@ -462,8 +470,12 @@ class TextNormalizer:
         if kind == "sign":
             return start, _spaced(text, start, end, SIGNS[self.language][m.group(0)])
         if kind == "slash":
-            return start, _spaced(text, start, end, SLASH_WORDS[self.language][
-                "number" if text[start - 1].isdigit() else "word"])
+            if text[start - 1].isdigit():
+                return start, _spaced(text, start, end, SLASH_WORDS[self.language]["number"])
+            left, right = re.search(r"[^\W\d_]+$", text[:start]).group(), re.match(r"[^\W\d_]+", text[end:]).group()
+            if {left, right} & (UNITS[self.language].keys() | PER_UNITS[self.language].keys()):
+                return start, m.group(0)  # "Kč/kg" without a number has no reading; the check below raises
+            return start, _spaced(text, start, end, SLASH_WORDS[self.language]["word"])
         if kind == "abbreviation":
             return start, self._abbreviation(m, text, tags)
         if kind == "roman":
@@ -477,16 +489,19 @@ class TextNormalizer:
         elif kind == "range":
             words = self._range(m, text, tags, after_label)
         elif kind == "money":
-            words = self._measure((m["moneysign"] or "") + m["price"], m["symbol"], start, tags, text, end)
+            sign = "" if m["price"][0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
+            words = self._measure(sign + m["price"], m["symbol"], start, tags, text, end)
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_currency=m["scalecurrency"])
+            if m["per"]:
+                words += " za " + PER_UNITS[self.language][m["per"]]  # "100 Kč/kg" -> "sto korun za kilogram"
         elif kind == "ordinal":
             words = self._ordinal_digits(m, text, tags, after_label)
         else:
             words = self._number(m, text, tags, after_label)
-        if kind in ("range", "measure") and m.group(0).endswith(".") and self._ends_sentence(text, end, tags):
-            words += "."  # the period of "min." or "mil." also ends the sentence
+        if kind in ("range", "measure", "time") and m.group(0).endswith(".") and self._ends_sentence(text, end, tags):
+            words += "."  # the period of "min.", "mil." or "hod." also ends the sentence
         return self._vocalise(text, start, words)
 
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
