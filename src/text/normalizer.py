@@ -168,6 +168,9 @@ LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative pl
 # Clock times: Czech "ve čtrnáct třicet" is accusative, Slovak "o štrnástej" locative,
 # whatever case the tagger gives the preposition.
 TIME_PREPOSITIONS = {"cs": {"v": ACC, "ve": ACC}, "sk": {"o": LOC}}
+# a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
+# cardinal ("za dve pätnásť")
+SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medzi", "k", "ku", "na"})
 
 # preposition -> (vocalised form, starts of the number words that call for it)
 VOCALISATION = {
@@ -280,7 +283,8 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<highper>{_PER}){_NOT_LETTER_AFTER})?"
         rf"|(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<rangescaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
@@ -290,7 +294,8 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}+(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
-        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<scaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
         rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
@@ -575,7 +580,7 @@ class TextNormalizer:
                 for end_ in ("low", "high"))
         elif kind == "range":
             words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
-                                m["rangeper"], text, tags, after_label)
+                                m["rangeper"] or m["rangescaleper"], text, tags, after_label)
         elif kind == "money":
             price = _plain_price(m["price"])
             sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
@@ -596,8 +601,8 @@ class TextNormalizer:
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_unit=m["scaleunit"])
-            if m["per"]:
-                words += " za " + PER_UNITS[self.language][m["per"]]  # "100 Kč/kg" -> "sto korun za kilogram"
+            if m["per"] or m["scaleper"]:  # "100 Kč/kg" -> "sto korun za kilogram"
+                words += " za " + PER_UNITS[self.language][m["per"] or m["scaleper"]]
         elif kind == "ordinal":
             words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
@@ -674,7 +679,7 @@ class TextNormalizer:
         if prep:
             case = (TIME_PREPOSITIONS[self.language].get(prep.text.lower())
                     or _UD_CASES.get(prep.feats.get("Case")))
-        if self.language == "sk" and case:  # "o štrnástej tridsať": the hour is an ordinal
+        if self.language == "sk" and case and prep.text.lower() in SK_CLOCK_PREPOSITIONS:  # "o štrnástej tridsať"
             words = [self._ordinal(hour, case, "feminine", "inanimate")]  # also "o nultej"
             if minute or second:
                 words.append(self._minutes(minute, NOM))
