@@ -227,8 +227,9 @@ _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _ONE_LETTER_WORDS = "aikosuvz"
 _INCLUSIVE_SUFFIXES = "kyně|yně|čka|čky|ka|ky|ce|a|á|é|y"  # "on/a", "Vážený/á", "student/ka", "přišli/y"
 # "14.30" is a time only when hod follows, also after a second time: "15.30–16.00 hod.", "od 8.00 do 12.00 hod."
+_HOUR_WORD = r"hod(?:\.|in[ay]?|ín)?"  # hod., hodin, hodiny, hodina, sk hodín
 _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—-]{_HS}*|{_HS}+do{_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)?"
-             rf"{_HS}*hod{_NOT_LETTER_AFTER})")
+             rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
@@ -275,7 +276,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d)|{_HS}*(?P<shortyear>(?<=\.)\d{{2}}"
         rf"|(?<={_HS})(?:0\d|\d{{2}}(?!\d)(?!{_HS}*[^\W\d_])))(?!\d))?)"  # "5. 6. 05", not "5. 6. 24 lidí"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
-        rf"(?:{_HS}*hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
+        rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
         rf"(?:{_HS}*(?:(?P<lowscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<lowscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
@@ -337,6 +338,11 @@ def _parse(amount: str) -> Tuple[object, int, str]:
     whole, _, fraction = s.replace(".", ",").partition(",")
     fraction = fraction.rstrip("0")
     return (f"{whole},{fraction}" if fraction else int(whole)), abs(int(whole)), fraction
+
+
+def _negative_zero(amount: str) -> bool:
+    """"−0 °C", "-0,0": a zero written with a minus, which num2words reads as plain "nula"."""
+    return re.fullmatch(r"[-−–]0+(?:[.,]0+)?", amount) is not None
 
 
 def _plain_price(price: str) -> str:
@@ -731,6 +737,8 @@ class TextNormalizer:
                 case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)
             words = (f"{self._cardinal(low, case, gender, animacy)} {RANGE_WORD} "
                      f"{self._cardinal(value, case, gender, animacy)}")
+        if _negative_zero(low_amount) and not words.startswith(self._numbers.MINUS):
+            words = f"{self._numbers.MINUS} {words}"
         return words + (f" za {PER_UNITS[self.language][per]}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
@@ -767,6 +775,8 @@ class TextNormalizer:
             self._warn(text, (start, end), words, "no preposition; nominative")
         if noun in MINOR_UNITS[self.language] and re.fullmatch(r"[-−–]?\d{1,3},\d{3}", amount):
             self._warn(text, (start, end), words, "comma read as decimal, not thousands; check it")
+        if _negative_zero(amount):
+            words = f"{self._numbers.MINUS} {words}"
         return words + suffix
 
     def _unit(self, unit: str) -> Tuple[str, Optional[str], str]:
@@ -832,6 +842,8 @@ class TextNormalizer:
         else:
             words = self._cardinal(value, *self._context(value, m.start(), m.end(), text, tags,
                                                          after_label, m))
+        if _negative_zero(m["value"]):
+            words = f"{self._numbers.MINUS} {words}"
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
         if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x\d", text[m.end():m.end() + 2]):
