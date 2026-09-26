@@ -141,8 +141,10 @@ SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×":
                "±": "plus mínus", "#": "číslo"}}
 PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusative singular
     "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "ml": "mililitr", "m": "metr", "km": "kilometr",
+           "cm": "centimetr", "mm": "milimetr",
            "ks": "kus", "hod": "hodinu", "h": "hodinu", "min": "minutu", "s": "sekundu"},
     "sk": {"kg": "kilogram", "g": "gram", "l": "liter", "ml": "mililiter", "m": "meter", "km": "kilometer",
+           "cm": "centimeter", "mm": "milimeter",
            "ks": "kus", "hod": "hodinu", "h": "hodinu", "min": "minútu", "s": "sekundu"},
 }
 SLASH_WORDS = {"cs": {"word": "nebo", "number": "lomeno"}, "sk": {"word": "alebo", "number": "lomené"}}
@@ -225,7 +227,7 @@ _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
-_PER = rf"kg|ks|km{_POWER}|ml|hod|min|g|l|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
+_PER = rf"kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|hod|min|g|l|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
@@ -245,7 +247,7 @@ _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
-_NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d{_HS}*{_HOUR_WORD})$")  # a dash between these reads "až"
+_NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d[:.]\d\d{_HS}*{_HOUR_WORD})$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−]?\d|[IVXLCDM]+\.)")
 
@@ -430,14 +432,18 @@ class _Tags:
         """The noun that a number or an adjective at `pos` counts or agrees with; an adverb may
         modify an adjective in between: "2 velmi staré knihy", but not the noun: "Vrátil 2 zpátky knihovně"."""
         i = bisect.bisect_left(self.starts, pos)
-        adverb = False
+        adverb = modifier = False
         for w in self.words[i:]:
             if w.upos in ("NOUN", "PROPN"):
                 return None if adverb else w
-            if w.upos in ("ADV", "PART", "CCONJ") or w.text == ",":  # "2 velmi staré", "2 červené a modré knihy"
+            if w.upos == "CCONJ" or w.text == ",":
+                if not modifier:
+                    return None  # "Zůstali 2, ale staré ženy odešly"; but "2 červené a modré knihy"
+                adverb = True
+            elif w.upos in ("ADV", "PART"):  # "2 velmi staré knihy"
                 adverb = True
             elif w.upos in ("ADJ", "DET"):
-                adverb = False
+                adverb, modifier = False, True
             elif w.text not in _QUOTES:
                 return None
         return None
