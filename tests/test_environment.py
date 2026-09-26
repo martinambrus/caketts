@@ -1,8 +1,12 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
 from packaging.version import Version
+
+ROOT = Path(__file__).resolve().parents[1]
+BIGVGAN_DIR = Path(os.environ.get("BIGVGAN_DIR", ROOT / "third_party" / "BigVGAN"))
 
 
 def test_versions():
@@ -19,8 +23,8 @@ def test_espeak_languages():
 
 def test_audio_config_matches_vocoder():
     import yaml
-    cfg = yaml.safe_load(Path("configs/model/matcha_base.yaml").read_text())["audio"]
-    voc = json.loads(Path("third_party/BigVGAN/configs/bigvgan_v2_24khz_100band_256x.json").read_text())
+    cfg = yaml.safe_load((ROOT / "configs" / "model" / "matcha_base.yaml").read_text())["audio"]
+    voc = json.loads((BIGVGAN_DIR / "configs" / "bigvgan_v2_24khz_100band_256x.json").read_text())
     assert (cfg["n_mels"], cfg["hop_length"], cfg["n_fft"], cfg["sample_rate"]) == \
         (voc["num_mels"], voc["hop_size"], voc["n_fft"], voc["sampling_rate"])
 
