@@ -22,7 +22,7 @@
 | 3 | Flow matching trained with data at t=0 and noise at t=1, but the sampler started from noise at t=0 and integrated forward | The sampler ran the data→noise flow and could only output noise | Matcha-TTS convention: noise at t=0, data at t=1, target `x1 − (1−σ_min)·z` | `test_sampler_transports_noise_to_data`, `test_overfits_one_utterance` |
 | 4 | Hand-written phoneme list with a silent `<unk>` fallback; stress marks and punctuation glued onto phones; espeak-ng code `en` crashes | 41–62% of real Czech/Slovak tokens and 88% of English tokens became `<unk>` | Vocabulary built from real espeak-ng output; stress, word boundaries and punctuation are separate tokens; `en` → `en-us`; unknown symbols raise | `test_tokens_are_atomic`, `test_every_training_token_is_known`, `test_unknown_symbol_raises` |
 | 5 | `_apply_custom_pronunciation` was a stub | Lexicon fixes for names and espeak-ng errors silently did nothing | Word-level lexicon looked up before espeak-ng | `test_lexicon_override_is_applied` |
-| 6 | 80 HTK-scale, unnormalised mel bands with `center=True` | Features the BigVGAN checkpoint was never trained on (it expects 100 Slaney-normalised bands) | BigVGAN's exact mel computation | `test_identical_to_bigvgan_mel` |
+| 6 | 80 HTK-scale, unnormalised mel bands with `center=True` | Features the BigVGAN checkpoint was never trained on (it expects 100 Slaney-normalised bands) | BigVGAN's exact mel computation | `test_identical_to_bigvgan_mel`, `test_mel_basis_matches_bigvgan_training` |
 | 7 | Trim at −40 dB below the loudest frame with no padding; the "LUFS" step was peak normalisation | Soft onsets and word endings cut off; clip edges varied by session | Bounds from forced alignment or the recording's noise floor, fixed 150 ms pads; EBU R128 per source file | `test_quiet_onset_is_not_cut`, `test_reaches_target_lufs` |
 
 ### Further defects found while fixing
@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**195 tests pass:** 101 for the TTS components and 94 for num2words. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**196 tests pass:** 102 for the TTS components and 94 for num2words. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -1689,6 +1689,12 @@ def flag_rate_outliers(rates: Dict[str, float], rel_tol: float = 0.12, z: float 
 
 ## Test 4: Data Pipeline Tests (tested)
 
+`test_mel_basis_matches_bigvgan_training` compares the filterbank with `tests/fixtures/mel_basis_24k_100.npz`, which librosa 0.10.2 computed (the BigVGAN v2 era). Never regenerate it with a newer librosa: that would defeat the test. It was produced with (uv fetches Python 3.12 if needed):
+
+```bash
+uv run --no-project --python 3.12 --with librosa==0.10.2.post1 --with "numpy<2" python -c "import numpy as np, librosa; np.savez_compressed('tests/fixtures/mel_basis_24k_100.npz', mel_basis=librosa.filters.mel(sr=24000, n_fft=1024, n_mels=100, fmin=0.0, fmax=None))"
+```
+
 ```python
 # tests/test_audio.py
 """Audio tests: vocoder-compatible mels, real loudness normalisation, trimming that keeps speech."""
@@ -1738,6 +1744,12 @@ class TestMel:
         ours = ap.compute_mel(wav)
         assert ours.shape == ref.shape
         assert torch.allclose(ours, ref, atol=1e-5)
+
+    def test_mel_basis_matches_bigvgan_training(self, ap):
+        """BigVGAN's mel code calls librosa too, so the test above cannot see a librosa change;
+        the fixture is librosa 0.10.2's filterbank, from the era BigVGAN v2 was trained in."""
+        ref = np.load(Path(__file__).parent / "fixtures" / "mel_basis_24k_100.npz")["mel_basis"]
+        assert torch.allclose(ap._mel_basis, torch.from_numpy(ref), rtol=0, atol=1e-7)
 
     def test_band_count_and_frame_count(self, ap):
         for n in (24000, 24000 + 100, 48000 - 1):
@@ -3296,14 +3308,14 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 194 tests, ~20 s on CPU
-uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~45 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 195 tests, ~15 s on CPU
+uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
 | File | Tests | Guards |
 |---|---|---|
 | test_phonemizer.py | 52 | Defects 4 and 5; espeak-ng corrections; strict vocabulary; digits raise |
-| test_audio.py | 9 | Defects 6 and 7; exact BigVGAN mel equality; EBU R128; soft onsets kept |
+| test_audio.py | 10 | Defects 6 and 7; exact BigVGAN mel equality; filterbank pinned to librosa 0.10.2; EBU R128; soft onsets kept |
 | test_data_pipeline.py | 5 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches |
 | test_model_components.py | 22 | Defects 1 and 3; MAS equals exhaustive search; decoder overfits one utterance; LayerNorm crash; exact padding invariance |
 | test_eval_and_discriminator.py | 12 | SSL discriminator gradients and freezing; tempo labels; pace metrics; ASR failure shapes; per-token retry scaling |

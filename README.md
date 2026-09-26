@@ -46,8 +46,8 @@ These are still prompts with acceptance criteria in the plan:
 ```bash
 uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv; uv: https://docs.astral.sh/uv/
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
-uv run pytest tests/ -q -m "not slow"   # 194 tests, about 20 s on CPU
-uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 1 min
+uv run pytest tests/ -q -m "not slow"   # 195 tests, about 15 s on CPU
+uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 40 s
 ```
 
 Numbers to words:

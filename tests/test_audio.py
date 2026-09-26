@@ -46,6 +46,12 @@ class TestMel:
         assert ours.shape == ref.shape
         assert torch.allclose(ours, ref, atol=1e-5)
 
+    def test_mel_basis_matches_bigvgan_training(self, ap):
+        """BigVGAN's mel code calls librosa too, so the test above cannot see a librosa change;
+        the fixture is librosa 0.10.2's filterbank, from the era BigVGAN v2 was trained in."""
+        ref = np.load(Path(__file__).parent / "fixtures" / "mel_basis_24k_100.npz")["mel_basis"]
+        assert torch.allclose(ap._mel_basis, torch.from_numpy(ref), rtol=0, atol=1e-7)
+
     def test_band_count_and_frame_count(self, ap):
         for n in (24000, 24000 + 100, 48000 - 1):
             mel = ap.compute_mel(speechlike(n / 24000))
