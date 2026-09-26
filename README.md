@@ -53,7 +53,7 @@ These are still prompts with acceptance criteria in the plan:
 uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv; uv: https://docs.astral.sh/uv/
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
 git -C "${BIGVGAN_DIR:-third_party/BigVGAN}" checkout 7d2b454     # the commit the tests ran with
-uv run pytest tests/ -q -m "not slow"   # 305 tests, about 15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 311 tests, about 15 s on CPU
 uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 40 s
 ```
 

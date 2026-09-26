@@ -192,6 +192,7 @@ _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
 _AMOUNT = rf"(?:(?<![^\s(\[])[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
+_EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
 _UNIT = rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|g|ml|l|°C|°|%|‰|hod\.?|min\.?"
@@ -200,6 +201,7 @@ _ROMAN = r"(?=[IVXLC])C{0,3}(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 399: 
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _SPACES = re.compile(f"{_HS}*")
+_LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
 _NUMBER_BEFORE = re.compile(r"(?:\d\.?|[IVXLC]\.)$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLC]+\.")
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−]?\d|[IVXLC]+\.)")
@@ -239,9 +241,9 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}?(?P<year>\d{{4}})(?!\d))?)"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.(?=[0-5]\d{_HS}?hod))(?P<minute>[0-5]\d)(?![\d:])"
         rf"(?:{_HS}?hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
-        rf"|(?P<range>(?<![\d.,])(?P<low>(?:(?<![^\s(\[])[-−])?\d+){_HS}?[–—-]{_HS}?(?P<high>[-−]?(?:{_INT}))"
+        rf"|(?P<range>(?<![\d.,])(?P<low>(?:(?<![^\s(\[])[-−])?(?:{_INT})){_HS}?[–—-]{_HS}?(?P<high>[-−]?(?:{_INT}))"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
-        rf"|(?P<money>(?P<moneysign>(?<![^\s(\[])[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_INT})(?:[.,]\d+)?))"
+        rf"|(?P<money>(?P<moneysign>(?<![^\s(\[])[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
         rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scalecurrency>{_CURRENCY}))?|(?P<unit>{_UNIT}|{_CURRENCY})"
         rf"(?:/(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
@@ -489,8 +491,9 @@ class TextNormalizer:
         elif kind == "range":
             words = self._range(m, text, tags, after_label)
         elif kind == "money":
-            sign = "" if m["price"][0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
-            words = self._measure(sign + m["price"], m["symbol"], start, tags, text, end)
+            price = m["price"].replace(",", "") if re.fullmatch(rf"[-−]?{_EN_GROUPED}", m["price"]) else m["price"]
+            sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
+            words = self._measure(sign + price, m["symbol"], start, tags, text, end)
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
                                   whole=bool(m["whole"]), scale_currency=m["scalecurrency"])
@@ -882,13 +885,11 @@ class TextNormalizer:
 
     def _vocalise(self, text: str, start: int, words: str) -> Tuple[int, str]:
         """"s 2 přáteli" -> "se dvěma přáteli": vocalise a one-letter preposition before the number words."""
-        if start < 2 or text[start - 1] != " " or (start > 2 and text[start - 3].isalpha()):
-            return start, words
-        prep = text[start - 2]
-        rule = VOCALISATION[self.language].get(prep.lower())
+        m = _LETTER_BEFORE.search(text[:start])
+        rule = VOCALISATION[self.language].get(m.group(1).lower()) if m else None
         if rule is None or not words.startswith(rule[1]):
             return start, words
-        return start - 2, f"{_capitalise_like(prep, rule[0])} {words}"
+        return m.start(1), f"{_capitalise_like(m.group(1), rule[0])}{text[m.end(1):start]}{words}"
 
     # ---- num2words -------------------------------------------------------------------------
     def _cardinal(self, value, case: str, gender: str, animacy: str) -> str:
