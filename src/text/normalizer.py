@@ -194,7 +194,9 @@ _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d)|\d+"  # 10 000, 10.000
-_SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›])"  # a minus sign starts after a space, bracket or quote: „-5 °C“
+# a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
+# digit or period: "COVID-19", "5-3", "1.-5."
+_SIGN_START = r"(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/])"
 _AMOUNT = rf"(?:{_SIGN_START}[-−](?=\d))?(?:{_INT})(?:[.,]\d+)?"
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
@@ -253,9 +255,11 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−])?(?:{_INT})(?:[.,]\d+)?){_HS}?[–—-]{_HS}?"
         rf"(?P<high>[-−]?(?:{_INT})(?:[.,]\d+)?)"
         rf"(?:{_HS}?(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"
-        rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)))"
+        rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−])?(?P<symbol>[€$£]){_HS}?(?P<price>[-−]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?))"
+        rf"(?:{_HS}*/{_HS}*(?P<moneyper>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}?"
-        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scalecurrency>{_CURRENCY}))?|(?P<unit>{_UNIT}|{_CURRENCY})"
+        rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
         rf"(?:{_HS}*/{_HS}*(?P<per>kg|ks|km|ml|hod|g|l|m|h){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}?\d)))"
@@ -265,7 +269,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±]|#(?={_HS}?\d)|(?<=\d)x(?=\d)|(?<=\d{_HS})x(?={_HS}\d))"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}}){_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}?/{_HS}?(?=\d))"
-        rf"|(?P<dash>–|—|(?<!\S)-(?!\S))"
+        rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d\.)-(?=\d)|(?<=[IVXLC]\.)-(?=[IVXLC]+\.))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
 
@@ -508,9 +512,11 @@ class TextNormalizer:
             price = m["price"].replace(",", "") if re.fullmatch(rf"[-−]?{_EN_GROUPED}", m["price"]) else m["price"]
             sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
             words = self._measure(sign + price, m["symbol"], start, tags, text, end)
+            if m["moneyper"]:
+                words += " za " + PER_UNITS[self.language][m["moneyper"]]  # "$4/kg" -> "čtyři dolary za kilogram"
         elif kind == "measure":
             words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
-                                  whole=bool(m["whole"]), scale_currency=m["scalecurrency"])
+                                  whole=bool(m["whole"]), scale_unit=m["scaleunit"])
             if m["per"]:
                 words += " za " + PER_UNITS[self.language][m["per"]]  # "100 Kč/kg" -> "sto korun za kilogram"
         elif kind == "ordinal":
@@ -620,7 +626,7 @@ class TextNormalizer:
                 f"{self._cardinal(value, case, gender, animacy)}")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
-                 whole: bool = False, scale_currency: Optional[str] = None) -> str:
+                 whole: bool = False, scale_unit: Optional[str] = None) -> str:
         value, integer, fraction = _parse(amount)
         case = self._preposition_case(start, tags)
         unit = unit.rstrip(".")
@@ -629,8 +635,10 @@ class TextNormalizer:
                 words = f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} {SCALE_GENITIVES[self.language][unit]}"
             else:
                 words = self._cardinal(value * 10 ** SCALES[unit], case or NOM, "masculine", "inanimate")
-            if scale_currency:
-                words += " " + NOUNS[self.language][UNITS[self.language][scale_currency]][1][7]
+            if scale_unit:  # "5 tis. km" -> "pět tisíc kilometrů": the noun follows tisíc, milion
+                noun, adjective, suffix = self._unit(scale_unit)
+                count = 1000 if fraction else integer * 10 ** SCALES[unit]
+                words += f" {self._noun_phrase(noun, count, NOM if fraction else case or NOM, adjective)}{suffix}"
             return words
         noun, adjective, suffix = self._unit(unit)
 
