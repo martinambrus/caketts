@@ -219,6 +219,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "roman-range-without-preposition": ("cs", None, "XIX.–XX. století bylo bouřlivé. Od XIX.–XX. století.",
                                         "Devatenácté až dvacáté století bylo bouřlivé. Od devatenáctého až dvacátého století."),
     "unary-minus-after-plus": ("cs", None, "Platí 2+-3 = -1.", "Platí dva plus mínus tři rovná se mínus jedna."),
+    "signed-operands": ("cs", None, "Platí 3×−4 = −12 a 3/−4.",
+                        "Platí tři krát mínus čtyři rovná se mínus dvanáct a tři lomeno mínus čtyři."),
     "spaced-two-digit-year": ("cs", None, "Narodil se 5. 6. 05, ne 5. 6. 24 lidí.",
                               "Narodil se pátého června nula pět, ne pátého června dvacet čtyři lidí."),
     "per-unit-on-both-ends": ("cs", None, "Stojí 5 Kč/kg–10 Kč/kg nebo $4/kg–$5/kg.",

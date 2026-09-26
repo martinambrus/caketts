@@ -316,7 +316,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
-        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d)"
+        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–]?\d)"
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
@@ -324,7 +324,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?:(?<=\d)|(?<=\d{_HS})|(?<=\d{_HS}{_HS})|(?<=\d{_HS}{_HS}{_HS}))x{_NOT_LETTER_AFTER})"  # "3 x 4", "3 x týdně"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
-        rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=\d))"
+        rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}})|(?<=\d){_HS}*/{_HS}*(?=[-−–]?\d))"
         rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d)-(?=\d)|(?<=\d\.)-(?=\d)|(?<=[IVXLCDM]\.)-(?=[IVXLCDM]+\.))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
