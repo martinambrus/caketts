@@ -279,12 +279,14 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
         rf"(?:{_HS}*(?:(?P<lowscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<lowscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"(?:{_HS}+(?P<lowscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER})?))?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−]?{_UNSIGNED})"
         rf"(?(lowscale){_HS}*(?P<highscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
+        rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<highper>{_PER}){_NOT_LETTER_AFTER})?"
         rf"|(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
@@ -306,7 +308,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
         rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
-        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>\d+)\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
+        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*\d)"
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
@@ -588,9 +590,10 @@ class TextNormalizer:
                 words += "."
         elif kind == "time":
             words = self._time(m, tags)
-        elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč"
+        elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
             words = f" {RANGE_WORD} ".join(
                 self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"])
+                + (f" {self._per(m[end_ + 'scaleper'])}" if m[end_ + "scaleper"] else "")
                 for end_ in ("low", "high"))
         elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
             words = f" {RANGE_WORD} ".join(
@@ -823,7 +826,7 @@ class TextNormalizer:
         return words
 
     def _ordinal_digits(self, m: re.Match, text: str, tags: _Tags, after_label: bool, heading: bool) -> str:
-        value = int(m["ordinalvalue"])
+        value = _parse(m["ordinalvalue"])[1]  # "1 000. návštěvník"
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
         prev = tags.before(m.start())
         attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT")  # "Beethovenova 5. Symfonie"
