@@ -167,6 +167,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "unit-on-both-ends": ("cs", None, "Ujel 5 km–10 m za 1,50 €–2,50 €.",
                           "Ujel pět kilometrů až deset metrů za jedno euro padesát centů až dvě eura padesát centů."),
     "dash-between-clauses": ("cs", None, "Ujel 5 km – 10 lidí ho sledovalo.", "Ujel pět kilometrů — deset lidí ho sledovalo."),
+    "capital-one-letter-abbreviations": ("cs", None, "Č. 5 platí. R. 2024 byl dobrý, ale Č. Novák ne.",
+                                         "Číslo pět platí. Roku dva tisíce dvacet čtyři byl dobrý, ale Č. Novák ne."),
+    "sk-capital-one-letter-abbreviation": ("sk", None, "Č. 5 platí.", "Číslo päť platí."),
+    "per-unit-on-both-ends": ("cs", None, "Stojí 5 Kč/kg–10 Kč/kg nebo $4/kg–$5/kg.",
+                              "Stojí pět korun za kilogram až deset korun za kilogram nebo čtyři dolary za kilogram "
+                              "až pět dolarů za kilogram."),
     "math-signs": ("sk", None, "Platí 3 × 4 = 12.", "Platí tri krát štyri rovná sa dvanásť."),
     "square-metres": ("cs", None, "Byt má 80 m² a sklep 2 m2.",
                       "Byt má osmdesát metrů čtverečních a sklep dva metry čtvereční."),

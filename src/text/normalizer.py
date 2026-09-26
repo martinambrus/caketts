@@ -255,6 +255,8 @@ def _abbreviation_pattern(key: str) -> str:
             out.append(rf"\.{_HS}*")
         elif len(key) > 2 and ch.isalpha():
             out.append(f"[{ch}{ch.upper()}]")
+        elif i == 0 and ch.isalpha():
+            out.append(rf"(?:{ch}|{ch.upper()}(?={re.escape(key[1:])}{_HS}*\d))")  # "Č. 5", but "Č. Novák"
         else:
             out.append(re.escape(ch))
     return _NOT_LETTER_BEFORE + "".join(out) + (_NOT_LETTER_AFTER if key[-1].isalpha() else "")
@@ -269,17 +271,21 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*hod(?:\.|in[ay]?|ín)?{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
-        rf"(?:{_HS}*(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
+        rf"(?:{_HS}*(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER})?)?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−]?{_UNSIGNED})"
         rf"(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<highper>{_PER}){_NOT_LETTER_AFTER})?"
         rf"|(?:{_HS}*(?:(?P<rangescale>tis|mil|mld)\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
         rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER})?))?))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
-        rf"(?:{_HS}*[–—-]{_HS}*(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"
+        rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}{_HS}*[–—-]{_HS}*(?:(?P=symbol){_HS}*)?"
+        rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{_PER}){_NOT_LETTER_AFTER}"
+        rf"|(?:{_HS}*[–—-]{_HS}*(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"
         rf"(?:{_HS}+(?P<moneyscale>tis|mil|mld)\.?{_NOT_LETTER_AFTER})?"
-        rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?)"
+        rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER})?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
         rf"(?:(?P<scale>tis|mil|mld)\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER})?"
         rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
@@ -565,9 +571,11 @@ class TextNormalizer:
                 words += "."
         elif kind == "time":
             words = self._time(m, tags)
-        elif kind == "range" and m["lowunit"]:
-            words = (f"{self._measure(m['low'], m['lowunit'], start, tags, text, end)} {RANGE_WORD} "
-                     f"{self._measure(m['high'], m['highunit'], start, tags, text, end)}")
+        elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
+            words = f" {RANGE_WORD} ".join(
+                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end)
+                + (f" za {PER_UNITS[self.language][m[end_ + 'per']]}" if m[end_ + "per"] else "")
+                for end_ in ("low", "high"))
         elif kind == "range":
             words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
                                 m["rangeper"], text, tags, after_label)
@@ -575,7 +583,12 @@ class TextNormalizer:
             price = _plain_price(m["price"])
             sign = "" if price[0] in "-−" else (m["moneysign"] or "")  # "-$4.50", "$-4.50"
             scale = m["moneyscale"]
-            if m["pricehigh"]:  # "$5–10" -> "pět až deset dolarů"
+            if m["lowmoneyper"]:  # "$4/kg–$5/kg"
+                words = f" {RANGE_WORD} ".join(
+                    f"{self._measure(amount, m['symbol'], start, tags, text, end)} za {PER_UNITS[self.language][per]}"
+                    for amount, per in ((sign + price, m["lowmoneyper"]),
+                                        (_plain_price(m["highprice"]), m["highmoneyper"])))
+            elif m["pricehigh"]:  # "$5–10" -> "pět až deset dolarů"
                 words = self._range(m, sign + price, _plain_price(m["pricehigh"]), None if scale else m["symbol"],
                                     scale, m["symbol"] if scale else None, m["moneyper"], text, tags, after_label)
             else:  # "$5 mil." -> "pět milionů dolarů"
@@ -599,7 +612,7 @@ class TextNormalizer:
 
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
         raw, key = m.group(0), _key_of(m)
-        if raw.isupper() and not _in_capitals(text, m.start(), m.end()):
+        if raw.isupper() and len(key) > 2 and not _in_capitals(text, m.start(), m.end()):
             return raw  # an acronym such as "ATP." or "TJ."
         words = self.abbreviations[key]
         if key in AGREEING_ABBREVIATIONS:
