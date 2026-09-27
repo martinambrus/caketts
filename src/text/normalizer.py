@@ -447,12 +447,6 @@ def _canonical(symbol: str, keys) -> str:
     return symbol if symbol in keys else next((k for k in keys if k.lower() == symbol.lower()), symbol)
 
 
-def _in_capitals(text: str) -> bool:
-    """Whether `text` goes on in capitals ("ZALOŽIL UNIVERZITU"), where a capital shows no sentence start."""
-    words = re.findall(r"[^\W\d_]+", text)[:2]
-    return bool(words) and all(w.isupper() for w in words) and any(len(w) > 1 for w in words)
-
-
 def _starts_sentence(before: str) -> bool:
     """Whether text after `before` (the paragraph up to it) starts a sentence, also direct speech
     after a colon: Řekl: „Pět…“."""
@@ -770,7 +764,7 @@ class TextNormalizer:
             after = text[m.end():].lstrip(" \t  ")
             before = text[:m.start()].rstrip(" \t  ")
             if not (after[:1].isdigit() or (key == "n.l." and before[-1:].isdigit())):  # "MAX. 5", "300 N. L."
-                if _in_capitals(after):
+                if _all_capitals(text):
                     self._warn(text, m, raw, "acronym or abbreviation in capitals, kept as written; check it")
                 return raw
         words = self.abbreviations[key]
@@ -1362,12 +1356,12 @@ class TextNormalizer:
         nxt = rest.lstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›()[]—–-")
         if not nxt:
             return True
-        if introduces or not nxt[:1].isupper() or _in_capitals(nxt):
+        if introduces or not nxt[:1].isupper() or _all_capitals(text):  # in capitals a capital says nothing
             return False
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             word = tags.after(end)
-            return (word is None or word.upos not in ("PROPN", "ADJ")
-                    or (word.upos == "ADJ" and self._verb_follows(end, tags)))
+            return (word is None or word.upos not in ("PROPN", "ADJ") or (len(word.text) > 1 and word.text.isupper())
+                    or (word.upos == "ADJ" and self._verb_follows(end, tags)))  # "…IV. USA vznikly" is no name
         return True
 
     def _feminine(self, word: str, suffix: str) -> str:
