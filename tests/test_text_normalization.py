@@ -314,6 +314,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                     "KAREL čtvrtý SE NARODIL V PRAZE. VLÁDL KAREL čtvrtý. TO BYLO DÁVNO."),
     "capitals-conjunction-after-period": ("cs", None, "KAREL IV. A VÁCLAV IV. ZALOŽILI UNIVERZITY. VLÁDL KAREL IV. A POTOM ZEMŘEL.",
                                           "KAREL čtvrtý A VÁCLAV čtvrtý ZALOŽILI UNIVERZITY. VLÁDL KAREL čtvrtý A POTOM ZEMŘEL."),
+    "capitals-conjunction-after-abbreviation": ("cs", None, "BYL TAM ATD. A POTOM ODEŠEL. JABLKA, HRUŠKY ATD. A MNOHO DALŠÍHO "
+                                                "LEŽELO NA STOLE.",
+                                                "BYL TAM a tak dále. A POTOM ODEŠEL. JABLKA, HRUŠKY a tak dále A MNOHO DALŠÍHO "
+                                                "LEŽELO NA STOLE."),
     "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
                                "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
     "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
