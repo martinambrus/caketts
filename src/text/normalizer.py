@@ -936,6 +936,8 @@ class TextNormalizer:
                 noun, adjective, suffix = self._unit(scale_unit)
                 count = 1000 if fraction else integer * 10 ** SCALES[unit]
                 words += f" {self._noun_phrase(noun, count, NOM if fraction else case or NOM, adjective)}{suffix}"
+            if comma:
+                self._check_comma(text, (start, end), words, amount)
             return self._signed(amount, words)
         noun, adjective, suffix = self._unit(unit)
 

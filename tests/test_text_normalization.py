@@ -435,6 +435,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "comma-list-glued-to-word": ("cs", "Vyber 1,2,3G.", "Vyber jedna, dva, tři G.", "glued"),
     "range-glued-to-word": ("cs", "Váží 5–10G.", "Váží pět až deset G.", "glued"),
     "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
+    "decimal-comma-before-scale": ("cs", "Stálo to 2,000 tis. Kč.", "Stálo to dva tisíce korun.", "not thousands"),
     "decimal-comma-in-unit-range": ("cs", "Ujel 1,234–2 km.", "Ujel jedna celá dvě stě třicet čtyři tisícin až dva kilometry.",
                                     "not thousands"),
     "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
