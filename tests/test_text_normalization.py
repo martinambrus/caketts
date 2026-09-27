@@ -320,6 +320,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                   "VZDÁLENOST sto metrů, VÁHA pět gramů A MÁM pět S SEBOU."),
     "capitals-glued-letter-is-no-unit": ("cs", None, "TELEFON PODPORUJE 5G, JE TO IPHONE 5S. BYT MÁ 60M².",
                                          "TELEFON PODPORUJE pět G, JE TO IPHONE pět S. BYT MÁ šedesát metrů čtverečních."),
+    "capitals-attached-power": ("cs", None, "BYT MÁ 60M2 A SKLEP 20M3, TEDY 5M.",
+                                "BYT MÁ šedesát metrů čtverečních A SKLEP dvacet metrů krychlových, TEDY pět M."),
     "capitals-scale-and-currency": ("cs", None, "STÁLO TO 5 TIS. KČ.", "STÁLO TO pět tisíc korun."),
     "sk-capitals-currency": ("sk", None, "CENA JE 5 KČ.", "CENA JE päť korún."),
     "capital-acronym-before-number": ("cs", None, "MAX. 5 KG.", "Maximálně pět kilogramů."),
