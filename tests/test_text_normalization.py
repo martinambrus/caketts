@@ -346,6 +346,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "approximately-before-currency": ("cs", None, "Stálo to ≈$5, tedy ~ €5 a ≈ -$5.",
                                       "Stálo to přibližně pět dolarů, tedy přibližně pět eur a přibližně mínus pět dolarů."),
     "approximately-between-numbers": ("cs", None, "Platí 3≈4 a 3~4.", "Platí tři přibližně čtyři a tři přibližně čtyři."),
+    "approximately-plus-minus": ("cs", None, "Je to ≈±5 °C a ~±5 °C.",
+                                 "Je to přibližně plus minus pět stupňů Celsia a přibližně plus minus pět stupňů Celsia."),
     "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
     "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
                                            "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
