@@ -334,6 +334,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                          "Jan tři, šestnáct. Jan přišel v pět celých pět desetin."),
     "sk-verse-references": ("sk", {"verse_references": ["Ján"]}, "Pozri Ján 3,16.", "Pozri Ján tri, šestnásť."),
     "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
+    "per-second-before-word": ("cs", None, "Jel 5 m / s a pak šel, tok měl 5 l / s a víc.",
+                               "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
+    "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
+                                  "Išiel päť metrov za sekundu a potom zastal."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
