@@ -653,7 +653,8 @@ class TextNormalizer:
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
         if m.lastgroup == "commas":
-            return bool(m["commaunit"] or m["commascale"])  # the case of "s 1,2,3 kg"
+            # the case of "s 1,2,3 kg", and the noun of "s 1,2,3 přáteli"
+            return bool(m["commaunit"] or m["commascale"] or re.match(rf"{_HS}*[^\W\d_]", m.string[m.end():]))
         return m.lastgroup not in ("isodate", "date", "dotted", "sign", "slash", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
@@ -722,7 +723,12 @@ class TextNormalizer:
         elif kind == "commas":
             parts = m["commalist"].split(",")
             if not (m["commaunit"] or m["commascale"]):
-                words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
+                noun = tags.head_after(end)
+                if noun is not None and noun.start > end:  # "s 1,2,3 přáteli": the values agree with the noun they count
+                    form = self._context(int(parts[-1]), start, end, text, tags, after_label, m)
+                    words = ", ".join(self._cardinal(int(part), *form) for part in parts)
+                else:
+                    words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
                 self._check_glued(text, m, words)
             else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
                 gender = (SCALE_GENDERS[self.language][m["commascale"].lower()] if m["commascale"]
