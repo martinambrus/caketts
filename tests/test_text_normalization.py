@@ -424,8 +424,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                "Budova dosahuje druhého podlaží. Obávají se druhého kola a dočkají se druhého dílu."),
     "genitive-verb-with-subject-after": ("cs", None, "Cíle dosáhl 2. muž. Cíle dosáhli 2. muži. Cíle dosáhnou 2. muži.",
                                          "Cíle dosáhl druhý muž. Cíle dosáhli druzí muži. Cíle dosáhnou druzí muži."),
-    "genitive-verb-with-neuter-subject": ("cs", None, "Cíle dosáhlo 2. sdružení. Dožil se 2. tisíciletí. Dosáhlo to 2. výročí.",
-                                          "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí."),
+    "genitive-verb-with-neuter-subject": ("cs", None, "Cíle dosáhlo 2. sdružení. Dožil se 2. tisíciletí. Dosáhlo to 2. výročí. "
+                                          "Cíle dosáhne 2. sdružení.",
+                                          "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí. "
+                                          "Cíle dosáhne druhé sdružení."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
     "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
                                                 "V páté Symfonii zazněl sbor, o páté Symfonii psal."),

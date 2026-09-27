@@ -1404,8 +1404,10 @@ class TextNormalizer:
         verb = self._clause_verb(pos, tags)
         rivals = [w for w in self._clause_before(pos, tags) if w.feats.get("Case") == "Nom" and _agree(verb, w)
                   and not (w.feats.get("Animacy") == "Inan" and head.feats.get("Animacy") == "Anim")] if verb else []
-        # a present verb shows no gender, and its number alone makes "Obávají se 2. kola" plural: a person is needed
-        person = verb is not None and (verb.feats.get("Gender") is not None or head.feats.get("Animacy") == "Anim")
+        # a present verb shows no gender, and by number alone a genitive singular that looks plural would be its
+        # subject ("Obávají se 2. kola"): a plural needs a person, a singular does not ("Cíle dosáhne 2. sdružení")
+        person = verb is not None and (verb.feats.get("Gender") is not None or head.feats.get("Number") != "Plur"
+                                       or head.feats.get("Animacy") == "Anim")
         return head.feats.get("Case") == "Nom" and person and _agree(verb, head) and not rivals
 
     @staticmethod
