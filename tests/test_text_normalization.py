@@ -380,6 +380,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                          "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "
                          "Jan tři, šestnáct. Jan přišel v pět celých pět desetin."),
     "sk-verse-references": ("sk", {"verse_references": ["Ján"]}, "Pozri Ján 3,16.", "Pozri Ján tri, šestnásť."),
+    "verse-reference-with-english-book": ("cs", {"verse_references": ["John"], "english": ["John"]}, "Viz John 3,16.",
+                                          "Viz <en>John</en> tři, šestnáct."),
     "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
     "per-second-before-word": ("cs", None, "Jel 5 m / s a pak šel, tok měl 5 l / s a víc.",
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),

@@ -574,8 +574,11 @@ class TextNormalizer:
         if numbered:
             raise ValueError(f"book_config['verse_references'] has {numbered}, whose digits would stay as written; "
                              f"list the name alone ('Jan' for '1 Jan'), and the number before it is read as usual")
-        # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29": chapter and verse, not a decimal or a time
-        self._verses = (re.compile(rf"(?<!\w)(?P<book>{'|'.join(map(re.escape, books))}){_HS}+(?P<chapter>\d+)[,:]"
+        # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29": chapter and verse, not a decimal or a time; the
+        # book may be in its language's span: "<en>John</en> 3,16"
+        names = '|'.join(map(re.escape, books))
+        self._verses = (re.compile(rf"(?<!\w)(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
+                                   rf"{_HS}+(?P<chapter>\d+)[,:]"
                                    rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d|[^\W\d_])")
                         if books else None)
         phrases = sorted((p.translate(_TYPOGRAPHY) for p in config.get("english") or [] if p), key=len, reverse=True)
@@ -615,7 +618,9 @@ class TextNormalizer:
         items = sorted(verses + [m for m in pattern.finditer(text)
                                  if not any(v.start() < m.end() and m.start() < v.end() for v in verses)],
                        key=lambda m: m.start())
-        items = [m for m in items if not any(s < m.end() and m.start() < e for s, e in spans)]
+        items = [m for m in items if not any((s < m.end() and m.start() < e)  # a verse may hold its book's span
+                                             and not (m.re is self._verses and m.start() <= s and e <= m.end())
+                                             for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
         out, pos, after_label = [], 0, -1
         for m in items:
