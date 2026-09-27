@@ -469,9 +469,10 @@ def _canonical(symbol: str, keys) -> str:
 
 
 def _agree(a: "_Word", b: "_Word") -> bool:
-    """The same gender and number, and animacy where both have one: "dosáhli" agrees with "muži", not "cíle"."""
-    animacy = (a.feats.get("Animacy"), b.feats.get("Animacy"))
-    return all(a.feats.get(f) == b.feats.get(f) for f in ("Gender", "Number")) and (None in animacy or animacy[0] == animacy[1])
+    """The same number, gender and animacy where both words have one: "dosáhli" agrees with "muži", not "cíle";
+    a present verb has no gender ("dosáhnou")."""
+    return all(None in (a.feats.get(f), b.feats.get(f)) or a.feats.get(f) == b.feats.get(f)
+               for f in ("Number", "Gender", "Animacy"))
 
 
 def _starts_sentence(before: str) -> bool:
@@ -1388,10 +1389,14 @@ class TextNormalizer:
 
     def _subject(self, head: _Word, pos: int, tags: _Tags) -> bool:
         """Whether a noun tagged nominative after its verb is the subject: it agrees with the verb, and nothing
-        before it in the clause does ("Cíle dosáhli 2. muži", but "Dosáhlo to 2. výročí")."""
+        before it in the clause does ("Cíle dosáhli 2. muži", but "Dosáhlo to 2. výročí"). These verbs have a
+        person for a subject, so an inanimate word does not take it from an animate one: "Cíle dosáhnou 2. muži"."""
         verb = self._clause_verb(pos, tags)
-        return (head.feats.get("Case") == "Nom" and verb is not None and _agree(verb, head)
-                and not any(w.feats.get("Case") == "Nom" and _agree(verb, w) for w in self._clause_before(pos, tags)))
+        rivals = [w for w in self._clause_before(pos, tags) if w.feats.get("Case") == "Nom" and _agree(verb, w)
+                  and not (w.feats.get("Animacy") == "Inan" and head.feats.get("Animacy") == "Anim")] if verb else []
+        # a present verb shows no gender, and its number alone makes "Obávají se 2. kola" plural: a person is needed
+        person = verb is not None and (verb.feats.get("Gender") is not None or head.feats.get("Animacy") == "Anim")
+        return head.feats.get("Case") == "Nom" and person and _agree(verb, head) and not rivals
 
     @staticmethod
     def _clause_before(pos: int, tags: _Tags, clause: bool = True) -> List[_Word]:
