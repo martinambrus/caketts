@@ -200,6 +200,9 @@ DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "sch
                    "jdou", "jel", "jela", "jeli", "jede", "jedou")
 # going with no prefix marks no destination: "jel za 2 vozy" follows them ("za dvěma vozy"); "zajel za roh" does not
 GOING_VERBS = ("šel", "šla", "šli", "jde", "jdou", "jel", "jela", "jeli", "jede", "jedou")
+# passives of placing keep their verb's destination: "byl položen mezi 2 svazky" -> "dva"; "postaven" (built) is a place,
+# and CAC tags these participles adjectives, so the copula would be the verb
+PLACED_PARTICIPLES = ("polož", "vlož", "pověš", "umístěn", "zařazen", "schován")
 PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl", "žil", "žij", "zůstal", "zůstáv",
                "čekal", "čeká", "nacház", "rostl", "rost", "pracoval", "pracuj", "spal", "spí")
 PLACE_FORMS = frozenset({"je", "jsou", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # whole forms: not "jel"
@@ -1299,6 +1302,11 @@ class TextNormalizer:
             return {"před": INS, "za": ACC}.get(word)
         verb = self._clause_verb(pos, tags)
         form = verb.text.lower() if verb is not None else ""
+        before = self._clause_before(pos, tags)
+        if (any(w.upos in ("ADJ", "VERB") and w.feats.get("VerbForm") == "Part"
+                and w.text.lower().startswith(PLACED_PARTICIPLES) for w in before)
+                and not any(w.text.lower() in ("je", "jsou") for w in before)):
+            return ACC  # the event, "byl položen mezi dva svazky"; the state is a place: "je pověšen nad dvěma stoly"
         if verb is not None and verb.feats.get("Voice") == "Pass":
             return INS  # "Dům je postaven mezi dvěma stromy": a passive is the state, not the motion
         if form and form.startswith(DIRECTION_VERBS) and form not in PLACE_FORMS:

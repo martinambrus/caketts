@@ -441,6 +441,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "conjunction-ends-the-verb-search": ("cs", None, "Cíle dosáhl a 2. místo nakonec obsadil.",
                                          "Cíle dosáhl a druhé místo nakonec obsadil."),
     "passive-is-a-place": ("cs", None, "Dům je postaven mezi 2 stromy.", "Dům je postaven mezi dvěma stromy."),
+    "passive-of-placing": ("cs", None, "Dopis byl položen mezi 2 svazky. Obraz je pověšen nad 2 stoly.",
+                           "Dopis byl položen mezi dva svazky. Obraz je pověšen nad dvěma stoly."),
     "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
                                      "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
     "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
