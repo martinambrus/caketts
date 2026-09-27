@@ -1481,7 +1481,9 @@ class TextNormalizer:
         if introduces or not nxt[:1].isupper():
             return False
         word, capitals = tags.after(end), _all_capitals(text)
-        if capitals and word is not None and word.upos in ("VERB", "AUX") and not self._verb_before(start, tags, not list_end):
+        verb = next((w for w in tags.words[bisect.bisect_left(tags.starts, end):] if w.upos not in ("PRON", "ADV", "PART")),
+                    None)  # past a clitic or an adverb: "KAREL IV. SE NARODIL"
+        if capitals and verb is not None and verb.upos in ("VERB", "AUX") and not self._verb_before(start, tags, not list_end):
             return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             return (word is None or word.upos not in ("PROPN", "ADJ")

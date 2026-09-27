@@ -310,6 +310,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capitals-agreement": ("cs", None, "PŘIŠLA TZV. VELKÁ VODA.", "PŘIŠLA takzvaná VELKÁ VODA."),
     "capitals-saint": ("cs", None, "KOSTEL SV. VÁCLAVA", "KOSTEL svatého VÁCLAVA"),
     "capitals-roman-after-name": ("cs", None, "KAREL IV. ZALOŽIL UNIVERZITU.", "KAREL čtvrtý ZALOŽIL UNIVERZITU."),
+    "capitals-clitic-before-verb": ("cs", None, "KAREL IV. SE NARODIL V PRAZE. VLÁDL KAREL IV. TO BYLO DÁVNO.",
+                                    "KAREL čtvrtý SE NARODIL V PRAZE. VLÁDL KAREL čtvrtý. TO BYLO DÁVNO."),
     "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
                                "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
     "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
