@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**590 tests:** 102 for the TTS components, 104 for num2words, 380 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**675 tests:** 102 for the TTS components, 104 for num2words, 465 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -298,7 +298,10 @@ starting with "# " is a chapter heading. Every line break stays where it is and 
 is kept (Prompt 2.3 segments this output). book_config is the per-book config as a dict:
 book_config["english"] lists phrases the narrator reads in English, book_config["num2words"] holds
 the Step 2.1 variant keywords, passed to every num2words call (unknown keywords raise, because
-num2words ignores them silently).
+num2words ignores them silently). book_config["verse_references"] lists Bible book names after
+which "3,16", "3:16" and "5,3–12" are chapter and verse ("Jan tři, šestnáct", "Mt pět, tři až
+dvanáct"), not decimals; it is off by default, as "Jan" is also a name. Invisible characters (soft
+hyphen, zero-width space, BOM) are dropped and hyphen variants normalised on input.
 
 Handle:
  1. Numbers -> words through num2words(n, to=..., gender=..., case=..., animacy=...), with the
@@ -313,7 +316,11 @@ Handle:
     fixes forms the tagger misreads (Slovak "diel"). A number with no governing word is read in
     the nominative masculine inanimate and LOGGED as a WARNING, so native review can catch it;
     labels and years ("kapitola 5", "č. 5", "v roce 2024") are nominative, Czech "jedna" for 1.
-    Decimals are read in the nominative.
+    Decimals are read in the nominative; a single comma group of three digits ("2,000") is read as
+    a decimal comma and LOGGED, and "1,2,3" is a list. Where Czech forms coincide the verb decides:
+    "Stál mezi dvěma stromy" but "Postavil se mezi dva stromy", "Dosáhli jsme dvacátého prvního
+    století", "Vzpomínal na dvacáté století". Text in capitals is tagged lowercased, as the tagger
+    reads capitals as caseless names.
  2. Dates ("1. ledna 2024" -> "Prvního ledna dva tisíce dvacet čtyři"), times read digitally
     ("ve čtrnáct třicet", Slovak "o štrnástej tridsať"), currency ("sto korun", "čtyři eura
     padesát centů"), units that agree with their number ("5 km" -> "pět kilometrů", "80 m²" ->
@@ -321,8 +328,10 @@ Handle:
     IV." -> "Karel čtvrtý."), and ordinals that share a noun ("od XIX. do XX. století").
  3. Abbreviations: the v1 tables for cs and sk, extended. č., str., r., §, odst. and písm. decline
     after a preposition ("na str. 45" -> "na straně čtyřicet pět"); sv. and tzv. agree with their
-    noun. Symbols with a reading: & + @ = × ± #1, and / between words ("nebo") or numbers
-    ("lomeno").
+    noun. Symbols with a reading: & + @ = × ± #1, ~ and ≈ before a number ("přibližně"), * between
+    numbers ("krát"), and / between words ("nebo") or numbers ("lomeno"). Unit and currency symbols
+    also match in capitals ("5 KČ", "50 KM/H"), and a capital acronym such as "MAX." expands before
+    a number ("maximálně pět kilogramů"); one kept as written in capitals ("TJ.") is LOGGED.
  4. Dashes: normalise "–" and " - " to "—", or to "až" between numbers; normalise "..." to "…".
  5. English spans: wrap every exact, case-sensitive, whole-word occurrence of a
     book_config["english"] phrase in <en>…</en>, longest phrase first. <cs>/<sk>/<en> spans
@@ -444,7 +453,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 380 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 465 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -757,6 +766,59 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "shared-noun": ("cs", None, "Přelom XIX. a XX. století.", "Přelom devatenáctého a dvacátého století."),
     "noun-after-tisíc": ("cs", None, "S 1 000 Kč vyrazil.", "S tisícem korun vyrazil."),
     "grouped-digits": ("cs", None, "Po 1 000 letech.", "Po tisíci letech."),
+    "capitals-agreement": ("cs", None, "PŘIŠLA TZV. VELKÁ VODA.", "PŘIŠLA takzvaná VELKÁ VODA."),
+    "capitals-saint": ("cs", None, "KOSTEL SV. VÁCLAVA", "KOSTEL svatého VÁCLAVA"),
+    "capitals-roman-after-name": ("cs", None, "KAREL IV. ZALOŽIL UNIVERZITU.", "KAREL čtvrtý ZALOŽIL UNIVERZITU."),
+    "capitals-page": ("cs", None, "NA STR. 45 SE PÍŠE.", "NA straně čtyřicet pět SE PÍŠE."),
+    "capitals-units": ("cs", None, "CENA JE 5 KČ, JEL 50 KM/H A MĚŘÍ 5 CM.",
+                       "CENA JE pět korun, JEL padesát kilometrů za hodinu A MĚŘÍ pět centimetrů."),
+    "capitals-one-letter-units": ("cs", None, "VZDÁLENOST 100 M, VÁHA 5 G A MÁM 5 S SEBOU.",
+                                  "VZDÁLENOST sto metrů, VÁHA pět gramů A MÁM pět S SEBOU."),
+    "capitals-scale-and-currency": ("cs", None, "STÁLO TO 5 TIS. KČ.", "STÁLO TO pět tisíc korun."),
+    "sk-capitals-currency": ("sk", None, "CENA JE 5 KČ.", "CENA JE päť korún."),
+    "capital-acronym-before-number": ("cs", None, "MAX. 5 KG.", "Maximálně pět kilogramů."),
+    "sk-capital-acronym-before-number": ("sk", None, "PODĽA § 5 ODS. 2 PLATÍ.",
+                                         "PODĽA paragrafu päť odseku dva PLATÍ."),
+    "capital-era-after-number": ("cs", None, "ROKU 300 N. L. VLÁDL.", "ROKU tři sta našeho letopočtu VLÁDL."),
+    "invisible-characters": ("cs", None, "\ufeffRakousko\u2011Uhersko má 5\u201110 Kč, text\u00adový.",
+                             "Rakousko-Uhersko má pět až deset korun, textový."),
+    "approximately": ("cs", None, "Je to ~5 km, tedy ≈5 000 m.",
+                      "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
+    "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
+    "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
+    "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
+    "verse-references": ("cs", {"verse_references": ["Jan", "Mt"]},
+                         "Viz Jan 3,16, Mt 5,3–12, Mt 5,3–7,29 a Jan 3:16. Jan přišel v 5,5.",
+                         "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "
+                         "Jan tři, šestnáct. Jan přišel v pět celých pět desetin."),
+    "sk-verse-references": ("sk", {"verse_references": ["Ján"]}, "Pozri Ján 3,16.", "Pozri Ján tri, šestnásť."),
+    "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
+    "per-second-before-word": ("cs", None, "Jel 5 m / s a pak šel, tok měl 5 l / s a víc.",
+                               "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
+    "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
+                                  "Išiel päť metrov za sekundu a potom zastal."),
+    "unit-slash-is-no-preposition": ("cs", None, "Jel 5 m/s a 5 km/h.",
+                                     "Jel pět metrů za sekundu a pět kilometrů za hodinu."),
+    # mezi, nad, pod, před, za: a masculine plural in -y is the same in the accusative and the instrumental
+    "between-place": ("cs", None, "Stál mezi 2 stromy.", "Stál mezi dvěma stromy."),
+    "between-place-verb-after": ("cs", None, "Mezi 2 stromy stála lavička.", "Mezi dvěma stromy stála lavička."),
+    "between-direction": ("cs", None, "Postavil se mezi 2 stromy.", "Postavil se mezi dva stromy."),
+    "behind-place": ("cs", None, "Stál za 2 stoly.", "Stál za dvěma stoly."),
+    "ago-and-in": ("cs", None, "Před 2 roky odjel, přijel před 2 týdny a za 2 roky se vrátí.",
+                   "Před dvěma roky odjel, přijel před dvěma týdny a za dva roky se vrátí."),
+    "threshold-after-motion": ("cs", None, "Teplota klesla pod 5 °C, dnes je pod 5 °C.",
+                               "Teplota klesla pod pět stupňů Celsia, dnes je pod pěti stupni Celsia."),
+    "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
+                       "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
+    "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
+    "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
+    "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
+                                                "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
+    "sk-ordinal-before-capitalised-noun-in-case": ("sk", None, "V 5. Symfónii zaznel zbor.",
+                                                   "V piatej Symfónii zaznel zbor."),
+    "number-ends-sentence-after-preposition": ("cs", None, "Čekal na 2. Vlak přijel.", "Čekal na dva. Vlak přijel."),
+    "roman-numbers-a-thing": ("cs", None, "Vyšel díl V. Kniha byla úspěšná.", "Vyšel díl pátý. Kniha byla úspěšná."),
+    "initial-after-a-person": ("cs", None, "Autor V. Kovář napsal knihu.", "Autor V. Kovář napsal knihu."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -765,6 +827,14 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                            "nominative masculine inanimate"),
     "decimal-comma-before-currency": ("cs", "Stálo to 1,234 USD.",
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
+    "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
+    "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
+    "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
+}
+UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
+    "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
+    "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -791,6 +861,13 @@ def test_reading_is_logged_for_review(caplog, language, text, expected, warning)
     assert warning in records[0].getMessage()
 
 
+@pytest.mark.parametrize("language,text,expected", UNLOGGED.values(), ids=list(UNLOGGED))
+def test_reading_is_not_logged(caplog, language, text, expected):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        assert TextNormalizer(language).normalize(text) == expected
+    assert not [r for r in caplog.records if r.name == "src.text.normalizer"]
+
+
 def test_line_structure_and_headings(cs):
     text, expected = HEADINGS
     assert cs.normalize(text) == expected
@@ -802,7 +879,7 @@ def test_digit_or_symbol_in_span_raises(cs, text):
         cs.normalize(text)
 
 
-@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH."])
+@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH.", "Je to ≈ fajn."])
 def test_symbol_without_reading_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)
@@ -822,7 +899,8 @@ def test_unknown_num2words_variant_raises():
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
 @pytest.mark.parametrize("language,config,text", [(lang, None, text) for lang, text in TEST2_INPUTS]
                          + [example[:3] for example in EXAMPLES.values()]
-                         + [(language, None, text) for language, text, _, _ in LOGGED.values()])
+                         + [(language, None, text) for language, text, _, _ in LOGGED.values()]
+                         + [(language, None, text) for language, text, _ in UNLOGGED.values()])
 def test_output_is_tokenizable(language, config, text):
     G2P[language].tokenize(TextNormalizer(language, config).normalize(text))
 ```
@@ -3689,7 +3767,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 589 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 674 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
