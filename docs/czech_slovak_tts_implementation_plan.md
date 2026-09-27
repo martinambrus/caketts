@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**784 tests:** 102 for the TTS components, 104 for num2words, 574 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**788 tests:** 102 for the TTS components, 104 for num2words, 578 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -457,7 +457,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 574 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 578 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -836,6 +836,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
     "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
                                   "Išiel päť metrov za sekundu a potom zastal."),
+    "per-second-attached-before-word": ("cs", None, "Jel 5 km/s a dál, tok 5 l/s a víc, pak 5 KM/S a dál.",
+                                        "Jel pět kilometrů za sekundu a dál, tok pět litrů za sekundu a víc, pak pět "
+                                        "kilometrů za sekundu a dál."),
     "per-second-after-power": ("cs", None, "Plocha roste 5 m² / s a dál, pak 5 m2 / s a víc.",
                                "Plocha roste pět metrů čtverečních za sekundu a dál, pak pět metrů čtverečních za "
                                "sekundu a víc."),
@@ -901,6 +904,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "conjunction-ends-the-verb-search": ("cs", None, "Cíle dosáhl a 2. místo nakonec obsadil.",
                                          "Cíle dosáhl a druhé místo nakonec obsadil."),
     "passive-is-a-place": ("cs", None, "Dům je postaven mezi 2 stromy.", "Dům je postaven mezi dvěma stromy."),
+    "passive-of-placing": ("cs", None, "Dopis byl položen mezi 2 svazky. Obraz je pověšen nad 2 stoly.",
+                           "Dopis byl položen mezi dva svazky. Obraz je pověšen nad dvěma stoly."),
     "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
                                      "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
     "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
@@ -3880,7 +3885,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 783 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 787 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
