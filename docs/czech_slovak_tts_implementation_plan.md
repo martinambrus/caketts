@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**731 tests:** 102 for the TTS components, 104 for num2words, 521 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**732 tests:** 102 for the TTS components, 104 for num2words, 522 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -300,7 +300,8 @@ book_config["english"] lists phrases the narrator reads in English, book_config[
 the Step 2.1 variant keywords, passed to every num2words call (unknown keywords raise, because
 num2words ignores them silently). book_config["verse_references"] lists Bible book names after
 which "3,16", "3:16" and "5,3–12" are chapter and verse ("Jan tři, šestnáct", "Mt pět, tři až
-dvanáct"), not decimals; it is off by default, as "Jan" is also a name. Invisible characters (soft
+dvanáct"), not decimals; it is off by default, as "Jan" is also a name. A numbered book is listed
+by its name ("Jan" for "1 Jan"; a name with a digit raises). Invisible characters (soft
 hyphen, zero-width space, BOM) are dropped and hyphen variants normalised on input.
 
 Handle:
@@ -454,7 +455,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 521 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 522 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -952,6 +953,11 @@ def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16.18": read
 def test_unknown_num2words_variant_raises():
     with pytest.raises(ValueError):
         TextNormalizer("sk", {"num2words": {"inverted": True}})  # a Czech-only keyword
+
+
+def test_numbered_verse_book_raises():  # the digit of "1 Jan" would stay as written; "Jan" leaves it to be read
+    with pytest.raises(ValueError, match="verse_references"):
+        TextNormalizer("cs", {"verse_references": ["Jan", "1 Jan"]})
 
 
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
@@ -3825,7 +3831,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 730 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 731 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
