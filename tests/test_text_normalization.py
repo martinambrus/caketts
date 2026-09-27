@@ -327,6 +327,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                       "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
     "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
     "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
+    "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
+                                           "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
     "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
     "verse-references": ("cs", {"verse_references": ["Jan", "Mt"]},
                          "Viz Jan 3,16, Mt 5,3–12, Mt 5,3–7,29 a Jan 3:16. Jan přišel v 5,5.",

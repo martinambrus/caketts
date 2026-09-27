@@ -255,7 +255,7 @@ _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
-_SIGN_START = r"(?:(?<=\dx)|(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/+]))"  # also "3x-4", but not "Max-5"
+_SIGN_START = r"(?:(?<=\dx)|(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×*~≈/+]))"  # also "3x-4", "3*-4", "~-5", but not "Max-5"
 _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.56 USD": never a Czech decimal
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
