@@ -160,6 +160,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "plus-after-symbol": ("cs", None, "Změna $+5.", "Změna plus pět dolarů."),
     "plus-at-upper-end": ("cs", None, "Změna $5–$+10.", "Změna pět až plus deset dolarů."),
     "en-dash-sign-at-upper-end": ("cs", None, "Teplota −5––1 °C.", "Teplota mínus pět až mínus jeden stupeň Celsia."),
+    "plus-at-range-top": ("cs", None, "Teplota −5–+5 °C.", "Teplota mínus pět až plus pět stupňů Celsia."),
     "dotted-numbers": ("cs", None, "Verze 1.2.3 vyšla, adresa 192.168.1.1.",
                        "Verze jedna tečka dva tečka tři vyšla, adresa sto devadesát dva tečka sto šedesát osm tečka "
                        "jedna tečka jedna."),
@@ -174,6 +175,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "compact-time-range": ("cs", None, "Otevřeno 10:00-12:00.", "Otevřeno deset hodin až dvanáct hodin."),
     "dot-times-sharing-hour-word": ("cs", None, "Schůzky jsou v 8.30 a 9.30 hod.", "Schůzky jsou v osm třicet a devět třicet."),
     "hour-abbreviation-h": ("cs", None, "Otevřeno 14:30 h a 14.30 h.", "Otevřeno čtrnáct třicet a čtrnáct třicet."),
+    "mixed-time-range-with-hour-word": ("cs", None, "Otevřeno 8.30–9:30 hod.", "Otevřeno osm třicet až devět třicet."),
     "sk-times-sharing-preposition": ("sk", None, "Stretnutia sú o 8.30 a 9.30 hod.",
                                      "Stretnutia sú o ôsmej tridsať a deviatej tridsať."),
     "seconds-hours-pieces": ("cs", None, "Trvalo to 5 s. Balení má 5 ks, let trval 3 h, mám 5 s sebou.",

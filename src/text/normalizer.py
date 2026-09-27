@@ -245,7 +245,7 @@ _ONE_LETTER_WORDS = "aikosuvz"
 _INCLUSIVE_SUFFIXES = "kyně|yně|čka|čky|ka|ky|ce|a|á|é|y"  # "on/a", "Vážený/á", "student/ka", "přišli/y"
 # "14.30" is a time only when hod follows, also after more times: "15.30–16.00 hod.", "v 8.30 a 9.30 hod."
 _HOUR_WORD = r"(?:hod(?:\.|in[ay]?|ín)?|h\.?)"  # hod., hodin, hodiny, hodina, h., sk hodín
-_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:do|až|a|nebo|alebo){_HS}+)(?:2[0-4]|[01]?\d)\.[0-5]\d)*"
+_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:do|až|a|nebo|alebo){_HS}+)(?:2[0-4]|[01]?\d)[.:][0-5]\d)*"
              rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
@@ -253,7 +253,7 @@ _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
 _NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d[:.]\d\d{_HS}*{_HOUR_WORD})$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
-_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–]?\d|[IVXLCDM]+\.)")
+_RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–+]?\d|[IVXLCDM]+\.)")
 
 
 @lru_cache(maxsize=None)
@@ -301,7 +301,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
         rf"|(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER})?))?{_HS}*[–—-]{_HS}*"
-        rf"(?P<high>[-−–]?{_UNSIGNED})"
+        rf"(?P<high>[-−–+]?{_UNSIGNED})"
         rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{_PER}){_NOT_LETTER_AFTER})?)?"
