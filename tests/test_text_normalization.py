@@ -321,6 +321,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-capital-acronym-before-number": ("sk", None, "PODĽA § 5 ODS. 2 PLATÍ.",
                                          "PODĽA paragrafu päť odseku dva PLATÍ."),
     "capital-era-after-number": ("cs", None, "ROKU 300 N. L. VLÁDL.", "ROKU tři sta našeho letopočtu VLÁDL."),
+    "invisible-characters": ("cs", None, "\ufeffRakousko\u2011Uhersko má 5\u201110 Kč, text\u00adový.",
+                             "Rakousko-Uhersko má pět až deset korun, textový."),
+    "approximately": ("cs", None, "Je to ~5 km, tedy ≈5 000 m.",
+                      "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
+    "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
+    "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -367,7 +373,7 @@ def test_digit_or_symbol_in_span_raises(cs, text):
         cs.normalize(text)
 
 
-@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH."])
+@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH.", "Je to ≈ fajn."])
 def test_symbol_without_reading_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)

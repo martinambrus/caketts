@@ -137,10 +137,10 @@ SCALE_GENDERS = {"cs": {"tis": "masculine", "mil": "masculine", "mld": "feminine
                  "sk": {"tis": "feminine", "mil": "masculine", "mld": "feminine"}}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
-SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát",
-               "±": "plus minus", "#": "číslo", "−": "mínus"},
-         "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát",
-               "±": "plus mínus", "#": "číslo", "−": "mínus"}}
+SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát", "*": "krát",
+               "±": "plus minus", "#": "číslo", "−": "mínus", "~": "přibližně", "≈": "přibližně"},
+         "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát", "*": "krát",
+               "±": "plus mínus", "#": "číslo", "−": "mínus", "~": "približne", "≈": "približne"}}
 PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusative singular
     "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "L": "litr", "ml": "mililitr", "mL": "mililitr", "m": "metr",
            "km": "kilometr",
@@ -218,7 +218,10 @@ DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" ->
 
 _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹›`´*_~")
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
-_MATH_SIGNS = frozenset("×=+±/−")
+_MATH_SIGNS = frozenset("×*=+±/−")
+# no sound, so dropped or replaced on input: soft hyphen, zero-width space, word joiner, BOM, hyphen variants
+_TYPOGRAPHY = str.maketrans({"\u00ad": None, "\u200b": None, "\u2060": None, "\ufeff": None,
+                             "\u2010": "-", "\u2011": "-", "\u2012": "–", "\u2015": "—", "\u2044": "/"})
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
@@ -339,7 +342,8 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±−]|#(?={_HS}*\d)"
-        rf"|(?<=\d){_HS}*x{_NOT_LETTER_AFTER}{_HS}*)"  # "3 x 4", "3    x 4", "3 x týdně"
+        rf"|(?<=\d){_HS}*x{_NOT_LETTER_AFTER}{_HS}*"  # "3 x 4", "3    x 4", "3 x týdně"
+        rf"|(?<=\d){_HS}*\*{_HS}*(?=[-−–+]?\d)|(?<!\d)[~≈](?={_HS}*[-−–+]?\d))"  # "3*4", "~5 km"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}}|[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"
@@ -519,7 +523,7 @@ class TextNormalizer:
 
     # ---- public API ----------------------------------------------------------------------
     def normalize(self, text: str) -> str:
-        lines = text.split("\n")
+        lines = text.translate(_TYPOGRAPHY).split("\n")
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
