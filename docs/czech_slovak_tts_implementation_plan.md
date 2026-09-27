@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**804 tests:** 102 for the TTS components, 104 for num2words, 594 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**806 tests:** 102 for the TTS components, 104 for num2words, 596 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -324,7 +324,7 @@ Handle:
     století", "Vzpomínal na dvacáté století". Text in capitals is tagged lowercased, as the tagger
     reads capitals as caseless names; there a period before a verb ends the sentence only when its
     clause already has a verb ("KAREL IV. ZALOŽIL" goes on, "BYL TAM ATD. ODEŠEL" ends), and a
-    conjunction after it goes on ("KAREL IV. A VÁCLAV IV.").
+    conjunction after a name goes on ("KAREL IV. A VÁCLAV IV.").
  2. Dates ("1. ledna 2024" -> "Prvního ledna dva tisíce dvacet čtyři"), times read digitally
     ("ve čtrnáct třicet", Slovak "o štrnástej tridsať"), currency ("sto korun", "čtyři eura
     padesát centů"), units that agree with their number ("5 km" -> "pět kilometrů", "80 m²" ->
@@ -458,7 +458,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 594 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 596 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -778,6 +778,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                     "KAREL čtvrtý SE NARODIL V PRAZE. VLÁDL KAREL čtvrtý. TO BYLO DÁVNO."),
     "capitals-conjunction-after-period": ("cs", None, "KAREL IV. A VÁCLAV IV. ZALOŽILI UNIVERZITY. VLÁDL KAREL IV. A POTOM ZEMŘEL.",
                                           "KAREL čtvrtý A VÁCLAV čtvrtý ZALOŽILI UNIVERZITY. VLÁDL KAREL čtvrtý A POTOM ZEMŘEL."),
+    "capitals-conjunction-after-abbreviation": ("cs", None, "BYL TAM ATD. A POTOM ODEŠEL. JABLKA, HRUŠKY ATD. A MNOHO DALŠÍHO "
+                                                "LEŽELO NA STOLE.",
+                                                "BYL TAM a tak dále. A POTOM ODEŠEL. JABLKA, HRUŠKY a tak dále A MNOHO DALŠÍHO "
+                                                "LEŽELO NA STOLE."),
     "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
                                "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
     "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
@@ -3901,7 +3905,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 803 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 805 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
