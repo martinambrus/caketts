@@ -349,6 +349,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
     "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
                                   "Išiel päť metrov za sekundu a potom zastal."),
+    "per-second-before-word-in-range": ("cs", None, "Jel 5–10 m / s a pak šel. Jel 5 m / s – 10 m / s a stál. "
+                                        "Letěl 5 tis. km / s a pak 5–10 tis. km / s a zmizel.",
+                                        "Jel pět až deset metrů za sekundu a pak šel. Jel pět metrů za sekundu až deset "
+                                        "metrů za sekundu a stál. Letěl pět tisíc kilometrů za sekundu a pak pět až deset "
+                                        "tisíc kilometrů za sekundu a zmizel."),
     "capitals-per-second-before-word": ("cs", None, "JEL 5 M / S A PAK 5 KM / S A DÁL.",
                                         "JEL pět metrů za sekundu A PAK pět kilometrů za sekundu A DÁL."),
     "unit-slash-is-no-preposition": ("cs", None, "Jel 5 m/s a 5 km/h.",

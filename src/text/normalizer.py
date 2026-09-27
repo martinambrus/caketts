@@ -325,6 +325,11 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
     unit = _UNIT + (_CAPITAL_UNIT if capitals else "")
     per = _PER + (_CAPITAL_PER if capitals else "")
     length = r"(?i:km|cm|mm|ml)|m|l|L" + (rf"|(?<={_HS})M" if capitals else "")
+
+    def unit_per(name: str) -> str:  # after a length or volume, "/ s" is a second also before a word: "5 m / s a pak"
+        return (rf"(?P<{name}unit>(?P<{name}length>{length})(?![\w²³/])|{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+                rf"(?:{_HS}*/{_HS}*(?P<{name}per>{per}|(?({name}length)(?i:s)|(?!))){_NOT_LETTER_AFTER}\.?)?")
+
     return re.compile(
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
         rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
@@ -337,21 +342,15 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
         rf"(?:{_HS}*(?:(?P<lowscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<lowscaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<lowunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<lowper>{per}){_NOT_LETTER_AFTER}\.?)?))?{_HS}*[–—-]{_HS}*"
+        rf"(?:{_HS}+{unit_per('lowscale')})?"
+        rf"|{unit_per('low')}))?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−–+]?{_UNSIGNED})"
         rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<highscaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?(lowunit){_HS}*(?P<highunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<highper>{per}){_NOT_LETTER_AFTER}\.?)?"
+        rf"(?:{_HS}+{unit_per('highscale')})?"
+        rf"|(?(lowunit){_HS}*{unit_per('high')}"
         rf"|(?:{_HS}*(?:(?P<rangescale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<rangescaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangescaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<rangeunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{per}){_NOT_LETTER_AFTER}\.?)?))?)))"
+        rf"(?:{_HS}+{unit_per('rangescale')})?"
+        rf"|{unit_per('range')}))?)))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
         rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{per}){_NOT_LETTER_AFTER}\.?{_HS}*[–—-]{_HS}*(?P<highpersign>[-−–])?"
         rf"(?:(?P=symbol){_HS}*)?"
@@ -362,11 +361,8 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?:{_HS}+(?P<moneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?)"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{per}){_NOT_LETTER_AFTER}\.?)?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
-        rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+(?P<scaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<scaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<unit>(?P<length>{length})(?![\w²³/])|{unit}|{_CURRENCY})"
-        # after a length or volume, "/ s" is a second also before a word: "5 m / s a pak"; not "Kč / s DPH"
-        rf"(?:{_HS}*/{_HS}*(?P<per>{per}|(?(length)(?i:s)|(?!))){_NOT_LETTER_AFTER}\.?)?)"
+        rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+{unit_per('scale')})?"
+        rf"|{unit_per('')})"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–+]?\d)"
