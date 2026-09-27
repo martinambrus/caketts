@@ -8,6 +8,7 @@ dictionary entries; WIKI-ČČ / WIKI-ŘČ = cs.wikipedia "České číslovky" / 
 Run: pytest test_num2words_cs.py
 """
 import re
+from decimal import Decimal
 
 import pytest
 
@@ -348,6 +349,11 @@ def test_mixed_ordinal_style_is_the_default():
 ])
 def test_decimals(x, expected):
     assert w(x) == expected
+
+
+def test_integer_values_keep_every_option():
+    assert w(1.0, case="accusative", animacy="animate") == "jednoho"
+    assert w(Decimal("1847"), case="genitive", oblique_style="full") == "tisíce osmi set čtyřiceti sedmi"
 
 
 # ---------------------------------------------------------------- API

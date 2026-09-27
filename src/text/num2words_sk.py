@@ -373,7 +373,8 @@ def _count_with_noun(v: int, forms: Tuple[str, str, str]) -> str:
     return f"{int_to_cardinal(v, 'feminine')} {forms[1] if v % 100 in (2, 3, 4) else forms[2]}"
 
 
-def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **_) -> str:
+def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", animacy: str = "inanimate",
+                      construction: str = "genitive", declined: bool = True) -> str:
     """
     Decimal numbers are read in the nominative (no source covers oblique cases); the integer
     part agrees with the feminine "celá" and the fraction takes desatina/stotina/tisícina.
@@ -387,7 +388,7 @@ def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **
     whole = int(d)
     frac = format(d, "f").split(".")[1].rstrip("0") if "." in format(d, "f") else ""
     if not frac:
-        return sign + int_to_cardinal(whole, gender, case)
+        return sign + int_to_cardinal(whole, gender, case, animacy, construction, declined)
     if len(frac) > 6:
         digits = " ".join(int_to_cardinal(int(ch), "feminine") for ch in frac)
         return f"{sign}{_count_with_noun(whole, ('celá', 'celé', 'celých'))} {digits}"
@@ -414,10 +415,11 @@ class Num2Word_SK:
 
     def to_cardinal(self, number, **kwargs) -> str:
         o = _options(kwargs)
+        args = (o["gender"], o["case"], o["animacy"], kwargs.get("construction", "genitive"),
+                kwargs.get("declined", True))
         if isinstance(number, (float, Decimal)) or (isinstance(number, str) and any(s in number for s in ".,")):
-            return float_to_cardinal(number, o["gender"], o["case"])
-        return int_to_cardinal(int(number), o["gender"], o["case"], o["animacy"],
-                               kwargs.get("construction", "genitive"), kwargs.get("declined", True))
+            return float_to_cardinal(number, *args)
+        return int_to_cardinal(int(number), *args)
 
     def to_ordinal(self, number, **kwargs) -> str:
         o = _options(kwargs)

@@ -8,6 +8,7 @@ where the sources are silent or allow variants (test_native_review_decisions).
 Run: pytest test_num2words_sk.py
 """
 import re
+from decimal import Decimal
 
 import pytest
 
@@ -221,6 +222,11 @@ def test_compound_ordinals_keep_cardinal_prefixes():
 ])
 def test_decimals(x, expected):
     assert w(x) == expected
+
+
+def test_integer_values_keep_every_option():
+    assert w(2.0, animacy="personal") == "dvaja"
+    assert w(Decimal("22"), case="dative", declined=False) == "dvadsaťdva"
 
 
 # ---------------------------------------------------------------- API

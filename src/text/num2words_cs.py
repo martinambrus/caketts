@@ -385,7 +385,8 @@ def _count_with_noun(v: int, forms: Tuple[str, str, str], agreement: bool) -> st
     return f"{num} {forms[2]}"
 
 
-def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **_) -> str:
+def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", animacy: str = "inanimate",
+                      construction: str = "genitive", oblique_style: str = "auto") -> str:
     """Decimals are read in the nominative; "celá" agrees with the integer part."""
     try:
         d = Decimal(str(x).replace(",", "."))
@@ -397,7 +398,7 @@ def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **
     text = format(d, "f")
     frac = text.split(".")[1].rstrip("0") if "." in text else ""
     if not frac:
-        return sign + int_to_cardinal(whole, gender, case)
+        return sign + int_to_cardinal(whole, gender, case, animacy, construction, oblique_style)
     integer = _count_with_noun(whole, ("celá", "celé", "celých"), agreement=True)
     if len(frac) > 6:
         return f"{sign}{integer} " + " ".join(int_to_cardinal(int(ch), "feminine") for ch in frac)
@@ -423,10 +424,11 @@ class Num2Word_CS:
 
     def to_cardinal(self, number, **kwargs) -> str:
         o = _options(kwargs)
+        args = (o["gender"], o["case"], o["animacy"], kwargs.get("construction", "genitive"),
+                kwargs.get("oblique_style", "auto"))
         if isinstance(number, (float, Decimal)) or (isinstance(number, str) and any(s in number for s in ".,")):
-            return float_to_cardinal(number, o["gender"], o["case"])
-        return int_to_cardinal(int(number), o["gender"], o["case"], o["animacy"],
-                               kwargs.get("construction", "genitive"), kwargs.get("oblique_style", "auto"))
+            return float_to_cardinal(number, *args)
+        return int_to_cardinal(int(number), *args)
 
     def to_ordinal(self, number, **kwargs) -> str:
         o = _options(kwargs)
