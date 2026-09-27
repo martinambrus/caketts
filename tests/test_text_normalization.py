@@ -456,6 +456,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a verb shared across "a" is not applied (see the example above); the tagger's plural is logged
     "genitive-verb-before-conjunction": ("cs", "Dosáhl cíle a 2. místa.", "Dosáhl cíle a druhá místa.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
+    "wait-on-one-form-noun": ("cs", "Čekal na 2. náměstí.", "Čekal na druhé náměstí.", "locative"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),

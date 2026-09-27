@@ -211,6 +211,7 @@ GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dožil": "se", "dožij": "se
 NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", "čekal", "čeká", "těšil", "těší",
                        "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
                        "naráží", "odkaz", "odkázal")
+NA_PLACE_VERBS = ("čekal", "čeká")  # "čekat na" is also "wait at": "Čekal na 2. náměstí" may be locative
 
 # preposition -> (vocalised form, starts of the number words that call for it)
 VOCALISATION = {
@@ -1207,6 +1208,8 @@ class TextNormalizer:
                 context = prep_case or verb_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
                 if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
                     doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
+                elif ordinal and verb_case == ACC and self._clause_verb(start, tags).text.lower().startswith(NA_PLACE_VERBS):
+                    doubt = f"na {head.text!r} read as the accusative (waiting for); the locative (waiting at) fits too"
                 case = context
             elif verb_case == GEN and (plural or case not in (NOM, ACC)):  # not the subject: "Cíle dosáhl 2. muž"
                 case = GEN  # "Dosáhli 5. místa", "Bál se 2. dílu": a genitive singular that looks plural or dative
