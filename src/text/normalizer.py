@@ -919,10 +919,6 @@ class TextNormalizer:
         """comma: log a "2,000" read as a decimal (a range checks both ends itself)."""
         value, integer, fraction = _parse(amount)
         case = self._governing_case(start, tags)
-        prep = self._preposition(start, tags)
-        if (self.language == "cs" and prep is not None and prep.text.lower() in ("pod", "nad")
-                and self._two_case(prep, None, start, tags) == ACC):
-            case = ACC  # "Teplota klesla pod pět stupňů", but "je pod pěti stupni"
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1279,7 +1275,12 @@ class TextNormalizer:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
         "s 2 kg a 3 kg", "s 1 kg a 2–3 kg"."""
         prep = self._preposition(pos, tags) or self._shared_preposition(pos, tags)
-        return _UD_CASES.get(prep.feats.get("Case")) if prep else None
+        if prep is None:
+            return None
+        if (self.language == "cs" and prep.text.lower() in ("pod", "nad")
+                and self._two_case(prep, None, prep.start, tags) == ACC):
+            return ACC  # "Teplota klesla pod pět stupňů", but "je pod pěti stupni"
+        return _UD_CASES.get(prep.feats.get("Case"))
 
     def _shared_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",

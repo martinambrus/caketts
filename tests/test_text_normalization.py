@@ -358,6 +358,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                    "Před dvěma roky odjel, přijel před dvěma týdny a za dva roky se vrátí."),
     "threshold-after-motion": ("cs", None, "Teplota klesla pod 5 °C, dnes je pod 5 °C.",
                                "Teplota klesla pod pět stupňů Celsia, dnes je pod pěti stupni Celsia."),
+    "threshold-range-after-motion": ("cs", None,
+                                     "Teplota klesla pod 1–2 °C, pak vystoupala nad 10–20 °C. Cena klesla pod 5–10 tis. Kč.",
+                                     "Teplota klesla pod jeden až dva stupně Celsia, pak vystoupala nad deset až dvacet "
+                                     "stupňů Celsia. Cena klesla pod pět až deset tisíc korun."),
+    "threshold-list-after-motion": ("cs", None, "Teploty klesly pod 5 °C, 3 °C a 1 °C. Pak klesly pod 3,2,1 °C.",
+                                    "Teploty klesly pod pět stupňů Celsia, tři stupně Celsia a jeden stupeň Celsia. "
+                                    "Pak klesly pod tři, dva, jeden stupeň Celsia."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
