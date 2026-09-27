@@ -373,6 +373,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                              "Vzdaluje se druhé kolo, vzdálilo se třetí kolo."),
     "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
                                      "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
+    "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
+                                           "Je to state\u2011of\u2011the\u2011art.", "Je to <en>state-of-the-art</en>."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -427,7 +429,8 @@ def test_line_structure_and_headings(cs):
     assert cs.normalize(text) == expected
 
 
-@pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>."])
+@pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>.",
+                                  "Četl <en>state\u2011of\u2011the\u2011art</en>."])  # spans stay as written
 def test_digit_or_symbol_in_span_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)

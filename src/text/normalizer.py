@@ -437,6 +437,15 @@ def _capitalise_like(source: str, words: str) -> str:
     return words[0].upper() + words[1:] if source[:1].isupper() else words
 
 
+def _clean_typography(text: str) -> str:
+    """Drop invisible characters and normalise hyphen variants outside <cs>/<sk>/<en> spans, which stay as written."""
+    out, pos = [], 0
+    for s in _SPAN_RE.finditer(text):
+        out += [text[pos:s.start()].translate(_TYPOGRAPHY), s.group(0)]
+        pos = s.end()
+    return "".join(out) + text[pos:].translate(_TYPOGRAPHY)
+
+
 def _all_capitals(text: str) -> bool:
     """Whether a paragraph is written in capitals: no lowercase letter outside <cs>/<sk>/<en> spans."""
     letters = [ch for ch in _SPAN_RE.sub(" ", text) if ch.isalpha()]
@@ -546,13 +555,13 @@ class TextNormalizer:
         self._verses = (re.compile(rf"(?<!\w)(?P<book>{'|'.join(map(re.escape, books))}){_HS}+(?P<chapter>\d+)[,:]"
                                    rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d|[^\W\d_])")
                         if books else None)
-        phrases = sorted(filter(None, config.get("english") or []), key=len, reverse=True)
+        phrases = sorted((p.translate(_TYPOGRAPHY) for p in config.get("english") or [] if p), key=len, reverse=True)
         self._english = (re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, phrases)) + r")(?!\w)")
                          if phrases else None)
 
     # ---- public API ----------------------------------------------------------------------
     def normalize(self, text: str) -> str:
-        lines = text.translate(_TYPOGRAPHY).split("\n")
+        lines = _clean_typography(text).split("\n")
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
