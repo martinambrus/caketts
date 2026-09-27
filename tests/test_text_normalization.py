@@ -479,6 +479,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-before-conjunction": ("cs", "Dosáhl cíle a 2. místa.", "Dosáhl cíle a druhá místa.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
     "wait-on-one-form-noun": ("cs", "Čekal na 2. náměstí.", "Čekal na druhé náměstí.", "locative"),
+    "going-behind-or-after": ("cs", "Šel za 2 stromy a tam se zastavil.", "Šel za dvěma stromy a tam se zastavil.",
+                              "place behind"),
     "comma-list-object-or-subject": ("cs", "Viděl 1,2,5 mužů.", "Viděl jeden, dva, pět mužů.", "accusative"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review

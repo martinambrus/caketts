@@ -1134,6 +1134,11 @@ class TextNormalizer:
                 and noun is not None and noun.feats.get("Gender") == "Masc" and noun.feats.get("Number") == "Plur"
                 and noun.text.lower().endswith("y")):
             decided = self._two_case(prep, noun, start, tags)
+            verb = self._clause_verb(start, tags)
+            if (decided == INS and prep.text.lower() == "za" and verb is not None
+                    and verb.text.lower().startswith(GOING_VERBS)):  # "Šel za 2 stromy": after them, or behind them
+                self._warn(text, m, self._cardinal(value, INS, gender, animacy),
+                           "za after going read as following (instrumental); a place behind is the accusative; check it")
             if decided:
                 return decided, gender, animacy
         if noun_case in (DAT, INS, LOC):
