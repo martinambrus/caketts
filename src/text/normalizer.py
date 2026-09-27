@@ -375,7 +375,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±−]|#(?={_HS}*\d)"
         rf"|(?<=\d){_HS}*x{_NOT_LETTER_AFTER}{_HS}*"  # "3 x 4", "3    x 4", "3 x týdně"
-        rf"|(?<=\d){_HS}*\*{_HS}*(?=[-−–+]?\d)|(?<!\d)[~≈](?={_HS}*[-−–+]?\d))"  # "3*4", "~5 km"
+        rf"|(?<=\d){_HS}*\*{_HS}*(?=[-−–+]?\d)|(?<!\d)[~≈](?={_HS}*[-−–+]?(?:[$€£]{_HS}*[-−–+]?)?\d))"  # "3*4", "~5 km", "≈$5"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}}|[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"

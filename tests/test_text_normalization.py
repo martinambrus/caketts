@@ -331,6 +331,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "approximately": ("cs", None, "Je to ~5 km, tedy ≈5 000 m.",
                       "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
     "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
+    "approximately-before-currency": ("cs", None, "Stálo to ≈$5, tedy ~ €5 a ≈ -$5.",
+                                      "Stálo to přibližně pět dolarů, tedy přibližně pět eur a přibližně mínus pět dolarů."),
     "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
     "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
                                            "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
