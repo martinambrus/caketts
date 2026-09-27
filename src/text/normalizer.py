@@ -1322,10 +1322,10 @@ class TextNormalizer:
             return {"před": INS, "za": ACC}.get(word)
         verb = self._clause_verb(pos, tags)
         form = verb.text.lower() if verb is not None else ""
-        before = self._clause_before(pos, tags)
+        clause = self._clause_before(pos, tags) + self._clause_after(pos, tags)  # "Mezi 2 svazky byl dopis položen"
         if (any(w.upos in ("ADJ", "VERB") and w.feats.get("VerbForm") == "Part"
-                and w.text.lower().startswith(PLACED_PARTICIPLES) for w in before)
-                and not any(w.text.lower() in ("je", "jsou") for w in before)):
+                and w.text.lower().startswith(PLACED_PARTICIPLES) for w in clause)
+                and not any(w.text.lower() in ("je", "jsou") for w in clause)):
             return ACC  # the event, "byl položen mezi dva svazky"; the state is a place: "je pověšen nad dvěma stoly"
         if verb is not None and verb.feats.get("Voice") == "Pass":
             return INS  # "Dům je postaven mezi dvěma stromy": a passive is the state, not the motion
@@ -1423,6 +1423,16 @@ class TextNormalizer:
         words = []
         for w in reversed(tags.words[:bisect.bisect_left(tags.starts, pos)]):
             if w.text in (".", "!", "?", "…", ";", ":") or (clause and (w.text == "," or w.upos == "CCONJ")):
+                break
+            words.append(w)
+        return words
+
+    @staticmethod
+    def _clause_after(pos: int, tags: _Tags) -> List[_Word]:
+        """The words from `pos` to the end of its clause, which a comma, a sentence end or a conjunction closes."""
+        words = []
+        for w in tags.words[bisect.bisect_left(tags.starts, pos):]:
+            if w.text in (",", ".", "!", "?", "…", ";", ":") or w.upos == "CCONJ":
                 break
             words.append(w)
         return words
