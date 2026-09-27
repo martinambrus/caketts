@@ -216,6 +216,8 @@ def test_compound_ordinals_keep_cardinal_prefixes():
     ("68,50", "šesťdesiatosem celých päť desatín"),
     (3.14, "tri celé štrnásť stotín"),
     (-2.5, "mínus dve celé päť desatín"),
+    (102.3, "stodve celé tri desatiny"),                             # like "stodve knihy" (native review)
+    (0.102, "nula celých stodve tisíciny"),
 ])
 def test_decimals(x, expected):
     assert w(x) == expected

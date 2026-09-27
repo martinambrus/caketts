@@ -62,7 +62,7 @@ These changes fall outside the notebook grid:
 - **22 feminine:** dvadsaťdve → dvadsaťdva. MSJ p. 326: "jeden a dva má pri všetkých podstatných menách mužský tvar".
 - **1000th feminine / neuter:** tisícia / tisície → tisíca / tisíce (SSSJ, quoted by Šrámeková 2023).
 - **0** now declines: nula, nuly, nule, nulu, nulou.
-- **Decimals:** jeden celých päť → **jedna celá päť desatín**; tri celých štrnásť → **tri celé štrnásť stotín** (Duchková, JÚĽŠ).
+- **Decimals:** jeden celých päť → **jedna celá päť desatín**; tri celých štrnásť → **tri celé štrnásť stotín** (Duchková, JÚĽŠ). After *sto-* or *tisíc-* and a bare 2–4, as in *stodve knihy*: **stodve celé**.
 
 ---
 

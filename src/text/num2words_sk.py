@@ -362,14 +362,15 @@ DENOMINATORS = {  # (1, 2-4, 5+ and compounds)
 
 
 def _count_with_noun(v: int, forms: Tuple[str, str, str]) -> str:
-    """Feminine count + noun in the nominative: jedna celá / dve celé / päť celých."""
+    """Feminine count + noun in the nominative: jedna celá / dve celé / päť celých / stodve celé."""
     if v == 0:
         return f"nula {forms[2]}"
     if v == 1:
         return f"jedna {forms[0]}"
     if v in (2, 3, 4):
         return f"{_simple(v, N, 'feminine', 'inanimate', 'genitive', False)} {forms[1]}"
-    return f"{int_to_cardinal(v, 'feminine')} {forms[2]}"
+    # a bare 2-4 after sto-/tisíc- agrees like a simple 2-4: stodve celé, like "stodve knihy"
+    return f"{int_to_cardinal(v, 'feminine')} {forms[1] if v % 100 in (2, 3, 4) else forms[2]}"
 
 
 def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **_) -> str:
