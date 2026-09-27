@@ -716,14 +716,17 @@ class TextNormalizer:
             words = self._time(m, tags)
         elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
             words = f" {RANGE_WORD} ".join(
-                self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"])
+                self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"],
+                              comma=False)
                 + (f" {self._per(m[end_ + 'scaleper'])}" if m[end_ + "scaleper"] else "")
                 for end_ in ("low", "high"))
+            self._check_comma(text, (start, end), words, m["low"], m["high"])
         elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
             words = f" {RANGE_WORD} ".join(
-                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end)
+                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end, comma=False)
                 + (f" {self._per(m[end_ + 'per'])}" if m[end_ + "per"] else "")
                 for end_ in ("low", "high"))
+            self._check_comma(text, (start, end), words, m["low"], m["high"])
         elif kind == "range":
             words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
                                 m["rangeper"] or m["rangescaleper"], text, tags, after_label)
@@ -878,11 +881,11 @@ class TextNormalizer:
         low, value = _parse(low_amount)[0], _parse(high_amount)[0]
         decimal = isinstance(low, str) or isinstance(value, str)  # decimals are read in the nominative
         if unit or scale:
-            high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit)
-            if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:
-                words = f"{self._measure(low_amount, unit, start, tags, text, end)} {RANGE_WORD} {high}"  # "1,50–2,50 €"
+            high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit, comma=False)
+            if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:  # "1,50–2,50 €"
+                words = f"{self._measure(low_amount, unit, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
             elif scale and scale.lower() == "tis" and self.language == "sk":  # "dvetisíc až tritisíc": one word each
-                words = f"{self._measure(low_amount, scale, start, tags, text, end)} {RANGE_WORD} {high}"
+                words = f"{self._measure(low_amount, scale, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
@@ -895,11 +898,12 @@ class TextNormalizer:
                 case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)
             words = (f"{self._signed(low_amount, self._cardinal(low, case, gender, animacy))} {RANGE_WORD} "
                      f"{self._signed(high_amount, self._cardinal(value, case, gender, animacy))}")
-            self._check_comma(text, (start, end), words, low_amount, high_amount)
+        self._check_comma(text, (start, end), words, low_amount, high_amount)  # one check for both ends
         return words + (f" {self._per(per)}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
-                 whole: bool = False, scale_unit: Optional[str] = None) -> str:
+                 whole: bool = False, scale_unit: Optional[str] = None, comma: bool = True) -> str:
+        """comma: log a "2,000" read as a decimal (a range checks both ends itself)."""
         value, integer, fraction = _parse(amount)
         case = self._governing_case(start, tags)
         prep = self._preposition(start, tags)
@@ -935,7 +939,8 @@ class TextNormalizer:
         words = read(case or NOM)
         if case is None and words != read(ACC):
             self._warn(text, (start, end), words, "no preposition; nominative")
-        self._check_comma(text, (start, end), words, amount)
+        if comma:
+            self._check_comma(text, (start, end), words, amount)
         return self._signed(amount, words) + suffix
 
     def _check_comma(self, text: str, where, words: str, *amounts: str) -> None:
