@@ -328,7 +328,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER})?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
-        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–]?\d)"
+        rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–+]?\d)"
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
@@ -339,7 +339,7 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}}|[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"
         rf"|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]){_HS}*/{_HS}*"
         rf"(?=[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"  # "a/i", "v/z"
-        rf"|(?<=\d){_HS}*/{_HS}*(?=[-−–]?\d))"
+        rf"|(?<=\d){_HS}*/{_HS}*(?=[-−–+]?\d))"
         rf"|(?P<dash>–|—|(?<!\S)-(?!\S)|(?<=\d)-(?=\d)|(?<=\d\.)-(?=\d)|(?<=[IVXLCDM]\.)-(?=[IVXLCDM]+\.))"
         rf"|(?P<ellipsis>\.\.\.)"
     )
@@ -736,7 +736,7 @@ class TextNormalizer:
 
     def _time(self, m: re.Match, tags: _Tags) -> str:
         hour, minute, second = int(m["hour"]), int(m["minute"]), m["second"]
-        prep = self._preposition(m.start(), tags) or self._shared_time_preposition(m.start(), tags)
+        prep = self._preposition(m.start(), tags) or self._shared_preposition(m.start(), tags)
         case = None
         if prep:
             case = (TIME_PREPOSITIONS[self.language].get(prep.text.lower())
@@ -792,7 +792,8 @@ class TextNormalizer:
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
                  whole: bool = False, scale_unit: Optional[str] = None) -> str:
         value, integer, fraction = _parse(amount)
-        case = self._preposition_case(start, tags)
+        prep = self._preposition(start, tags) or self._shared_preposition(start, tags)  # "s 2 kg a 3 kg"
+        case = _UD_CASES.get(prep.feats.get("Case")) if prep else None
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1053,16 +1054,22 @@ class TextNormalizer:
             return None
         return verb if verb.text.lower().startswith(RANK_VERBS[self.language]) else None
 
-    @staticmethod
-    def _shared_time_preposition(pos: int, tags: _Tags) -> Optional[_Word]:
-        """The preposition of an earlier time that this one shares: sk "o 8.30 a 9.30 hod.", "od 2:00–3:00"."""
+    def _shared_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
+        """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
+        "od 2:00–3:00", "s 2 kg a 3 kg"."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
-        while i >= 0 and (w[i].text.isdigit() or re.fullmatch(_HOUR_WORD, w[i].text.lower())  # "2:00 hod.–3:00"
-                          or w[i].text.lower() in (".", ":", ",", "a", "nebo", "alebo", "–", "—", "-")):
+        unit_words = {part for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
+        while i >= 0:
+            text = w[i].text
+            if w[i].upos == "ADP":
+                return w[i]
+            if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
+                    or re.fullmatch(_HOUR_WORD, text.lower()) or text in unit_words or text.lower() in SCALES):
+                return None
             i -= 1
-        return w[i] if i >= 0 and w[i].upos == "ADP" else None
+        return None
 
     def _preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
         word = tags.before(pos, skip=("ADV", "PART"))
@@ -1072,7 +1079,7 @@ class TextNormalizer:
         """The preposition that governs a whole reference: "podle § 5 odst. 2" -> podle."""
         i = bisect.bisect_left(tags.starts, pos) - 1
         while i >= 0 and (tags.words[i].upos in ("ADV", "PART") or tags.words[i].text.isdigit()
-                          or tags.words[i].text in ("§", ".", ",")
+                          or tags.words[i].text in ("§", ".", ",") or tags.words[i].text.lower() in ("a", "nebo", "alebo")
                           or f"{tags.words[i].text.lower()}." in DECLINED_ABBREVIATIONS[self.language]):
             i -= 1
         return tags.words[i] if i >= 0 and tags.words[i].upos == "ADP" else None
