@@ -423,8 +423,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
-    "genitive-verbs-present": ("cs", None, "Budova dosahuje 2. podlaží. Obávají se 2. kola a dočkají se 2. dílu.",
-                               "Budova dosahuje druhého podlaží. Obávají se druhého kola a dočkají se druhého dílu."),
+    "genitive-verbs-present": ("cs", None, "Budova dosahuje 2. podlaží. Obávají se 2. kola a dočkají se 2. dílu. "
+                                           "Co se týče 2. století.",
+                               "Budova dosahuje druhého podlaží. Obávají se druhého kola a dočkají se druhého dílu. "
+                               "Co se týče druhého století."),
     "genitive-verb-with-subject-after": ("cs", None, "Cíle dosáhl 2. muž. Cíle dosáhli 2. muži. Cíle dosáhnou 2. muži.",
                                          "Cíle dosáhl druhý muž. Cíle dosáhli druzí muži. Cíle dosáhnou druzí muži."),
     "genitive-verb-with-neuter-subject": ("cs", None, "Cíle dosáhlo 2. sdružení. Dožil se 2. tisíciletí. Dosáhlo to 2. výročí. "

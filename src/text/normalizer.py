@@ -212,7 +212,7 @@ GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "s
                   "dočká": "se", "dočkaj": "se", "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se",
                   "bál": "se", "bojí": "se", "obával": "se", "obává": "se", "obávaj": "se", "všiml": "si", "všimn": "si",
                   "všímá": "si", "všímaj": "si", "dotkl": "se", "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se",
-                  "týká": "se", "týkaj": "se", "týkal": "se"}  # present plurals in -ají: "obávají se", "dočkají se"
+                  "týká": "se", "týkaj": "se", "týkal": "se", "týče": "se"}  # "obávají se", "dočkají se", "co se týče"
 # Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
 NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", "čekal", "čeká", "těšil", "těší",
                        "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
