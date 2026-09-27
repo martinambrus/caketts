@@ -7,7 +7,7 @@ Both modules were rewritten from published grammar rather than patched:
 - **Slovak sources:** Morfológia slovenského jazyka (1966), the Pravidlá slovenského pravopisu (1991 and 1998, quoted by Jarošová 2021), Navrátil (2003), Encyclopaedia Beliana, and language columns by JÚĽŠ SAV linguists.
 - **Czech sources:** the Internetová jazyková příručka of ÚJČ AV ČR (IJP), Czech Wikipedia, Nový encyklopedický slovník češtiny, Český rozhlas and the National Library's answer service.
 
-Every expected value in the test suites is a form quoted from one of these sources, and each test names its source. Where the sources were silent or allowed variants, you decided in the review of 25 September (§4). There are 94 tests: 44 Slovak and 50 Czech.
+Every expected value in the test suites is a form quoted from one of these sources, and each test names its source. Where the sources were silent or allowed variants, you decided in the review of 25 September (§4). There are 104 tests: 49 Slovak and 55 Czech.
 
 The main problem in v1 was the same in both languages. Wherever a cardinal had to decline, v1 produced an **ordinal** form: 21 G "dvadsiatehojedného" / "dvacátéhojednoho", 100 G "stého", 1000 G "tisíceho" / "tisícího". Czech also had wrong spelling on top of that: words were run together ("dvoutisícdvacetčtyři" for 2024) and 2000 was "dvoutisíc".
 
