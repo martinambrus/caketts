@@ -334,9 +334,11 @@ Handle:
     after a preposition ("na str. 45" -> "na straně čtyřicet pět"); sv. and tzv. agree with their
     noun. Symbols with a reading: & + @ = × ± #1, ~ and ≈ before a number ("přibližně"), * between
     numbers ("krát"), and / between words ("nebo") or numbers ("lomeno"). Unit and currency symbols
-    also match in capitals ("5 KČ", "50 KM/H"; a one-letter one only after a space: "5 G", not
-    "5G"), and "MAX." and "ODS." expand before a number ("maximálně pět kilogramů"); an acronym
-    kept as written in capitals ("TJ.", "ATP.") is LOGGED.
+    also match in capitals ("5 KČ", "50 KM/H"). A one-letter one (G, M, H, S) is a unit only in a
+    paragraph written in capitals, and only after a space ("5 G", not "5G"); in mixed text SI writes
+    it lowercase, so a capital there is a prefix or a name and stays ("5 G" network, "5 M" million).
+    "MAX." and "ODS." expand before a number ("maximálně pět kilogramů"); an acronym kept as
+    written in capitals ("TJ.", "ATP.") is LOGGED.
  4. Dashes: normalise "–" and " - " to "—", or to "až" between numbers; normalise "..." to "…".
  5. English spans: wrap every exact, case-sensitive, whole-word occurrence of a
     book_config["english"] phrase in <en>…</en>, longest phrase first. <cs>/<sk>/<en> spans

@@ -280,6 +280,7 @@ _PRICE = rf"[-−–+]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _UNIT = (rf"(?i:km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|kg|ks\.?|ml|hod\.?|min\.?)|m{_POWER}|g|l|L|°C|°|%|‰|h\.?"
          rf"|s(?!{_HS}+[^\W\d_])\.?")  # "5 s.", but "Mám 5 s sebou"
+# in a paragraph in capitals only: SI writes these lowercase, and in mixed text a capital is a prefix or a name
 _CAPITAL_UNIT = rf"|M(?:[²³]|[23](?!\d))|(?<={_HS})(?:M{_POWER}|G|H\.?|S(?!{_HS}+[^\W\d_])\.?)"  # "5 G", "60M2"; "5G" a name
 _CURRENCY = r"(?i:kč)|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
