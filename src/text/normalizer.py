@@ -468,7 +468,9 @@ def _canonical(symbol: str, keys) -> str:
 
 
 def _agree(a: "_Word", b: "_Word") -> bool:
-    return all(a.feats.get(f) == b.feats.get(f) for f in ("Gender", "Number"))
+    """The same gender and number, and animacy where both have one: "dosáhli" agrees with "muži", not "cíle"."""
+    animacy = (a.feats.get("Animacy"), b.feats.get("Animacy"))
+    return all(a.feats.get(f) == b.feats.get(f) for f in ("Gender", "Number")) and (None in animacy or animacy[0] == animacy[1])
 
 
 def _starts_sentence(before: str) -> bool:
@@ -1220,16 +1222,16 @@ class TextNormalizer:
             if self.language == "cs" and head.feats.get("Gender") == "Neut" and head.text.lower().endswith("í"):
                 # "století" has one form for every case but the instrumental, so the context decides
                 context = prep_case or verb_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
-                verb = self._clause_verb(start, tags) if verb_case == GEN and case == NOM else None
-                if (verb is not None and _agree(verb, head)
-                        and not any(w.feats.get("Case") == "Nom" and _agree(verb, w) for w in self._clause_before(start, tags))):
-                    context = NOM  # the subject: "Cíle dosáhlo 2. sdružení", not "Dožil se 2. tisíciletí", "Dosáhlo to 2. výročí"
+                if verb_case == GEN and self._subject(head, start, tags):
+                    context = NOM  # "Cíle dosáhlo 2. sdružení", not "Dožil se 2. tisíciletí", "Dosáhlo to 2. výročí"
                 if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
                     doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
                 elif ordinal and verb_case == ACC and self._clause_verb(start, tags).text.lower().startswith(NA_PLACE_VERBS):
                     doubt = f"na {head.text!r} read as the accusative (waiting for); the locative (waiting at) fits too"
                 case = context
-            elif verb_case == GEN and (plural or case not in (NOM, ACC)):  # not the subject: "Cíle dosáhl 2. muž"
+            # a singular nominative or accusative is the subject ("Cíle dosáhl 2. muž"), and so is an agreeing
+            # plural nominative ("Cíle dosáhli 2. muži")
+            elif verb_case == GEN and (plural or case not in (NOM, ACC)) and not self._subject(head, start, tags):
                 case = GEN  # "Dosáhli 5. místa", "Bál se 2. dílu": a genitive singular that looks plural or dative
                 plural = plural and not head.text.lower().endswith(("a", "y", "e", "ě", "u"))
             elif prep_case and (case == NOM or (case == GEN and prep_case != GEN)):
@@ -1382,6 +1384,13 @@ class TextNormalizer:
     def _preposition_case(self, pos: int, tags: _Tags) -> Optional[str]:
         prep = self._preposition(pos, tags)
         return _UD_CASES.get(prep.feats.get("Case")) if prep else None
+
+    def _subject(self, head: _Word, pos: int, tags: _Tags) -> bool:
+        """Whether a noun tagged nominative after its verb is the subject: it agrees with the verb, and nothing
+        before it in the clause does ("Cíle dosáhli 2. muži", but "Dosáhlo to 2. výročí")."""
+        verb = self._clause_verb(pos, tags)
+        return (head.feats.get("Case") == "Nom" and verb is not None and _agree(verb, head)
+                and not any(w.feats.get("Case") == "Nom" and _agree(verb, w) for w in self._clause_before(pos, tags)))
 
     @staticmethod
     def _clause_before(pos: int, tags: _Tags, clause: bool = True) -> List[_Word]:
