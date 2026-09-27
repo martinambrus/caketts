@@ -224,6 +224,8 @@ VOCALISATION = {
 NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "cca.", "č.", "str.", "r.",
                            "mj.", "popř.", "příp.", "príp.", "zejm.", "vč.", "vr.", "max.", "sv.", "tzv.",
                            "odst.", "ods.", "písm."}
+# abbreviations that close a list, whose commas and "a" join no clauses: "PŘINESL JABLKA, HRUŠKY ATD."
+LIST_END_ABBREVIATIONS = {"atd.", "apod.", "aj.", "atp.", "atď.", "a pod.", "a i."}
 # keys whose capital form is an acronym, a name or initials: "TURNAJ ATP.", "TJ SOKOL", "voliči ODS."
 CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j.", "tj.", "vr."})
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
@@ -817,7 +819,8 @@ class TextNormalizer:
         if not raw.isupper() or _starts_sentence(text[:m.start()]):
             words = _capitalise_like(raw, words)
         if key.endswith(".") and self._ends_sentence(text, m.start(), m.end(), tags,
-                                                     introduces=key in NON_FINAL_ABBREVIATIONS):
+                                                     introduces=key in NON_FINAL_ABBREVIATIONS,
+                                                     list_end=key in LIST_END_ABBREVIATIONS):
             words += "."
         return words
 
@@ -1342,8 +1345,8 @@ class TextNormalizer:
     @staticmethod
     def _verb_before(pos: int, tags: _Tags, clause: bool) -> bool:
         """Whether the sentence before `pos` already has its verb; with `clause`, only the clause, which a comma
-        or a conjunction also closes: a name heads its own ("KDYŽ PŘIŠEL, KAREL IV."), a list does not
-        ("PŘINESL JABLKA, HRUŠKY ATD.")."""
+        or a conjunction also closes: a name, a date or an amount is in its own ("KDYŽ PŘIŠEL, KAREL IV.",
+        "PŘIŠEL A DNE 5. 6."), the end of a list is not ("PŘINESL JABLKA, HRUŠKY ATD.")."""
         for w in reversed(tags.words[:bisect.bisect_left(tags.starts, pos)]):
             if w.text in (".", "!", "?", "…", ";", ":") or (clause and (w.text == "," or w.upos == "CCONJ")):
                 return False
@@ -1409,7 +1412,7 @@ class TextNormalizer:
         return "gen_pl"
 
     def _ends_sentence(self, text: str, start: int, end: int, tags: _Tags, roman: bool = False,
-                       introduces: bool = False) -> bool:
+                       introduces: bool = False, list_end: bool = False) -> bool:
         """Whether the period of an abbreviation, date or Roman numeral at `start`-`end` also ends a
         sentence: at the end of the paragraph, or before an uppercase word (Slovak "atď. Potom", but
         not "např. Prahu")."""
@@ -1422,7 +1425,7 @@ class TextNormalizer:
         if introduces or not nxt[:1].isupper():
             return False
         word, capitals = tags.after(end), _all_capitals(text)
-        if capitals and word is not None and word.upos in ("VERB", "AUX") and not self._verb_before(start, tags, roman):
+        if capitals and word is not None and word.upos in ("VERB", "AUX") and not self._verb_before(start, tags, not list_end):
             return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             return (word is None or word.upos not in ("PROPN", "ADJ")
