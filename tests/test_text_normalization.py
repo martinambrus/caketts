@@ -307,6 +307,20 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "shared-noun": ("cs", None, "Přelom XIX. a XX. století.", "Přelom devatenáctého a dvacátého století."),
     "noun-after-tisíc": ("cs", None, "S 1 000 Kč vyrazil.", "S tisícem korun vyrazil."),
     "grouped-digits": ("cs", None, "Po 1 000 letech.", "Po tisíci letech."),
+    "capitals-agreement": ("cs", None, "PŘIŠLA TZV. VELKÁ VODA.", "PŘIŠLA takzvaná VELKÁ VODA."),
+    "capitals-saint": ("cs", None, "KOSTEL SV. VÁCLAVA", "KOSTEL svatého VÁCLAVA"),
+    "capitals-roman-after-name": ("cs", None, "KAREL IV. ZALOŽIL UNIVERZITU.", "KAREL čtvrtý ZALOŽIL UNIVERZITU."),
+    "capitals-page": ("cs", None, "NA STR. 45 SE PÍŠE.", "NA straně čtyřicet pět SE PÍŠE."),
+    "capitals-units": ("cs", None, "CENA JE 5 KČ, JEL 50 KM/H A MĚŘÍ 5 CM.",
+                       "CENA JE pět korun, JEL padesát kilometrů za hodinu A MĚŘÍ pět centimetrů."),
+    "capitals-one-letter-units": ("cs", None, "VZDÁLENOST 100 M, VÁHA 5 G A MÁM 5 S SEBOU.",
+                                  "VZDÁLENOST sto metrů, VÁHA pět gramů A MÁM pět S SEBOU."),
+    "capitals-scale-and-currency": ("cs", None, "STÁLO TO 5 TIS. KČ.", "STÁLO TO pět tisíc korun."),
+    "sk-capitals-currency": ("sk", None, "CENA JE 5 KČ.", "CENA JE päť korún."),
+    "capital-acronym-before-number": ("cs", None, "MAX. 5 KG.", "Maximálně pět kilogramů."),
+    "sk-capital-acronym-before-number": ("sk", None, "PODĽA § 5 ODS. 2 PLATÍ.",
+                                         "PODĽA paragrafu päť odseku dva PLATÍ."),
+    "capital-era-after-number": ("cs", None, "ROKU 300 N. L. VLÁDL.", "ROKU tři sta našeho letopočtu VLÁDL."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -315,6 +329,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                            "nominative masculine inanimate"),
     "decimal-comma-before-currency": ("cs", "Stálo to 1,234 USD.",
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
+    "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

@@ -231,13 +231,16 @@ _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
-_PER = rf"kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|mL|hod|min|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
+# "Kč/m²", "m / s"; not "Kč / s DPH"; symbols of two letters or more also in capitals: "KG", "KM/H"
+_PER = rf"(?i:kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|hod|min)|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"
+_CAPITAL_PER = rf"|G|M{_POWER}|H|S(?!{_HS}+[^\W\d_])"  # one-letter symbols in capitals, in all-caps text only
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−–+]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
-_UNIT = (rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|ks\.?|g|ml|mL|l|L|°C|°|%|‰|hod\.?|min\.?|h\.?"
+_UNIT = (rf"(?i:km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|kg|ks\.?|ml|hod\.?|min\.?)|m{_POWER}|g|l|L|°C|°|%|‰|h\.?"
          rf"|s(?!{_HS}+[^\W\d_])\.?")  # "5 s.", but "Mám 5 s sebou"
-_CURRENCY = r"Kč|€|EUR|USD|\$|£"
+_CAPITAL_UNIT = rf"|M{_POWER}|G|H\.?|S(?!{_HS}+[^\W\d_])\.?"
+_CURRENCY = r"(?i:kč)|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
@@ -285,8 +288,11 @@ def _abbreviation_pattern(key: str) -> str:
     return _NOT_LETTER_BEFORE + "".join(out) + (_NOT_LETTER_AFTER if key[-1].isalpha() else "")
 
 
-def _items_pattern(abbreviations) -> re.Pattern:
+def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
+    """capitals: for a paragraph in capitals, where "5 M" and "5 G" are units too."""
     abbr = "|".join(_abbreviation_pattern(k) for k in sorted(abbreviations, key=len, reverse=True))
+    unit = _UNIT + (_CAPITAL_UNIT if capitals else "")
+    per = _PER + (_CAPITAL_PER if capitals else "")
     return re.compile(
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
         rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
@@ -297,35 +303,35 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
         rf"(?:{_HS}*(?:(?P<lowscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<lowscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER}\.?)?))?{_HS}*[–—-]{_HS}*"
+        rf"(?:{_HS}+(?P<lowscaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
+        rf"|(?P<lowunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<lowper>{per}){_NOT_LETTER_AFTER}\.?)?))?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−–+]?{_UNSIGNED})"
         rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<highper>{_PER}){_NOT_LETTER_AFTER}\.?)?"
+        rf"(?:{_HS}+(?P<highscaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
+        rf"|(?(lowunit){_HS}*(?P<highunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<highper>{per}){_NOT_LETTER_AFTER}\.?)?"
         rf"|(?:{_HS}*(?:(?P<rangescale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangescaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER}\.?)?))?)))"
+        rf"(?:{_HS}+(?P<rangescaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<rangescaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
+        rf"|(?P<rangeunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{per}){_NOT_LETTER_AFTER}\.?)?))?)))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
-        rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}\.?{_HS}*[–—-]{_HS}*(?P<highpersign>[-−–])?"
+        rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{per}){_NOT_LETTER_AFTER}\.?{_HS}*[–—-]{_HS}*(?P<highpersign>[-−–])?"
         rf"(?:(?P=symbol){_HS}*)?"
-        rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{_PER}){_NOT_LETTER_AFTER}\.?"
+        rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{per}){_NOT_LETTER_AFTER}\.?"
         rf"|(?:(?:{_HS}+(?P<lowmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
         rf"(?P<highsign>[-−–])?(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"  # "-$5–-$10"
         rf"(?(lowmoneyscale){_HS}+(?P<highmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"|(?:{_HS}+(?P<moneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?)"
-        rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER}\.?)?))"
+        rf"(?:{_HS}*/{_HS}*(?P<moneyper>{per}){_NOT_LETTER_AFTER}\.?)?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
-        rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<scaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
-        rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER}\.?)?)"
+        rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+(?P<scaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        rf"(?:{_HS}*/{_HS}*(?P<scaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
+        rf"|(?P<unit>{unit}|{_CURRENCY})"
+        rf"(?:{_HS}*/{_HS}*(?P<per>{per}){_NOT_LETTER_AFTER}\.?)?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–+]?\d)"
@@ -395,6 +401,23 @@ def _key_of(m: re.Match) -> str:
 
 def _capitalise_like(source: str, words: str) -> str:
     return words[0].upper() + words[1:] if source[:1].isupper() else words
+
+
+def _all_capitals(text: str) -> bool:
+    """Whether a paragraph is written in capitals: no lowercase letter outside <cs>/<sk>/<en> spans."""
+    letters = [ch for ch in _SPAN_RE.sub(" ", text) if ch.isalpha()]
+    return len(letters) > 1 and not any(ch.islower() for ch in letters)
+
+
+def _canonical(symbol: str, keys) -> str:
+    """The table key of a unit symbol written in capitals: "KČ" -> "Kč", "KM/H" -> "km/h"."""
+    return symbol if symbol in keys else next((k for k in keys if k.lower() == symbol.lower()), symbol)
+
+
+def _in_capitals(text: str) -> bool:
+    """Whether `text` goes on in capitals ("ZALOŽIL UNIVERZITU"), where a capital shows no sentence start."""
+    words = re.findall(r"[^\W\d_]+", text)[:2]
+    return bool(words) and all(w.isupper() for w in words) and any(len(w) > 1 for w in words)
 
 
 def _starts_sentence(before: str) -> bool:
@@ -489,6 +512,7 @@ class TextNormalizer:
         table = self.ABBREVIATIONS_CS if language == "cs" else self.ABBREVIATIONS_SK
         self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}
         self._items = _items_pattern(self.abbreviations)
+        self._items_in_capitals = _items_pattern(self.abbreviations, capitals=True)
         phrases = sorted(filter(None, config.get("english") or []), key=len, reverse=True)
         self._english = (re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, phrases)) + r")(?!\w)")
                          if phrases else None)
@@ -521,7 +545,8 @@ class TextNormalizer:
             if bad:
                 raise ValueError(f"{bad!r} in {s.group(0)!r}: spans are kept as written, so spell it out")
             spans.append(s.span())
-        items = [m for m in self._items.finditer(text)
+        pattern = self._items_in_capitals if _all_capitals(text) else self._items
+        items = [m for m in pattern.finditer(text)
                  if not any(s < m.end() and m.start() < e for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
         out, pos, after_label = [], 0, -1
@@ -567,14 +592,19 @@ class TextNormalizer:
         tokens = list(_TAG_TOKEN.finditer(view))
         if not tokens:
             return []
-        sentence = _tagger(self.language)([[t.group() for t in tokens]]).sentences[0]
+        texts = [t.group() for t in tokens]
+        letters = [i for i, s in enumerate(texts) if s.isalpha() and not re.fullmatch("[IVXLCDM]+", s)]
+        capitals = {i for i in letters if texts[i].isupper()}
+        # the tagger reads every word of an all-caps run as a caseless proper noun; an acronym alone stays
+        lowered = {i for pair in zip(letters, letters[1:]) if set(pair) <= capitals for i in pair}
+        sentence = _tagger(self.language)([[s.lower() if i in lowered else s for i, s in enumerate(texts)]]).sentences[0]
         words = []
-        for t, token in zip(tokens, sentence.tokens):
+        for i, (t, token) in enumerate(zip(tokens, sentence.tokens)):
             for w in token.words:
                 feats = dict(f.split("=", 1) for f in (w.feats or "").split("|") if f)
                 feats.update(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
                 upos = w.upos if any(ch.isalnum() for ch in w.text) else "PUNCT"  # CAC tags "–" as a noun at times
-                words.append(_Word(t.start(), t.end(), w.text, upos, feats))
+                words.append(_Word(t.start(), t.end(), texts[i] if i in lowered else w.text, upos, feats))
         return words
 
     # ---- items -----------------------------------------------------------------------------
@@ -675,7 +705,12 @@ class TextNormalizer:
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
         raw, key = m.group(0), _key_of(m)
         if raw.isupper() and len(key) > 2 and key in CAPITAL_ACRONYMS:
-            return raw
+            after = text[m.end():].lstrip(" \t  ")
+            before = text[:m.start()].rstrip(" \t  ")
+            if not (after[:1].isdigit() or (key == "n.l." and before[-1:].isdigit())):  # "MAX. 5", "300 N. L."
+                if _in_capitals(after):
+                    self._warn(text, m, raw, "acronym or abbreviation in capitals, kept as written; check it")
+                return raw
         words = self.abbreviations[key]
         if key in AGREEING_ABBREVIATIONS:
             head = tags.head_after(m.end())
@@ -835,13 +870,14 @@ class TextNormalizer:
         """The unit after "/" in the accusative singular: "za kilogram", "za metr čtvereční"."""
         power = {"2": "²", "3": "³"}.get(per[-1], per[-1]) if per[-1] in "²³23" else None
         adjective = UNIT_ADJECTIVES[self.language].get(power)
-        return f"za {PER_UNITS[self.language][per[:-1] if power else per]}" + (f" {adjective}" if adjective else "")
+        key = _canonical(per[:-1] if power else per, PER_UNITS[self.language])
+        return f"za {PER_UNITS[self.language][key]}" + (f" {adjective}" if adjective else "")
 
     def _unit(self, unit: str) -> Tuple[str, Optional[str], str]:
         """(noun, agreeing adjective, suffix) of a unit symbol: "m²" -> metr, čtvereční."""
         unit = unit.rstrip(".")
         power = {"2": "²", "3": "³"}.get(unit[-1], unit[-1]) if unit[-1] in "²³23" else None
-        base = unit[:-1] if power else unit
+        base = _canonical(unit[:-1] if power else unit, UNITS[self.language])
         return (UNITS[self.language][base], UNIT_ADJECTIVES[self.language].get(power),
                 UNIT_SUFFIXES[self.language].get(base, ""))
 
@@ -1065,7 +1101,7 @@ class TextNormalizer:
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
-        unit_words = {part for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
+        unit_words = {part.lower() for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
         while i >= 0:
             text = w[i].text
             if w[i].upos == "ADP":
@@ -1076,7 +1112,7 @@ class TextNormalizer:
                         and not w[i + 1].text[:1].isupper()))):  # "hod.–3:00", but "s 2 kg. A 3 kg"
                 return None
             if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
-                    or re.fullmatch(_HOUR_WORD, text.lower()) or text in unit_words or text.lower() in SCALES):
+                    or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in unit_words or text.lower() in SCALES):
                 return None
             i -= 1
         return None
@@ -1168,7 +1204,7 @@ class TextNormalizer:
         nxt = rest.lstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›()[]—–-")
         if not nxt:
             return True
-        if introduces or not nxt[:1].isupper():
+        if introduces or not nxt[:1].isupper() or _in_capitals(nxt):
             return False
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             word = tags.after(end)
