@@ -1074,8 +1074,10 @@ class TextNormalizer:
     def _context(self, value: int, start: int, end: int, text: str, tags: _Tags, after_label: bool,
                  m) -> Tuple[str, str, str]:
         """Case, gender and animacy of a cardinal, from the noun it counts or the preposition before it."""
-        if after_label or text[:start].rstrip()[-1:] in _MATH_SIGNS or text[end:].lstrip()[:1] in _MATH_SIGNS:
-            return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024"
+        before, after = text[:start].rstrip(), text[end:].lstrip()
+        if (after_label or before[-1:] in _MATH_SIGNS or after[:1] in _MATH_SIGNS
+                or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(rf"[~≈]{_HS}*[-−–+]?\d", after)):
+            return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
         prep_case = self._preposition_case(start, tags)
         noun = tags.head_after(end) or self._shared_count_head(end, tags)
         case = gender = animacy = tagged_case = noun_case = None
