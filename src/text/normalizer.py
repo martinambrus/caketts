@@ -1377,12 +1377,15 @@ class TextNormalizer:
         nxt = rest.lstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›()[]—–-")
         if not nxt:
             return True
-        if introduces or not nxt[:1].isupper() or _all_capitals(text):  # in capitals a capital says nothing
+        if introduces or not nxt[:1].isupper():
             return False
+        word, capitals = tags.after(end), _all_capitals(text)
+        if capitals and word is not None and word.upos in ("VERB", "AUX"):
+            return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": in capitals no capital shows a sentence start
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
-            word = tags.after(end)
-            return (word is None or word.upos not in ("PROPN", "ADJ") or (len(word.text) > 1 and word.text.isupper())
-                    or (word.upos == "ADJ" and self._verb_follows(end, tags)))  # "…IV. USA vznikly" is no name
+            return (word is None or word.upos not in ("PROPN", "ADJ")
+                    or (not capitals and len(word.text) > 1 and word.text.isupper())  # "…IV. USA vznikly" is no name
+                    or (word.upos == "ADJ" and self._verb_follows(end, tags)))
         return True
 
     def _feminine(self, word: str, suffix: str) -> str:
