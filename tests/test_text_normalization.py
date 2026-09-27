@@ -338,6 +338,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
     "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
                                   "Išiel päť metrov za sekundu a potom zastal."),
+    "unit-slash-is-no-preposition": ("cs", None, "Jel 5 m/s a 5 km/h.",
+                                     "Jel pět metrů za sekundu a pět kilometrů za hodinu."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

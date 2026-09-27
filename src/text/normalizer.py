@@ -1145,7 +1145,7 @@ class TextNormalizer:
         unit_words = {part.lower() for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
         while i >= 0:
             text = w[i].text
-            if w[i].upos == "ADP":
+            if w[i].upos == "ADP" and not (i > 0 and w[i - 1].text == "/"):  # the "s" of "m/s" is no preposition
                 return w[i]
             if text in (".", "!", "?", "…") and not (text == "." and 0 < i < len(w) - 1 and (
                     (w[i - 1].text.isdigit() and w[i + 1].text.isdigit() and w[i + 1].start == w[i].end)  # "8.30"
