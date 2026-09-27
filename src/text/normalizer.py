@@ -1200,7 +1200,7 @@ class TextNormalizer:
                 if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
                     doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
                 case = context
-            elif verb_case == GEN:
+            elif verb_case == GEN and (plural or case not in (NOM, ACC)):  # not the subject: "Cíle dosáhl 2. muž"
                 case = GEN  # "Dosáhli 5. místa", "Bál se 2. dílu": a genitive singular that looks plural or dative
                 plural = plural and not head.text.lower().endswith(("a", "y", "e", "ě", "u"))
             elif prep_case and (case == NOM or (case == GEN and prep_case != GEN)):
