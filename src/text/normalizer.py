@@ -137,10 +137,10 @@ SCALE_GENDERS = {"cs": {"tis": "masculine", "mil": "masculine", "mld": "feminine
                  "sk": {"tis": "feminine", "mil": "masculine", "mld": "feminine"}}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
-SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát",
-               "±": "plus minus", "#": "číslo", "−": "mínus"},
-         "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát",
-               "±": "plus mínus", "#": "číslo", "−": "mínus"}}
+SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát", "*": "krát",
+               "±": "plus minus", "#": "číslo", "−": "mínus", "~": "přibližně", "≈": "přibližně"},
+         "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát", "*": "krát",
+               "±": "plus mínus", "#": "číslo", "−": "mínus", "~": "približne", "≈": "približne"}}
 PER_UNITS = {  # "100 Kč/kg" -> "za kilogram": the unit after "/" in the accusative singular
     "cs": {"kg": "kilogram", "g": "gram", "l": "litr", "L": "litr", "ml": "mililitr", "mL": "mililitr", "m": "metr",
            "km": "kilometr",
@@ -188,6 +188,37 @@ RANK_VERBS = {"cs": ("skončil", "doběhl", "dojel", "doplaval", "umístil", "by
               "sk": ("skončil", "dobeh", "doplával", "umiestnil", "bol")}
 SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medzi", "k", "ku", "na"})
 
+# Czech prepositions with the accusative of direction and the instrumental of place. A masculine plural in -y
+# has one form for both ("Postavil se mezi dva stromy", "Stál mezi dvěma stromy"), so the verb decides;
+# the tagger cannot. Verbs are matched by the start of the word form, as the tagger gives no lemma.
+TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
+TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
+DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
+                   "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
+                   "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
+                   "vrátil", "zapadl", "vlezl", "vběhl", "přiš", "přijd", "dal", "dá", "šel", "šla", "šli", "jde",
+                   "jdou", "jel", "jela", "jeli", "jede", "jedou")
+# going with no prefix marks no destination: "jel za 2 vozy" follows them ("za dvěma vozy"); "zajel za roh" does not
+GOING_VERBS = ("šel", "šla", "šli", "jde", "jdou", "jel", "jela", "jeli", "jede", "jedou")
+# passives of placing keep their verb's destination: "byl položen mezi 2 svazky" -> "dva"; "postaven" (built) is a place,
+# and CAC tags these participles adjectives, so the copula would be the verb
+PLACED_PARTICIPLES = ("polož", "vlož", "pověš", "umístěn", "zařazen", "schován")
+PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl", "žil", "žij", "zůstal", "zůstáv",
+               "čekal", "čeká", "nacház", "rostl", "rost", "pracoval", "pracuj", "spal", "spí")
+PLACE_FORMS = frozenset({"je", "jsou", "není", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # not "jel"
+# Czech verbs that take the genitive (a pattern for the start of the form) with the clitic they need:
+# "Dosáhli jsme XXI. století", "Bál se 2. dílu"; vzdát se, not vzdálit se (vzdálil, vzdaluje)
+GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "se", "dožij": "se", "dočkal": "se",
+                  "dočká": "se", "dočkaj": "se", "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se",
+                  "bál": "se", "bojí": "se", "obával": "se", "obává": "se", "obávaj": "se", "všiml": "si", "všimn": "si",
+                  "všímá": "si", "všímaj": "si", "dotkl": "se", "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se",
+                  "týká": "se", "týkaj": "se", "týkal": "se", "týče": "se"}  # "obávají se", "dočkají se", "co se týče"
+# Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
+NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", "čekal", "čeká", "těšil", "těší",
+                       "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
+                       "naráží", "odkaz", "odkázal")
+NA_PLACE_VERBS = ("čekal", "čeká")  # "čekat na" is also "wait at": "Čekal na 2. náměstí" may be locative
+
 # preposition -> (vocalised form, starts of the number words that call for it)
 VOCALISATION = {
     "cs": {"v": ("ve", ("v", "f", "dv", "tř", "čt", "st")), "k": ("ke", ("k", "g", "dv", "tř", "čt", "st")),
@@ -200,8 +231,13 @@ VOCALISATION = {
 NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "cca.", "č.", "str.", "r.",
                            "mj.", "popř.", "příp.", "príp.", "zejm.", "vč.", "vr.", "max.", "sv.", "tzv.",
                            "odst.", "ods.", "písm."}
+# abbreviations that close a list, whose commas and "a" join no clauses: "PŘINESL JABLKA, HRUŠKY ATD."
+LIST_END_ABBREVIATIONS = {"atd.", "apod.", "aj.", "atp.", "atď.", "a pod.", "a i."}
 # keys whose capital form is an acronym, a name or initials: "TURNAJ ATP.", "TJ SOKOL", "voliči ODS."
 CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j.", "tj.", "vr."})
+# nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
+ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
+                     "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
 AGREEING_ABBREVIATIONS = {"sv.", "tzv."}  # adjectives: they take the case and gender of the next word
 LABEL_ABBREVIATIONS = {"č.", "str.", "r.", "§", "odst.", "ods.", "písm."}  # the number after them names
 # prepositions with the accusative or the locative; before a page, number or year the locative
@@ -218,7 +254,10 @@ DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" ->
 
 _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹›`´*_~")
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
-_MATH_SIGNS = frozenset("×=+±/−")
+_MATH_SIGNS = frozenset("×*=+±/−")
+# no sound, so dropped or replaced on input: soft hyphen, zero-width space, word joiner, BOM, hyphen variants
+_TYPOGRAPHY = str.maketrans({"\u00ad": None, "\u200b": " ", "\u2060": None, "\ufeff": None,
+                             "\u2010": "-", "\u2011": "-", "\u2012": "–", "\u2015": "—", "\u2044": "/"})
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
@@ -226,18 +265,24 @@ _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
-_SIGN_START = r"(?:(?<=\dx)|(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×/+]))"  # also "3x-4", but not "Max-5"
+_SIGN_START = r"(?:(?<=\dx)|(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×*~≈/+]))"  # also "3x-4", "3*-4", "~-5", but not "Max-5"
 _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.56 USD": never a Czech decimal
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
-_PER = rf"kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|mL|hod|min|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"  # "Kč/m²", "m / s"; not "Kč / s DPH"
+# what ~, ≈ or * is read before: "~5", "≈ -$5", "3*$4", "3 * + $4"; a spaced hyphen is a dash, not a minus
+_OPERAND = rf"{_HS}*(?:[+±]{_HS}*|[-−–])?(?:[$€£]{_HS}*(?:[+±]{_HS}*|[-−–])?)?\d"
+# "Kč/m²", "m / s"; not "Kč / s DPH"; symbols of two letters or more also in capitals: "KG", "KM/H"
+_PER = rf"(?i:kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|hod|min)|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"
+_CAPITAL_PER = rf"|G|M{_POWER}|H|S(?!{_HS}+[^\W\d_])"  # one-letter symbols in capitals, in all-caps text only
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−–+]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
-_UNIT = (rf"km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|m{_POWER}|kg|ks\.?|g|ml|mL|l|L|°C|°|%|‰|hod\.?|min\.?|h\.?"
+_UNIT = (rf"(?i:km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|kg|ks\.?|ml|hod\.?|min\.?)|m{_POWER}|g|l|L|°C|°|%|‰|h\.?"
          rf"|s(?!{_HS}+[^\W\d_])\.?")  # "5 s.", but "Mám 5 s sebou"
-_CURRENCY = r"Kč|€|EUR|USD|\$|£"
+# in a paragraph in capitals only: SI writes these lowercase, and in mixed text a capital is a prefix or a name
+_CAPITAL_UNIT = rf"|M(?:[²³]|[23](?!\d))|(?<={_HS})(?:M{_POWER}|G|H\.?|S(?!{_HS}+[^\W\d_])\.?)"  # "5 G", "60M2"; "5G" a name
+_CURRENCY = r"(?i:kč)|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
 _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
@@ -253,6 +298,7 @@ _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
 _NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d[:.]\d\d{_HS}*{_HOUR_WORD})$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
+_DATE_BEFORE = re.compile(rf"(?<![\d.])(?:3[01]|[12]\d|0?[1-9])\.{_HS}*(?:1[0-2]|0?[1-9])\.{_HS}+$")  # "5. 6. "
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–+]?\d|[IVXLCDM]+\.)")
 
 
@@ -285,47 +331,53 @@ def _abbreviation_pattern(key: str) -> str:
     return _NOT_LETTER_BEFORE + "".join(out) + (_NOT_LETTER_AFTER if key[-1].isalpha() else "")
 
 
-def _items_pattern(abbreviations) -> re.Pattern:
+def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
+    """capitals: for a paragraph in capitals, where "5 M" and "5 G" are units too."""
     abbr = "|".join(_abbreviation_pattern(k) for k in sorted(abbreviations, key=len, reverse=True))
+    unit = _UNIT + (_CAPITAL_UNIT if capitals else "")
+    per = _PER + (_CAPITAL_PER if capitals else "")
+    length = rf"(?i:km|cm|mm){_POWER}|(?i:ml)|m{_POWER}|l|L" + (rf"|(?<={_HS})M{_POWER}|M(?:[²³]|[23](?!\d))"
+                                                                if capitals else "")
+
+    def unit_per(name: str) -> str:  # after a length or volume, "/ s" is a second also before a word: "5 m / s a pak"
+        return (rf"(?P<{name}unit>(?P<{name}length>{length})(?![\w²³]|/(?!(?i:s){_NOT_LETTER_AFTER}))|{unit}|{_CURRENCY})"
+                rf"{_NOT_LETTER_AFTER}"  # a length before "/s", not "km/h" or "m/s", which are units of their own
+                rf"(?:{_HS}*/{_HS}*(?P<{name}per>{per}|(?({name}length)(?i:s)|(?!))){_NOT_LETTER_AFTER}\.?)?")
+
     return re.compile(
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
         rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
         rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d)|{_HS}*(?P<shortyear>(?<=\.)\d{{2}}"
         rf"|(?<={_HS})(?:0\d|\d{{2}}(?!\d)(?!{_HS}*[^\W\d_])))(?!\d))?(?!\d))"  # "5. 6. 05", not "5. 6. 24 lidí"
         rf"|(?P<dotted>(?<![\d.,])(?![1-9]\d{{0,2}}(?:\.\d{{3}})+(?!\d|\.\d))\d+(?:\.\d+){{2,}}(?!\d))"  # "1.2.3"
+        rf"|(?P<commas>(?P<commalist>(?<![\d.,])(?!{_EN_AMOUNT})\d+(?:,\d+){{2,}}(?!\d))"  # "1,2,3": no number has two commas
+        rf"(?:{_HS}*(?:(?P<commascale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}(?:{_HS}+{unit_per('commascale')})?"
+        rf"|{unit_per('comma')}))?)"  # "1,2,3 kg", "1,2,3 Kč/kg", "1,2,3 tis. Kč"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
         rf"(?:{_HS}*(?:(?P<lowscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<lowscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<lowscaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<lowunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<lowper>{_PER}){_NOT_LETTER_AFTER}\.?)?))?{_HS}*[–—-]{_HS}*"
+        rf"(?:{_HS}+{unit_per('lowscale')})?"
+        rf"|{unit_per('low')}))?{_HS}*[–—-]{_HS}*"
         rf"(?P<high>[-−–+]?{_UNSIGNED})"
         rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<highscaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<highscaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?(lowunit){_HS}*(?P<highunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<highper>{_PER}){_NOT_LETTER_AFTER}\.?)?"
+        rf"(?:{_HS}+{unit_per('highscale')})?"
+        rf"|(?(lowunit){_HS}*{unit_per('high')}"
         rf"|(?:{_HS}*(?:(?P<rangescale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}+(?P<rangescaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangescaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<rangeunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<rangeper>{_PER}){_NOT_LETTER_AFTER}\.?)?))?)))"
+        rf"(?:{_HS}+{unit_per('rangescale')})?"
+        rf"|{unit_per('range')}))?)))"
         rf"|(?P<money>(?P<moneysign>{_SIGN_START}[-−–])?(?P<symbol>[€$£]){_HS}*(?P<price>{_PRICE})"
-        rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{_PER}){_NOT_LETTER_AFTER}\.?{_HS}*[–—-]{_HS}*(?P<highpersign>[-−–])?"
+        rf"(?:{_HS}*/{_HS}*(?P<lowmoneyper>{per}){_NOT_LETTER_AFTER}\.?{_HS}*[–—-]{_HS}*(?P<highpersign>[-−–])?"
         rf"(?:(?P=symbol){_HS}*)?"
-        rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{_PER}){_NOT_LETTER_AFTER}\.?"
+        rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{per}){_NOT_LETTER_AFTER}\.?"
         rf"|(?:(?:{_HS}+(?P<lowmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?{_HS}*[–—-]{_HS}*"
         rf"(?P<highsign>[-−–])?(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE}))?"  # "-$5–-$10"
         rf"(?(lowmoneyscale){_HS}+(?P<highmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"|(?:{_HS}+(?P<moneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?)"
-        rf"(?:{_HS}*/{_HS}*(?P<moneyper>{_PER}){_NOT_LETTER_AFTER}\.?)?))"
+        rf"(?:{_HS}*/{_HS}*(?P<moneyper>{per}){_NOT_LETTER_AFTER}\.?)?))"
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
-        rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+(?P<scaleunit>{_UNIT}|{_CURRENCY}){_NOT_LETTER_AFTER}"
-        rf"(?:{_HS}*/{_HS}*(?P<scaleper>{_PER}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<unit>{_UNIT}|{_CURRENCY})"
-        rf"(?:{_HS}*/{_HS}*(?P<per>{_PER}){_NOT_LETTER_AFTER}\.?)?)"
+        rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+{unit_per('scale')})?"
+        rf"|{unit_per('')})"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–+]?\d)"
@@ -333,7 +385,8 @@ def _items_pattern(abbreviations) -> re.Pattern:
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±−]|#(?={_HS}*\d)"
-        rf"|(?<=\d){_HS}*x{_NOT_LETTER_AFTER}{_HS}*)"  # "3 x 4", "3    x 4", "3 x týdně"
+        rf"|(?<=\d){_HS}*x{_NOT_LETTER_AFTER}{_HS}*"  # "3 x 4", "3    x 4", "3 x týdně"
+        rf"|(?<=\d){_HS}*\*{_HS}*(?={_OPERAND})|[~≈](?={_OPERAND}))"  # "3*4", "~5 km", "≈$5", "3≈4"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}}|[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"
@@ -395,6 +448,38 @@ def _key_of(m: re.Match) -> str:
 
 def _capitalise_like(source: str, words: str) -> str:
     return words[0].upper() + words[1:] if source[:1].isupper() else words
+
+
+def _clean_typography(text: str) -> str:
+    """Drop invisible characters and normalise hyphen variants outside <cs>/<sk>/<en> spans, which stay as written."""
+    out, pos = [], 0
+    for s in _SPAN_RE.finditer(text):
+        out += [text[pos:s.start()].translate(_TYPOGRAPHY), s.group(0)]
+        pos = s.end()
+    return "".join(out) + text[pos:].translate(_TYPOGRAPHY)
+
+
+def _all_capitals(text: str) -> bool:
+    """Whether a paragraph is written in capitals: no lowercase letter outside <cs>/<sk>/<en> spans."""
+    letters = [ch for ch in _SPAN_RE.sub(" ", text) if ch.isalpha()]
+    return len(letters) > 1 and not any(ch.islower() for ch in letters)
+
+
+def _canonical(symbol: str, keys) -> str:
+    """The table key of a unit symbol written in capitals: "KČ" -> "Kč", "KM/H" -> "km/h"."""
+    return symbol if symbol in keys else next((k for k in keys if k.lower() == symbol.lower()), symbol)
+
+
+def _agree(a: "_Word", b: "_Word") -> bool:
+    """The same number, gender and animacy where both words have one: "dosáhli" agrees with "muži", not "cíle";
+    a present verb has no gender ("dosáhnou")."""
+    return all(None in (a.feats.get(f), b.feats.get(f)) or a.feats.get(f) == b.feats.get(f)
+               for f in ("Number", "Gender", "Animacy"))
+
+
+def _affirmative(form: str) -> str:
+    """A verb form without its negation, for the tables of verb stems: "nedosáhl" -> "dosáhl"; "nesl" stays."""
+    return form[2:] if form.startswith("ne") and len(form) > 4 else form
 
 
 def _starts_sentence(before: str) -> bool:
@@ -489,13 +574,26 @@ class TextNormalizer:
         table = self.ABBREVIATIONS_CS if language == "cs" else self.ABBREVIATIONS_SK
         self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}
         self._items = _items_pattern(self.abbreviations)
-        phrases = sorted(filter(None, config.get("english") or []), key=len, reverse=True)
+        self._items_in_capitals = _items_pattern(self.abbreviations, capitals=True)
+        books = sorted(filter(None, config.get("verse_references") or []), key=len, reverse=True)
+        numbered = [book for book in books if re.search(r"\d", book)]
+        if numbered:
+            raise ValueError(f"book_config['verse_references'] has {numbered}, whose digits would stay as written; "
+                             f"list the name alone ('Jan' for '1 Jan'), and the number before it is read as usual")
+        # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29": chapter and verse, not a decimal or a time; the
+        # book may be in its language's span: "<en>John</en> 3,16"
+        names = '|'.join(map(re.escape, books))
+        self._verses = (re.compile(rf"(?<!\w)(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
+                                   rf"{_HS}+(?P<chapter>\d+)[,:]"
+                                   rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d|[^\W\d_])")
+                        if books else None)
+        phrases = sorted((p.translate(_TYPOGRAPHY) for p in config.get("english") or [] if p), key=len, reverse=True)
         self._english = (re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, phrases)) + r")(?!\w)")
                          if phrases else None)
 
     # ---- public API ----------------------------------------------------------------------
     def normalize(self, text: str) -> str:
-        lines = text.split("\n")
+        lines = _clean_typography(text).split("\n")
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
@@ -521,8 +619,14 @@ class TextNormalizer:
             if bad:
                 raise ValueError(f"{bad!r} in {s.group(0)!r}: spans are kept as written, so spell it out")
             spans.append(s.span())
-        items = [m for m in self._items.finditer(text)
-                 if not any(s < m.end() and m.start() < e for s, e in spans)]
+        pattern = self._items_in_capitals if _all_capitals(text) else self._items
+        verses = list(self._verses.finditer(text)) if self._verses else []
+        items = sorted(verses + [m for m in pattern.finditer(text)
+                                 if not any(v.start() < m.end() and m.start() < v.end() for v in verses)],
+                       key=lambda m: m.start())
+        items = [m for m in items if not any((s < m.end() and m.start() < e)  # a verse may hold its book's span
+                                             and not (m.re is self._verses and m.start() <= s and e <= m.end())
+                                             for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
         out, pos, after_label = [], 0, -1
         for m in items:
@@ -556,9 +660,29 @@ class TextNormalizer:
                 pos = m.end()
         return "".join(out) + text[pos:]
 
+    def _verse(self, v: re.Match) -> str:
+        """"Jan 3,16" -> "Jan tři, šestnáct", "Mt 5,3–12" -> "Mt pět, tři až dvanáct", for the books of
+        book_config["verse_references"]."""
+        def number(digits: str) -> str:
+            return self._cardinal(int(digits), *self._label(int(digits)))
+
+        words = f"{v['book']} {number(v['chapter'])}, {number(v['verse'])}"
+        if v["last"]:
+            words += f" {RANGE_WORD} {number(v['last'])}"
+        if v["lastverse"]:
+            words += f", {number(v['lastverse'])}"
+        return words
+
     def _needs_tags(self, m: re.Match) -> bool:
+        if m.re is self._verses:
+            return False
+        if m.lastgroup in ("abbreviation", "date") and m.group(0).endswith(".") and _all_capitals(m.string):
+            return True  # in capitals only the tags tell whether the period ends the sentence: "ATD. ODEŠEL"
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
+        if m.lastgroup == "commas":
+            # the case of "s 1,2,3 kg", and the noun of "s 1,2,3 přáteli"
+            return bool(m["commaunit"] or m["commascale"] or re.match(rf"{_HS}*[^\W\d_]", m.string[m.end():]))
         return m.lastgroup not in ("isodate", "date", "dotted", "sign", "slash", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
@@ -567,20 +691,27 @@ class TextNormalizer:
         tokens = list(_TAG_TOKEN.finditer(view))
         if not tokens:
             return []
-        sentence = _tagger(self.language)([[t.group() for t in tokens]]).sentences[0]
+        texts = [t.group() for t in tokens]
+        letters = [i for i, s in enumerate(texts) if s.isalpha() and not re.fullmatch("[IVXLCDM]+", s)]
+        capitals = {i for i in letters if texts[i].isupper()}
+        # the tagger reads every word of an all-caps run as a caseless proper noun; an acronym alone stays
+        lowered = {i for pair in zip(letters, letters[1:]) if set(pair) <= capitals for i in pair}
+        sentence = _tagger(self.language)([[s.lower() if i in lowered else s for i, s in enumerate(texts)]]).sentences[0]
         words = []
-        for t, token in zip(tokens, sentence.tokens):
+        for i, (t, token) in enumerate(zip(tokens, sentence.tokens)):
             for w in token.words:
                 feats = dict(f.split("=", 1) for f in (w.feats or "").split("|") if f)
                 feats.update(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
                 upos = w.upos if any(ch.isalnum() for ch in w.text) else "PUNCT"  # CAC tags "–" as a noun at times
-                words.append(_Word(t.start(), t.end(), w.text, upos, feats))
+                words.append(_Word(t.start(), t.end(), texts[i] if i in lowered else w.text, upos, feats))
         return words
 
     # ---- items -----------------------------------------------------------------------------
     def _resolve(self, m: re.Match, text: str, tags: _Tags, after_label: bool, heading: bool) -> Tuple[int, str]:
         """(start of the replaced text, replacement) for one item."""
         kind, start, end = m.lastgroup, m.start(), m.end()
+        if m.re is self._verses:
+            return start, self._verse(m)
         if kind == "dash":
             if _NUMBER_BEFORE.search(text[:start].rstrip()) and _NUMBER_AFTER.match(text[end:].lstrip()):
                 return start, _spaced(text, start, end, RANGE_WORD)  # "10:00–12:00", "XIX.–XX. století"
@@ -615,20 +746,48 @@ class TextNormalizer:
         elif kind == "date":
             year = m["year"] or m["shortyear"]
             words = self._date(int(m["day"]), int(m["month"]), year)
-            if year is None and self._ends_sentence(text, end, tags):
+            if year is None and self._ends_sentence(text, start, end, tags):
                 words += "."
+        elif kind == "commas":
+            parts = m["commalist"].split(",")
+            if not (m["commaunit"] or m["commascale"]):
+                noun = tags.head_after(end)
+                if noun is not None and noun.start > end:  # "s 1,2,3 přáteli": the values agree with the noun they count
+                    form = self._context(int(parts[-1]), start, end, text, tags, after_label, m)
+                    words = ", ".join(self._cardinal(int(part), *form) for part in parts)
+                    # the noun's form is the last value's: "Viděl 1,2,5 mužů" may want "jednoho" as an object
+                    if form[0] == NOM and words != ", ".join(self._cardinal(int(part), ACC, *form[1:]) for part in parts):
+                        self._warn(text, m, words, "list read in the nominative; as an object it takes the accusative")
+                else:
+                    words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
+                self._check_glued(text, m, words)
+            else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
+                gender = (SCALE_GENDERS[self.language][m["commascale"].lower()] if m["commascale"]
+                          else NOUNS[self.language][self._unit(m["commaunit"])[0]][0])  # "1,2,3 tis. Kč": tisíc's
+                case = self._governing_case(start, tags) or NOM
+                if (m["commascale"] or "").lower() == "tis" and self.language == "sk":  # "dvetisíc": one word each
+                    head = [self._measure(part, m["commascale"], start, tags, text, end, comma=False) for part in parts[:-1]]
+                else:
+                    head = [self._cardinal(int(part), case, gender, "inanimate") for part in parts[:-1]]
+                words = ", ".join(head + [self._measure(parts[-1], m["commascale"] or m["commaunit"], start, tags, text,
+                                                        end, scale_unit=m["commascaleunit"])])
+                if m["commaper"] or m["commascaleper"]:
+                    words += " " + self._per(m["commaper"] or m["commascaleper"])
         elif kind == "time":
             words = self._time(m, tags)
         elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
             words = f" {RANGE_WORD} ".join(
-                self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"])
+                self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"],
+                              comma=False)
                 + (f" {self._per(m[end_ + 'scaleper'])}" if m[end_ + "scaleper"] else "")
                 for end_ in ("low", "high"))
+            self._check_comma(text, (start, end), words, m["low"], m["high"])
         elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
             words = f" {RANGE_WORD} ".join(
-                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end)
+                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end, comma=False)
                 + (f" {self._per(m[end_ + 'per'])}" if m[end_ + "per"] else "")
                 for end_ in ("low", "high"))
+            self._check_comma(text, (start, end), words, m["low"], m["high"])
         elif kind == "range":
             words = self._range(m, m["low"], m["high"], m["rangeunit"], m["rangescale"], m["rangescaleunit"],
                                 m["rangeper"] or m["rangescaleper"], text, tags, after_label)
@@ -667,15 +826,23 @@ class TextNormalizer:
             words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
             words = self._number(m, text, tags, after_label)
-        if (kind in ("range", "measure", "time", "money") and m.group(0).endswith(".")
-                and self._ends_sentence(text, end, tags)):
+        if (kind in ("range", "measure", "time", "money", "commas") and m.group(0).endswith(".")
+                and self._ends_sentence(text, start, end, tags)):
             words += "."  # the period of "min.", "mil." or "hod." also ends the sentence
         return self._vocalise(text, start, words)
 
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
         raw, key = m.group(0), _key_of(m)
         if raw.isupper() and len(key) > 2 and key in CAPITAL_ACRONYMS:
-            return raw
+            after = text[m.end():].lstrip(" \t  ")
+            before = text[:m.start()].rstrip(" \t  ")
+            # MAX. and ODS. introduce an amount ("MAX. ≈ 5", "ODS. 2"), N. L. follows a year ("300 N. L."); the
+            # others keep their capital meaning also before a number: "TURNAJ ATP. 500"
+            if not ((key in ("max.", "ods.") and re.match(r"(?:[-−–+±~≈$€£][ \t\u00a0\u202f]*)*\d", after))
+                    or (key == "n.l." and before[-1:].isdigit())):
+                if _all_capitals(text):
+                    self._warn(text, m, raw, "acronym or abbreviation in capitals, kept as written; check it")
+                return raw
         words = self.abbreviations[key]
         if key in AGREEING_ABBREVIATIONS:
             head = tags.head_after(m.end())
@@ -695,8 +862,9 @@ class TextNormalizer:
                     words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
         if not raw.isupper() or _starts_sentence(text[:m.start()]):
             words = _capitalise_like(raw, words)
-        if key.endswith(".") and self._ends_sentence(text, m.end(), tags,
-                                                     introduces=key in NON_FINAL_ABBREVIATIONS):
+        if key.endswith(".") and self._ends_sentence(text, m.start(), m.end(), tags,
+                                                     introduces=key in NON_FINAL_ABBREVIATIONS,
+                                                     list_end=key in LIST_END_ABBREVIATIONS):
             words += "."
         return words
 
@@ -711,8 +879,19 @@ class TextNormalizer:
                 and not self._verb_follows(end, tags)))  # not "D. Kapitola byla…", "Příloha C. Varianta D."
             head = (tags.head_after(end) if before_noun else None) or self._shared_head(end, tags)
         if head is None:
+            # "Vyšel díl V. Kniha byla…", "…V. Nové vydání…": after a thing, not a person, and before a sentence
+            # whose subject is a noun, V is a numeral
+            lead = next((w for w in tags.words[bisect.bisect_left(tags.starts, end):] if w.upos not in ("ADV", "PART")),
+                        None)  # past an adverb: "Vyšel díl V. Poté kniha uspěla."
+            subject = tags.head_after(lead.start) if lead is not None and lead.upos in ("NOUN", "ADJ", "DET") else lead
+            # a thing by its tag or as a known label: CAC gives feminine nouns no animacy, so "Paní V." has none
+            numbers_a_thing = (prev is not None and prev.upos == "NOUN"
+                               and (prev.feats.get("Animacy") == "Inan" or prev.text.lower() in ROMAN_LABEL_NOUNS[self.language])
+                               and subject is not None and subject.upos in ("NOUN", "PRON")
+                               and self._verb_follows(lead.start, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
-                    or (len(numeral) == 1 and (numeral not in "IVX" or (nxt and nxt.text[:1].isupper())))):
+                    or (len(numeral) == 1 and (numeral not in "IVX"
+                                               or (nxt and nxt.text[:1].isupper() and not numbers_a_thing)))):
                 return m.group(0)  # "V. Havel", "Washington DC.", "Příloha C.", "Velikost L.", or no noun to agree with
             head = prev
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags,
@@ -723,7 +902,11 @@ class TextNormalizer:
             self._warn(text, m, words, "no noun to agree with; nominative masculine inanimate")
         elif doubt:
             self._warn(text, m, words, f"{doubt}; check it")
-        if head.start < m.start() and self._ends_sentence(text, end, tags, roman=True):
+        elif (prev is not None and prev.text.lower() in ROMAN_LABEL_NOUNS[self.language] and head.start > m.start()
+              and case == GEN):
+            # "díl V. knihy": "díl páté knihy" (of the fifth book), or "díl pátý knihy" (volume five of the book)
+            self._warn(text, m, words, f"numeral after {prev.text!r} may number it instead; check it")
+        if head.start < m.start() and self._ends_sentence(text, m.start(), end, tags, roman=True):
             words += "."  # after "Karel IV." the period may end the sentence; before a noun it cannot
         return words
 
@@ -770,11 +953,11 @@ class TextNormalizer:
         low, value = _parse(low_amount)[0], _parse(high_amount)[0]
         decimal = isinstance(low, str) or isinstance(value, str)  # decimals are read in the nominative
         if unit or scale:
-            high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit)
-            if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:
-                words = f"{self._measure(low_amount, unit, start, tags, text, end)} {RANGE_WORD} {high}"  # "1,50–2,50 €"
+            high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit, comma=False)
+            if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:  # "1,50–2,50 €"
+                words = f"{self._measure(low_amount, unit, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
             elif scale and scale.lower() == "tis" and self.language == "sk":  # "dvetisíc až tritisíc": one word each
-                words = f"{self._measure(low_amount, scale, start, tags, text, end)} {RANGE_WORD} {high}"
+                words = f"{self._measure(low_amount, scale, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
@@ -787,10 +970,13 @@ class TextNormalizer:
                 case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)
             words = (f"{self._signed(low_amount, self._cardinal(low, case, gender, animacy))} {RANGE_WORD} "
                      f"{self._signed(high_amount, self._cardinal(value, case, gender, animacy))}")
+        self._check_comma(text, (start, end), words, low_amount, high_amount)  # one check for both ends
+        self._check_glued(text, m, words)
         return words + (f" {self._per(per)}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
-                 whole: bool = False, scale_unit: Optional[str] = None) -> str:
+                 whole: bool = False, scale_unit: Optional[str] = None, comma: bool = True) -> str:
+        """comma: log a "2,000" read as a decimal (a range checks both ends itself)."""
         value, integer, fraction = _parse(amount)
         case = self._governing_case(start, tags)
         unit = unit.rstrip(".")
@@ -804,6 +990,8 @@ class TextNormalizer:
                 noun, adjective, suffix = self._unit(scale_unit)
                 count = 1000 if fraction else integer * 10 ** SCALES[unit]
                 words += f" {self._noun_phrase(noun, count, NOM if fraction else case or NOM, adjective)}{suffix}"
+            if comma:
+                self._check_comma(text, (start, end), words, amount)
             return self._signed(amount, words)
         noun, adjective, suffix = self._unit(unit)
 
@@ -822,9 +1010,21 @@ class TextNormalizer:
         words = read(case or NOM)
         if case is None and words != read(ACC):
             self._warn(text, (start, end), words, "no preposition; nominative")
-        if noun in MINOR_UNITS[self.language] and re.fullmatch(r"[-−–]?\d{1,3},\d{3}", amount):
-            self._warn(text, (start, end), words, "comma read as decimal, not thousands; check it")
+        if comma:
+            self._check_comma(text, (start, end), words, amount)
         return self._signed(amount, words) + suffix
+
+    def _check_glued(self, text: str, m: re.Match, words: str) -> bool:
+        """Log a word glued after the last digit: "5G", "1,2,3G", "5–10G"; not the "x" of "3x4", read as a sign."""
+        if text[m.end():m.end() + 1].isalpha() and not re.match(f"x{_NOT_LETTER_AFTER}", text[m.end():]):
+            self._warn(text, m, words, "digits glued to a word")
+            return True
+        return False
+
+    def _check_comma(self, text: str, where, words: str, *amounts: str) -> None:
+        """"2,000" is read with a decimal comma, as Czech and Slovak write it; English means two thousand."""
+        if any(re.fullmatch(r"[-−–+]?\d{1,3},\d{3}", amount) for amount in amounts):
+            self._warn(text, where, words, "comma read as decimal, not thousands; check it")
 
     def _signed(self, amount: str, words: str) -> str:
         if amount.startswith("+"):
@@ -835,13 +1035,14 @@ class TextNormalizer:
         """The unit after "/" in the accusative singular: "za kilogram", "za metr čtvereční"."""
         power = {"2": "²", "3": "³"}.get(per[-1], per[-1]) if per[-1] in "²³23" else None
         adjective = UNIT_ADJECTIVES[self.language].get(power)
-        return f"za {PER_UNITS[self.language][per[:-1] if power else per]}" + (f" {adjective}" if adjective else "")
+        key = _canonical(per[:-1] if power else per, PER_UNITS[self.language])
+        return f"za {PER_UNITS[self.language][key]}" + (f" {adjective}" if adjective else "")
 
     def _unit(self, unit: str) -> Tuple[str, Optional[str], str]:
         """(noun, agreeing adjective, suffix) of a unit symbol: "m²" -> metr, čtvereční."""
         unit = unit.rstrip(".")
         power = {"2": "²", "3": "³"}.get(unit[-1], unit[-1]) if unit[-1] in "²³23" else None
-        base = unit[:-1] if power else unit
+        base = _canonical(unit[:-1] if power else unit, UNITS[self.language])
         return (UNITS[self.language][base], UNIT_ADJECTIVES[self.language].get(power),
                 UNIT_SUFFIXES[self.language].get(base, ""))
 
@@ -871,8 +1072,15 @@ class TextNormalizer:
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
         prev = tags.before(m.start())
         attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT")  # "Beethovenova 5. Symfonie"
-        if following[:1].isupper() and not heading and (nxt is None or nxt.upos not in ("NOUN", "ADJ")
-                                                         or (not attributive and self._verb_follows(m.end(), tags))):
+        # after a preposition, a capitalised noun in its case is the ordinal's noun even when tagged a name
+        # ("V 5. Symfonii"); a nominative one before a verb starts a sentence ("Přišel v 5. Symfonie začala.")
+        after_preposition = prev is not None and prev.upos == "ADP" and nxt is not None
+        governed = (after_preposition and nxt.upos in ("NOUN", "PROPN") and nxt.feats.get("Animacy") != "Anim"
+                    and self._agrees_with_preposition(prev, nxt))
+        subject = after_preposition and nxt.feats.get("Case") == "Nom" and self._verb_follows(m.end(), tags)
+        if following[:1].isupper() and not heading and not governed and (
+                nxt is None or nxt.upos not in ("NOUN", "ADJ") or subject
+                or (not attributive and self._verb_follows(m.end(), tags))):
             # "Bylo jich 5. Pak…", "Měl jen 2. Děti odešly.": a number that ends the sentence; but "5. Symfonie",
             # "# 2. Kapitola"
             verb = self._rank_verb(m.start(), tags)
@@ -900,16 +1108,19 @@ class TextNormalizer:
             words = self._cardinal(value, NOM, "masculine", "inanimate")
         elif m["times"]:
             words = self._cardinal(value, NOM, "masculine", "inanimate") + "krát"
+        elif (len(m["value"]) == 2 and m["value"].isdigit() and _DATE_BEFORE.search(text[:m.start()])
+              and tags.head_after(m.end()) is None):
+            words = self._cardinal(value, NOM, "masculine", "inanimate")  # "5. 6. 24 v Praze": the year of the date
         elif text[m.end():m.end() + 1] == "." and self._rank_verb(m.start(), tags) is not None:
             words = self._ordinal(value, NOM, *self._gender(self._rank_verb(m.start(), tags)))  # "Skončil 2."
         else:
             words = self._cardinal(value, *self._context(value, m.start(), m.end(), text, tags,
                                                          after_label, m))
         words = self._signed(m["value"], words)
+        self._check_comma(text, m, words, m["value"])
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
-        if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x[-−–]?\d", text[m.end():m.end() + 3]):
-            self._warn(text, m, words, "digits glued to a word")  # "3x4" is a multiplication, read by the sign
+        if self._check_glued(text, m, words):
             words += " "
         return words
 
@@ -917,8 +1128,10 @@ class TextNormalizer:
     def _context(self, value: int, start: int, end: int, text: str, tags: _Tags, after_label: bool,
                  m) -> Tuple[str, str, str]:
         """Case, gender and animacy of a cardinal, from the noun it counts or the preposition before it."""
-        if after_label or text[:start].rstrip()[-1:] in _MATH_SIGNS or text[end:].lstrip()[:1] in _MATH_SIGNS:
-            return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024"
+        before, after = text[:start].rstrip(), text[end:].lstrip()
+        if (after_label or before[-1:] in _MATH_SIGNS or after[:1] in _MATH_SIGNS
+                or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(f"[~≈]{_OPERAND}", after)):
+            return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
         prep_case = self._preposition_case(start, tags)
         noun = tags.head_after(end) or self._shared_count_head(end, tags)
         case = gender = animacy = tagged_case = noun_case = None
@@ -932,6 +1145,18 @@ class TextNormalizer:
                 tagged_case = GEN  # "o 5 minút": a genitive plural tagged with the preposition's case
             if self._number_fits(value, noun):
                 noun_case = tagged_case
+        prep = self._preposition(start, tags)
+        if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS
+                and noun is not None and noun.feats.get("Gender") == "Masc" and noun.feats.get("Number") == "Plur"
+                and noun.text.lower().endswith("y")):
+            decided = self._two_case(prep, noun, start, tags)
+            verb = self._clause_verb(start, tags)
+            if (decided == INS and prep.text.lower() == "za" and verb is not None
+                    and _affirmative(verb.text.lower()).startswith(GOING_VERBS)):  # "Šel za 2 stromy": after them, or behind them
+                self._warn(text, m, self._cardinal(value, INS, gender, animacy),
+                           "za after going read as following (instrumental); a place behind is the accusative; check it")
+            if decided:
+                return decided, gender, animacy
         if noun_case in (DAT, INS, LOC):
             case = noun_case  # "s pěti přáteli"
         elif prep_case == GEN:
@@ -1015,12 +1240,24 @@ class TextNormalizer:
             start = self._chain_start(start, tags)
             prev = tags.before(start)
             prep_case = _UD_CASES.get(prev.feats.get("Case")) if prev is not None and prev.upos == "ADP" else None
+            verb_case = self._verb_case(start, prev, tags) if self.language == "cs" else None
+            if verb_case == ACC:
+                prep_case = ACC  # "na" with "vzpomínat": "na dvacáté století"
             if self.language == "cs" and head.feats.get("Gender") == "Neut" and head.text.lower().endswith("í"):
                 # "století" has one form for every case but the instrumental, so the context decides
-                context = prep_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
+                context = prep_case or verb_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
+                if verb_case == GEN and self._subject(head, start, tags):
+                    context = NOM  # "Cíle dosáhlo 2. sdružení", not "Dožil se 2. tisíciletí", "Dosáhlo to 2. výročí"
                 if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
                     doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
+                elif ordinal and verb_case == ACC and _affirmative(self._clause_verb(start, tags).text.lower()).startswith(NA_PLACE_VERBS):
+                    doubt = f"na {head.text!r} read as the accusative (waiting for); the locative (waiting at) fits too"
                 case = context
+            # a singular nominative or accusative is the subject ("Cíle dosáhl 2. muž"), and so is an agreeing
+            # plural nominative ("Cíle dosáhli 2. muži")
+            elif verb_case == GEN and (plural or case not in (NOM, ACC)) and not self._subject(head, start, tags):
+                case = GEN  # "Dosáhli 5. místa", "Bál se 2. dílu": a genitive singular that looks plural or dative
+                plural = plural and not head.text.lower().endswith(("a", "y", "e", "ě", "u"))
             elif prep_case and (case == NOM or (case == GEN and prep_case != GEN)):
                 case = prep_case  # "v XXI. století" tagged nominative or genitive
             elif case == GEN and head.text.lower() not in MONTHS_GENITIVE[self.language]:
@@ -1051,13 +1288,85 @@ class TextNormalizer:
         if (verb is None or verb.upos not in ("VERB", "AUX") or "Sing" not in verb.feats.get("Number", "Sing")
                 or self._gender(verb)[0] not in ("masculine", "feminine")):
             return None
-        return verb if verb.text.lower().startswith(RANK_VERBS[self.language]) else None
+        return verb if _affirmative(verb.text.lower()).startswith(RANK_VERBS[self.language]) else None
+
+    @staticmethod
+    def _clause_verb(pos: int, tags: _Tags) -> Optional[_Word]:
+        """The verb nearest to `pos` in its clause, which a comma or a sentence end closes, and before `pos` also
+        a conjunction ("Cíle dosáhl a 2. místo obsadil"); an auxiliary ("jsme", "by") is skipped, a copula
+        ("je", "byl") counts. Only the nearest verb governs: in "Dosáhl cíle a obsadil 2. místo" it is "obsadil"."""
+        i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
+        for step in (-1, 1):
+            j = i - 1 if step < 0 else i
+            while (0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":")
+                   and not (step < 0 and w[j].upos == "CCONJ")):
+                if w[j].upos == "VERB" or (w[j].upos == "AUX" and _affirmative(w[j].text.lower()) in PLACE_FORMS):
+                    found.append((abs(j - i), w[j]))
+                    break
+                j += step
+        return min(found, key=lambda f: f[0])[1] if found else None
+
+    @staticmethod
+    def _clitic_of(verb: _Word, tags: _Tags, clitic: str) -> bool:
+        """Whether `clitic` ("se", "si") belongs to `verb`: it stands in the verb's own clause, which a comma,
+        a sentence end, a conjunction or another verb closes ("Smál se a vzdal 2. kolo": "se" is smál's)."""
+        i, w = bisect.bisect_left(tags.starts, verb.start), tags.words
+        for step in (-1, 1):
+            j = i + step
+            while (0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":")
+                   and w[j].upos not in ("CCONJ", "VERB")):
+                if w[j].text.lower() == clitic:
+                    return True
+                j += step
+        return False
+
+    def _two_case(self, prep: _Word, noun: Optional[_Word], pos: int, tags: _Tags) -> Optional[str]:
+        """The case after mezi, nad, pod, před or za when the noun has one form for both: the accusative
+        after a verb of direction, the instrumental after one of place; mezi and před are mostly places."""
+        word = prep.text.lower()
+        if noun is not None and noun.text.lower() in TIME_PLURALS:
+            return {"před": INS, "za": ACC}.get(word)
+        verb = self._clause_verb(pos, tags)
+        form = _affirmative(verb.text.lower()) if verb is not None else ""
+        clause = self._clause_before(pos, tags) + self._clause_after(pos, tags)  # "Mezi 2 svazky byl dopis položen"
+        if (any(w.upos in ("ADJ", "VERB") and w.feats.get("VerbForm") == "Part"
+                and _affirmative(w.text.lower()).startswith(PLACED_PARTICIPLES) for w in clause)
+                and not any(w.text.lower() in ("je", "jsou", "není", "nejsou") for w in clause)):
+            return ACC  # the event, "byl položen mezi dva svazky"; the state is a place: "je pověšen nad dvěma stoly"
+        if verb is not None and verb.feats.get("Voice") == "Pass":
+            return INS  # "Dům je postaven mezi dvěma stromy": a passive is the state, not the motion
+        if form and form.startswith(DIRECTION_VERBS) and form not in PLACE_FORMS:
+            return INS if word == "za" and form.startswith(GOING_VERBS) else ACC
+        if form and (form in PLACE_FORMS or form.startswith(PLACE_VERBS)):
+            return INS
+        return INS if word in ("mezi", "před") and noun is not None else None
+
+    def _verb_case(self, pos: int, prev: Optional[_Word], tags: _Tags) -> Optional[str]:
+        """The case a Czech verb gives a noun phrase at `pos`: the genitive after "dosáhnout", "bát se";
+        the accusative after "na" with "vzpomínat", "čekat"."""
+        verb = self._clause_verb(pos, tags)
+        form = _affirmative(verb.text.lower()) if verb is not None else ""
+        if prev is not None and prev.upos == "ADP":
+            return ACC if prev.text.lower() == "na" and form and form.startswith(NA_ACCUSATIVE_VERBS) else None
+        clitic = next((c for stem, c in GENITIVE_VERBS.items() if re.match(stem, form)), False) if form else False
+        return GEN if clitic is None or (clitic and self._clitic_of(verb, tags, clitic)) else None
+
+    def _agrees_with_preposition(self, prep: _Word, noun: _Word) -> bool:
+        case = _UD_CASES.get(noun.feats.get("Case"))
+        if prep.text.lower() in LOCATIVE_PREPOSITIONS[self.language]:
+            return case in (ACC, LOC)  # the tagger gives v, na, o, po either case
+        return case is not None and case == _UD_CASES.get(prep.feats.get("Case"))
 
     def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
         "s 2 kg a 3 kg", "s 1 kg a 2–3 kg"."""
         prep = self._preposition(pos, tags) or self._shared_preposition(pos, tags)
-        return _UD_CASES.get(prep.feats.get("Case")) if prep else None
+        if prep is None:
+            return None
+        if (self.language == "cs" and prep.text.lower() in ("pod", "nad")
+                and self._two_case(prep, None, prep.start, tags) == ACC):
+            return ACC  # "Teplota klesla pod pět stupňů", but "je pod pěti stupni"
+        return _UD_CASES.get(prep.feats.get("Case"))
 
     def _shared_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
@@ -1065,10 +1374,10 @@ class TextNormalizer:
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
-        unit_words = {part for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
+        unit_words = {part.lower() for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
         while i >= 0:
             text = w[i].text
-            if w[i].upos == "ADP":
+            if w[i].upos == "ADP" and not (i > 0 and w[i - 1].text == "/"):  # the "s" of "m/s" is no preposition
                 return w[i]
             if text in (".", "!", "?", "…") and not (text == "." and 0 < i < len(w) - 1 and (
                     (w[i - 1].text.isdigit() and w[i + 1].text.isdigit() and w[i + 1].start == w[i].end)  # "8.30"
@@ -1076,7 +1385,7 @@ class TextNormalizer:
                         and not w[i + 1].text[:1].isupper()))):  # "hod.–3:00", but "s 2 kg. A 3 kg"
                 return None
             if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
-                    or re.fullmatch(_HOUR_WORD, text.lower()) or text in unit_words or text.lower() in SCALES):
+                    or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in unit_words or text.lower() in SCALES):
                 return None
             i -= 1
         return None
@@ -1100,13 +1409,68 @@ class TextNormalizer:
         prep = self._preposition(pos, tags)
         return _UD_CASES.get(prep.feats.get("Case")) if prep else None
 
+    def _subject(self, head: _Word, pos: int, tags: _Tags) -> bool:
+        """Whether a noun tagged nominative after its verb is the subject: it agrees with the verb, and nothing
+        before it in the clause does ("Cíle dosáhli 2. muži", but "Dosáhlo to 2. výročí"). These verbs have a
+        person for a subject, so an inanimate word does not take it from an animate one: "Cíle dosáhnou 2. muži"."""
+        verb = self._clause_verb(pos, tags)
+        rivals = [w for w in self._clause_before(pos, tags) if w.feats.get("Case") == "Nom" and _agree(verb, w)
+                  and not (w.feats.get("Animacy") == "Inan" and head.feats.get("Animacy") == "Anim")] if verb else []
+        # a present verb shows no gender, and by number alone a genitive singular that looks plural would be its
+        # subject ("Obávají se 2. kola"): a plural needs a person, a singular does not ("Cíle dosáhne 2. sdružení")
+        person = verb is not None and (verb.feats.get("Gender") is not None or head.feats.get("Number") != "Plur"
+                                       or head.feats.get("Animacy") == "Anim")
+        return head.feats.get("Case") == "Nom" and person and _agree(verb, head) and not rivals
+
+    @staticmethod
+    def _clause_before(pos: int, tags: _Tags, clause: bool = True) -> List[_Word]:
+        """The words before `pos`, nearest first, back to the sentence start; with `clause`, back to a comma or a
+        conjunction too."""
+        words = []
+        for w in reversed(tags.words[:bisect.bisect_left(tags.starts, pos)]):
+            if w.text in (".", "!", "?", "…", ";", ":") or (clause and (w.text == "," or w.upos == "CCONJ")):
+                break
+            words.append(w)
+        return words
+
+    @staticmethod
+    def _clause_after(pos: int, tags: _Tags) -> List[_Word]:
+        """The words from `pos` to the end of its clause, which a comma, a sentence end or a conjunction closes."""
+        words = []
+        for w in tags.words[bisect.bisect_left(tags.starts, pos):]:
+            if w.text in (",", ".", "!", "?", "…", ";", ":") or w.upos == "CCONJ":
+                break
+            words.append(w)
+        return words
+
+    @staticmethod
+    def _verb_before(pos: int, tags: _Tags, clause: bool) -> bool:
+        """Whether the sentence before `pos` already has its verb; with `clause`, only the clause, which a comma
+        or a conjunction also closes: a name, a date or an amount is in its own ("KDYŽ PŘIŠEL, KAREL IV.",
+        "PŘIŠEL A DNE 5. 6."), the end of a list is not ("PŘINESL JABLKA, HRUŠKY ATD."), but a subordinate clause
+        before the list does not count: "KDYŽ PŘIŠEL, JABLKA, HRUŠKY ATD. LEŽELY"."""
+        words = TextNormalizer._clause_before(pos, tags, clause)
+        if clause:
+            return any(w.upos in ("VERB", "AUX") for w in words)
+        stretch = []  # the words between two commas, nearest first, so its first word is the last one
+        for w in words + [None]:
+            if w is not None and w.text != ",":
+                stretch.append(w)
+            elif any(x.upos in ("VERB", "AUX") for x in stretch) and stretch[-1].upos != "SCONJ":
+                return True
+            else:
+                stretch = []
+        return False
+
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
         """Whether the noun phrase after `pos` is followed by a verb, as the subject of a new sentence;
-        adverbs, particles and clitics may come between: "Malé děti se potom vrátily"."""
+        adverbs, particles and clitics may come between: "Malé děti se potom vrátily"; or a pronoun: "On uspěl"."""
         head = tags.head_after(pos)
         if head is None:
-            return False
+            head = tags.after(pos)
+            if head is None or head.upos != "PRON":
+                return False
         i = bisect.bisect_left(tags.starts, head.end)
         for w in tags.words[i:]:
             if w.upos in ("VERB", "AUX"):
@@ -1157,9 +1521,9 @@ class TextNormalizer:
             return {1: "sg", 2: "pl", 3: "pl", 4: "pl"}.get(unit, "gen_pl")
         return "gen_pl"
 
-    def _ends_sentence(self, text: str, end: int, tags: _Tags, roman: bool = False,
-                       introduces: bool = False) -> bool:
-        """Whether the period of an abbreviation, date or Roman numeral that ends at `end` also ends a
+    def _ends_sentence(self, text: str, start: int, end: int, tags: _Tags, roman: bool = False,
+                       introduces: bool = False, list_end: bool = False) -> bool:
+        """Whether the period of an abbreviation, date or Roman numeral at `start`-`end` also ends a
         sentence: at the end of the paragraph, or before an uppercase word (Slovak "atď. Potom", but
         not "např. Prahu")."""
         rest = _SPAN_RE.sub(lambda s: s.group(2), text[end:])
@@ -1170,9 +1534,18 @@ class TextNormalizer:
             return True
         if introduces or not nxt[:1].isupper():
             return False
+        word, capitals = tags.after(end), _all_capitals(text)
+        verb = next((w for w in tags.words[bisect.bisect_left(tags.starts, end):] if w.upos not in ("PRON", "ADV", "PART")),
+                    None)  # past a clitic or an adverb: "KAREL IV. SE NARODIL"
+        # after a name a conjunction goes on, as a lowercase "a" does: "KAREL IV. A VÁCLAV IV.", "VLÁDL KAREL IV. A POTOM";
+        # after an abbreviation, whose period may end the sentence, only when the clause has no verb yet
+        if capitals and verb is not None and ((verb.upos == "CCONJ" and roman)
+                                              or (verb.upos in ("VERB", "AUX", "CCONJ")
+                                                  and not self._verb_before(start, tags, not list_end))):
+            return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
-            word = tags.after(end)
             return (word is None or word.upos not in ("PROPN", "ADJ")
+                    or (not capitals and len(word.text) > 1 and word.text.isupper())  # "…IV. USA vznikly" is no name
                     or (word.upos == "ADJ" and self._verb_follows(end, tags)))
         return True
 

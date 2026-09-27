@@ -307,6 +307,175 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "shared-noun": ("cs", None, "Přelom XIX. a XX. století.", "Přelom devatenáctého a dvacátého století."),
     "noun-after-tisíc": ("cs", None, "S 1 000 Kč vyrazil.", "S tisícem korun vyrazil."),
     "grouped-digits": ("cs", None, "Po 1 000 letech.", "Po tisíci letech."),
+    "capitals-agreement": ("cs", None, "PŘIŠLA TZV. VELKÁ VODA.", "PŘIŠLA takzvaná VELKÁ VODA."),
+    "capitals-saint": ("cs", None, "KOSTEL SV. VÁCLAVA", "KOSTEL svatého VÁCLAVA"),
+    "capitals-roman-after-name": ("cs", None, "KAREL IV. ZALOŽIL UNIVERZITU.", "KAREL čtvrtý ZALOŽIL UNIVERZITU."),
+    "capitals-clitic-before-verb": ("cs", None, "KAREL IV. SE NARODIL V PRAZE. VLÁDL KAREL IV. TO BYLO DÁVNO.",
+                                    "KAREL čtvrtý SE NARODIL V PRAZE. VLÁDL KAREL čtvrtý. TO BYLO DÁVNO."),
+    "capitals-conjunction-after-period": ("cs", None, "KAREL IV. A VÁCLAV IV. ZALOŽILI UNIVERZITY. VLÁDL KAREL IV. A POTOM ZEMŘEL.",
+                                          "KAREL čtvrtý A VÁCLAV čtvrtý ZALOŽILI UNIVERZITY. VLÁDL KAREL čtvrtý A POTOM ZEMŘEL."),
+    "capitals-conjunction-after-abbreviation": ("cs", None, "BYL TAM ATD. A POTOM ODEŠEL. JABLKA, HRUŠKY ATD. A MNOHO DALŠÍHO "
+                                                "LEŽELO NA STOLE.",
+                                                "BYL TAM a tak dále. A POTOM ODEŠEL. JABLKA, HRUŠKY a tak dále A MNOHO DALŠÍHO "
+                                                "LEŽELO NA STOLE."),
+    "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
+                               "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
+    "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
+    "capitals-verb-after-a-full-clause": ("cs", None, "BYL TAM ATD. ODEŠEL DOMŮ. VLÁDL KAREL IV. ZALOŽIL UNIVERZITU. "
+                                          "ČEKAL 5 MIN. ODEŠEL.",
+                                          "BYL TAM a tak dále. ODEŠEL DOMŮ. VLÁDL KAREL čtvrtý. ZALOŽIL UNIVERZITU. "
+                                          "ČEKAL pět minut. ODEŠEL."),
+    "capitals-period-before-verb-untagged": ("cs", None, "JABLKA, HRUŠKY ATD. LEŽELY NA STOLE. DNE 5. 6. ODEŠEL DOMŮ.",
+                                             "JABLKA, HRUŠKY a tak dále LEŽELY NA STOLE. DNE pátého června ODEŠEL DOMŮ."),
+    "capitals-list-then-verb": ("cs", None, "PŘINESL JABLKA, HRUŠKY ATD. ODEŠEL. KDYŽ PŘIŠEL, KAREL IV. ZALOŽIL UNIVERZITU.",
+                                "PŘINESL JABLKA, HRUŠKY a tak dále. ODEŠEL. KDYŽ PŘIŠEL, KAREL čtvrtý ZALOŽIL UNIVERZITU."),
+    "capitals-list-after-subordinate-clause": ("cs", None, "KDYŽ PŘIŠEL, JABLKA, HRUŠKY ATD. LEŽELY NA STOLE.",
+                                               "KDYŽ PŘIŠEL, JABLKA, HRUŠKY a tak dále LEŽELY NA STOLE."),
+    "capitals-date-and-amount-in-own-clause": ("cs", None, "PŘIŠEL A DNE 5. 6. ODEŠEL. KDYŽ PŘIŠEL, ZA 5 MIN. ODEŠEL.",
+                                               "PŘIŠEL A DNE pátého června ODEŠEL. KDYŽ PŘIŠEL, ZA pět minut ODEŠEL."),
+    "capitals-page": ("cs", None, "NA STR. 45 SE PÍŠE.", "NA straně čtyřicet pět SE PÍŠE."),
+    "capitals-units": ("cs", None, "CENA JE 5 KČ, JEL 50 KM/H A MĚŘÍ 5 CM.",
+                       "CENA JE pět korun, JEL padesát kilometrů za hodinu A MĚŘÍ pět centimetrů."),
+    "capitals-one-letter-units": ("cs", None, "VZDÁLENOST 100 M, VÁHA 5 G A MÁM 5 S SEBOU.",
+                                  "VZDÁLENOST sto metrů, VÁHA pět gramů A MÁM pět S SEBOU."),
+    "capitals-glued-letter-is-no-unit": ("cs", None, "TELEFON PODPORUJE 5G, JE TO IPHONE 5S. BYT MÁ 60M².",
+                                         "TELEFON PODPORUJE pět G, JE TO IPHONE pět S. BYT MÁ šedesát metrů čtverečních."),
+    "capitals-attached-power": ("cs", None, "BYT MÁ 60M2 A SKLEP 20M3, TEDY 5M.",
+                                "BYT MÁ šedesát metrů čtverečních A SKLEP dvacet metrů krychlových, TEDY pět M."),
+    "capitals-scale-and-currency": ("cs", None, "STÁLO TO 5 TIS. KČ.", "STÁLO TO pět tisíc korun."),
+    "sk-capitals-currency": ("sk", None, "CENA JE 5 KČ.", "CENA JE päť korún."),
+    "capital-acronym-before-number": ("cs", None, "MAX. 5 KG.", "Maximálně pět kilogramů."),
+    "sk-capital-acronym-before-number": ("sk", None, "PODĽA § 5 ODS. 2 PLATÍ.",
+                                         "PODĽA paragrafu päť odseku dva PLATÍ."),
+    "capital-era-after-number": ("cs", None, "ROKU 300 N. L. VLÁDL.", "ROKU tři sta našeho letopočtu VLÁDL."),
+    "invisible-characters": ("cs", None, "\ufeffRakousko\u2011Uhersko má 5\u201110 Kč, text\u00adový.",
+                             "Rakousko-Uhersko má pět až deset korun, textový."),
+    "zero-width-space-between-words": ("cs", None, "Ahoj\u200bsvěte.", "Ahoj světe."),
+    "approximately": ("cs", None, "Je to ~5 km, tedy ≈5 000 m.",
+                      "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
+    "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
+    "approximately-before-currency": ("cs", None, "Stálo to ≈$5, tedy ~ €5 a ≈ -$5.",
+                                      "Stálo to přibližně pět dolarů, tedy přibližně pět eur a přibližně mínus pět dolarů."),
+    "approximately-between-numbers": ("cs", None, "Platí 3≈4 a 3~4.", "Platí tři přibližně čtyři a tři přibližně čtyři."),
+    "approximately-plus-minus": ("cs", None, "Je to ≈±5 °C a ~±5 °C.",
+                                 "Je to přibližně plus minus pět stupňů Celsia a přibližně plus minus pět stupňů Celsia."),
+    "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
+    "asterisk-before-currency": ("cs", None, "Spočítej 3*$4 a 3 * + $4.",
+                                 "Spočítej tři krát čtyři dolary a tři krát plus čtyři dolary."),
+    "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
+                                           "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
+    "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
+    "comma-list-before-noun": ("cs", None, "Šel s 1,2,3 přáteli.", "Šel s jedním, dvěma, třemi přáteli."),
+    "comma-list-with-unit": ("cs", None, "Zvol 1,2,3 kg nebo 1,2,3 Kč, šel s 1,2,3 kg.",
+                             "Zvol jeden, dva, tři kilogramy nebo jedna, dvě, tři koruny, šel s jedním, dvěma, třemi kilogramy."),
+    "comma-list-period-and-preposition": ("cs", None, "Balení 1,2,3 ks. Potom šel s 2,3,4 kg.",
+                                          "Balení jeden, dva, tři kusy. Potom šel se dvěma, třemi, čtyřmi kilogramy."),
+    "comma-list-with-rate": ("cs", None, "Tok 1,2,3 kg/s, cena 1,2,3 Kč/kg.",
+                             "Tok jeden, dva, tři kilogramy za sekundu, cena jedna, dvě, tři koruny za kilogram."),
+    "comma-list-with-scale": ("cs", None, "Stálo to 1,2,3 tis. Kč. Šel s 1,2,3 mil.",
+                              "Stálo to jeden, dva, tři tisíce korun. Šel s jedním, dvěma, třemi miliony."),
+    "sk-comma-list-with-thousands": ("sk", None, "Stálo to 1,2,3 tis. Kč.", "Stálo to tisíc, dvetisíc, tritisíc korún."),
+    "verse-references": ("cs", {"verse_references": ["Jan", "Mt"]},
+                         "Viz Jan 3,16, Mt 5,3–12, Mt 5,3–7,29 a Jan 3:16. Jan přišel v 5,5.",
+                         "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "
+                         "Jan tři, šestnáct. Jan přišel v pět celých pět desetin."),
+    "sk-verse-references": ("sk", {"verse_references": ["Ján"]}, "Pozri Ján 3,16.", "Pozri Ján tri, šestnásť."),
+    "verse-reference-with-english-book": ("cs", {"verse_references": ["John"], "english": ["John"]}, "Viz John 3,16.",
+                                          "Viz <en>John</en> tři, šestnáct."),
+    "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
+    "per-second-before-word": ("cs", None, "Jel 5 m / s a pak šel, tok měl 5 l / s a víc.",
+                               "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
+    "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
+                                  "Išiel päť metrov za sekundu a potom zastal."),
+    "per-second-attached-before-word": ("cs", None, "Jel 5 km/s a dál, tok 5 l/s a víc, pak 5 KM/S a dál.",
+                                        "Jel pět kilometrů za sekundu a dál, tok pět litrů za sekundu a víc, pak pět "
+                                        "kilometrů za sekundu a dál."),
+    "per-second-after-power": ("cs", None, "Plocha roste 5 m² / s a dál, pak 5 m2 / s a víc.",
+                               "Plocha roste pět metrů čtverečních za sekundu a dál, pak pět metrů čtverečních za "
+                               "sekundu a víc."),
+    "per-second-before-word-in-range": ("cs", None, "Jel 5–10 m / s a pak šel. Jel 5 m / s – 10 m / s a stál. "
+                                        "Letěl 5 tis. km / s a pak 5–10 tis. km / s a zmizel.",
+                                        "Jel pět až deset metrů za sekundu a pak šel. Jel pět metrů za sekundu až deset "
+                                        "metrů za sekundu a stál. Letěl pět tisíc kilometrů za sekundu a pak pět až deset "
+                                        "tisíc kilometrů za sekundu a zmizel."),
+    "capitals-per-second-before-word": ("cs", None, "JEL 5 M / S A PAK 5 KM / S A DÁL.",
+                                        "JEL pět metrů za sekundu A PAK pět kilometrů za sekundu A DÁL."),
+    "unit-slash-is-no-preposition": ("cs", None, "Jel 5 m/s a 5 km/h.",
+                                     "Jel pět metrů za sekundu a pět kilometrů za hodinu."),
+    # mezi, nad, pod, před, za: a masculine plural in -y is the same in the accusative and the instrumental
+    "between-place": ("cs", None, "Stál mezi 2 stromy.", "Stál mezi dvěma stromy."),
+    "between-place-verb-after": ("cs", None, "Mezi 2 stromy stála lavička.", "Mezi dvěma stromy stála lavička."),
+    "between-direction": ("cs", None, "Postavil se mezi 2 stromy.", "Postavil se mezi dva stromy."),
+    "behind-place": ("cs", None, "Stál za 2 stoly.", "Stál za dvěma stoly."),
+    "behind-while-going": ("cs", None, "Celou cestu jel za 2 vozy, pak se schoval za 2 stromy.",
+                           "Celou cestu jel za dvěma vozy, pak se schoval za dva stromy."),
+    "ago-and-in": ("cs", None, "Před 2 roky odjel, přijel před 2 týdny a za 2 roky se vrátí.",
+                   "Před dvěma roky odjel, přijel před dvěma týdny a za dva roky se vrátí."),
+    "threshold-after-motion": ("cs", None, "Teplota klesla pod 5 °C, dnes je pod 5 °C.",
+                               "Teplota klesla pod pět stupňů Celsia, dnes je pod pěti stupni Celsia."),
+    "threshold-range-after-motion": ("cs", None,
+                                     "Teplota klesla pod 1–2 °C, pak vystoupala nad 10–20 °C. Cena klesla pod 5–10 tis. Kč.",
+                                     "Teplota klesla pod jeden až dva stupně Celsia, pak vystoupala nad deset až dvacet "
+                                     "stupňů Celsia. Cena klesla pod pět až deset tisíc korun."),
+    "threshold-list-after-motion": ("cs", None, "Teploty klesly pod 5 °C, 3 °C a 1 °C. Pak klesly pod 3,2,1 °C.",
+                                    "Teploty klesly pod pět stupňů Celsia, tři stupně Celsia a jeden stupeň Celsia. "
+                                    "Pak klesly pod tři, dva, jeden stupeň Celsia."),
+    "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
+                       "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
+    "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
+    "negated-verbs": ("cs", None, "Nedosáhl 20. století, nevzpomínal na XX. století a nepostavil se mezi 2 stromy.",
+                      "Nedosáhl dvacátého století, nevzpomínal na dvacáté století a nepostavil se mezi dva stromy."),
+    "genitive-verbs-present": ("cs", None, "Budova dosahuje 2. podlaží. Obávají se 2. kola a dočkají se 2. dílu. "
+                                           "Co se týče 2. století.",
+                               "Budova dosahuje druhého podlaží. Obávají se druhého kola a dočkají se druhého dílu. "
+                               "Co se týče druhého století."),
+    "genitive-verb-with-subject-after": ("cs", None, "Cíle dosáhl 2. muž. Cíle dosáhli 2. muži. Cíle dosáhnou 2. muži.",
+                                         "Cíle dosáhl druhý muž. Cíle dosáhli druzí muži. Cíle dosáhnou druzí muži."),
+    "genitive-verb-with-neuter-subject": ("cs", None, "Cíle dosáhlo 2. sdružení. Dožil se 2. tisíciletí. Dosáhlo to 2. výročí. "
+                                          "Cíle dosáhne 2. sdružení.",
+                                          "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí. "
+                                          "Cíle dosáhne druhé sdružení."),
+    "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
+    "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
+                                                "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
+    "sk-ordinal-before-capitalised-noun-in-case": ("sk", None, "V 5. Symfónii zaznel zbor.",
+                                                   "V piatej Symfónii zaznel zbor."),
+    "number-ends-sentence-after-preposition": ("cs", None, "Čekal na 2. Vlak přijel.", "Čekal na dva. Vlak přijel."),
+    "roman-numbers-a-thing": ("cs", None, "Vyšel díl V. Kniha byla úspěšná.", "Vyšel díl pátý. Kniha byla úspěšná."),
+    "roman-numbers-a-thing-before-adjective": ("cs", None, "Vyšel díl V. Nové vydání uspělo. Vyšel díl X. Toto vydání uspělo.",
+                                               "Vyšel díl pátý. Nové vydání uspělo. Vyšel díl desátý. Toto vydání uspělo."),
+    "roman-numbers-a-thing-before-pronoun": ("cs", None, "Vyšel díl V. On uspěl. Vyšel díl X. Poté kniha uspěla.",
+                                             "Vyšel díl pátý. On uspěl. Vyšel díl desátý. Poté kniha uspěla."),
+    "initial-before-adjective-surname": ("cs", None, "Firma V. Nový vznikla.", "Firma V. Nový vznikla."),
+    "initial-after-a-woman": ("cs", None, "Paní V. Ona poté odešla. Vyšla část V. Kniha byla úspěšná.",
+                              "Paní V. Ona poté odešla. Vyšla část pátá. Kniha byla úspěšná."),
+    "initial-after-a-person": ("cs", None, "Autor V. Kovář napsal knihu.", "Autor V. Kovář napsal knihu."),
+    "nearest-verb-governs": ("cs", None, "Dosáhl cíle a obsadil 2. místo, postavil se a zpíval mezi 2 stromy.",
+                             "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
+    "acronym-starts-sentence-in-mixed-text": ("cs", None, "Byl tam atd. USA zasáhly. Vládl Karel IV. NATO vzniklo později.",
+                                              "Byl tam a tak dále. USA zasáhly. Vládl Karel čtvrtý. NATO vzniklo později."),
+    "clitic-of-another-verb": ("cs", None, "Smál se a vzdal 2. kolo.", "Smál se a vzdal druhé kolo."),
+    "capital-acronym-before-signed-amount": ("cs", None, "MAX. -5 KG, MAX. $5.",
+                                             "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
+    "capital-acronym-before-approximate-amount": ("cs", None, "MAX. ≈5 KG, MAX. ±2 KG.",
+                                                  "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy."),
+    "capital-acronym-before-number-kept": ("cs", None, "TURNAJ ATP. 500 ZAČAL.", "TURNAJ ATP. Pět set ZAČAL."),  # the tour
+    "capital-acronym-before-spaced-prefix": ("cs", None, "MAX. ≈ 5 KG, MAX. ± 2 KG, MAX. $ 5.",
+                                             "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy, "
+                                             "maximálně pět dolarů."),
+    "vzdalit-is-not-vzdat": ("cs", None, "Vzdaluje se 2. kolo, vzdálilo se 3. kolo.",
+                             "Vzdaluje se druhé kolo, vzdálilo se třetí kolo."),
+    "conjunction-ends-the-verb-search": ("cs", None, "Cíle dosáhl a 2. místo nakonec obsadil.",
+                                         "Cíle dosáhl a druhé místo nakonec obsadil."),
+    "passive-is-a-place": ("cs", None, "Dům je postaven mezi 2 stromy.", "Dům je postaven mezi dvěma stromy."),
+    "passive-of-placing": ("cs", None, "Dopis byl položen mezi 2 svazky. Obraz je pověšen nad 2 stoly. "
+                                       "Mezi 2 svazky byl dopis položen.",
+                           "Dopis byl položen mezi dva svazky. Obraz je pověšen nad dvěma stoly. "
+                           "Mezi dva svazky byl dopis položen."),
+    "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
+                                     "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
+    "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
+                                           "Je to state\u2011of\u2011the\u2011art.", "Je to <en>state-of-the-art</en>."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -315,6 +484,32 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                            "nominative masculine inanimate"),
     "decimal-comma-before-currency": ("cs", "Stálo to 1,234 USD.",
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
+    "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
+    "capital-letter-glued-to-number": ("cs", "TELEFON PODPORUJE 5G.", "TELEFON PODPORUJE pět G.", "glued"),
+    "comma-list-glued-to-word": ("cs", "Vyber 1,2,3G.", "Vyber jedna, dva, tři G.", "glued"),
+    "range-glued-to-word": ("cs", "Váží 5–10G.", "Váží pět až deset G.", "glued"),
+    "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
+    "decimal-comma-before-scale": ("cs", "Stálo to 2,000 tis. Kč.", "Stálo to dva tisíce korun.", "not thousands"),
+    "decimal-comma-in-unit-range": ("cs", "Ujel 1,234–2 km.", "Ujel jedna celá dvě stě třicet čtyři tisícin až dva kilometry.",
+                                    "not thousands"),
+    "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
+                                   "Ujel jedna celá dvě stě třicet čtyři tisícin kilometru až dvě celé pět desetin kilometru.",
+                                   "not thousands"),
+    # a verb shared across "a" is not applied (see the example above); the tagger's plural is logged
+    "genitive-verb-before-conjunction": ("cs", "Dosáhl cíle a 2. místa.", "Dosáhl cíle a druhá místa.", "plural noun"),
+    "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
+    "wait-on-one-form-noun": ("cs", "Čekal na 2. náměstí.", "Čekal na druhé náměstí.", "locative"),
+    "going-behind-or-after": ("cs", "Šel za 2 stromy a tam se zastavil.", "Šel za dvěma stromy a tam se zastavil.",
+                              "place behind"),
+    "comma-list-object-or-subject": ("cs", "Viděl 1,2,5 mužů.", "Viděl jeden, dva, pět mužů.", "accusative"),
+}
+UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
+    "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
+    "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
+    "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
+    "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
+    "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -341,18 +536,26 @@ def test_reading_is_logged_for_review(caplog, language, text, expected, warning)
     assert warning in records[0].getMessage()
 
 
+@pytest.mark.parametrize("language,text,expected", UNLOGGED.values(), ids=list(UNLOGGED))
+def test_reading_is_not_logged(caplog, language, text, expected):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        assert TextNormalizer(language).normalize(text) == expected
+    assert not [r for r in caplog.records if r.name == "src.text.normalizer"]
+
+
 def test_line_structure_and_headings(cs):
     text, expected = HEADINGS
     assert cs.normalize(text) == expected
 
 
-@pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>."])
+@pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>.",
+                                  "Četl <en>state\u2011of\u2011the\u2011art</en>."])  # spans stay as written
 def test_digit_or_symbol_in_span_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)
 
 
-@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH."])
+@pytest.mark.parametrize("text", ["Cena v Kč/kg.", "Skóre #výhra.", "Cena 100 Kč / s DPH.", "Je to ≈ fajn."])
 def test_symbol_without_reading_raises(cs, text):
     with pytest.raises(ValueError):
         cs.normalize(text)
@@ -364,14 +567,25 @@ def test_dates_need_no_tagger(monkeypatch):
             == "Dne patnáctého ledna dva tisíce dvacet čtyři a prvního ledna.")
 
 
+def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16.18": read and logged as without the option
+    for text in ("Viz Jan 3,16a.", "Viz Jan 3,16.18."):
+        assert TextNormalizer("cs", {"verse_references": ["Jan"]}).normalize(text) == TextNormalizer("cs").normalize(text)
+
+
 def test_unknown_num2words_variant_raises():
     with pytest.raises(ValueError):
         TextNormalizer("sk", {"num2words": {"inverted": True}})  # a Czech-only keyword
 
 
+def test_numbered_verse_book_raises():  # the digit of "1 Jan" would stay as written; "Jan" leaves it to be read
+    with pytest.raises(ValueError, match="verse_references"):
+        TextNormalizer("cs", {"verse_references": ["Jan", "1 Jan"]})
+
+
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
 @pytest.mark.parametrize("language,config,text", [(lang, None, text) for lang, text in TEST2_INPUTS]
                          + [example[:3] for example in EXAMPLES.values()]
-                         + [(language, None, text) for language, text, _, _ in LOGGED.values()])
+                         + [(language, None, text) for language, text, _, _ in LOGGED.values()]
+                         + [(language, None, text) for language, text, _ in UNLOGGED.values()])
 def test_output_is_tokenizable(language, config, text):
     G2P[language].tokenize(TextNormalizer(language, config).normalize(text))
