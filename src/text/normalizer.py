@@ -263,6 +263,7 @@ _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
+_APPROXIMATE_OPERAND = rf"{_HS}*[-−–+]?(?:[$€£]{_HS}*[-−–+]?)?\d"  # what ~ or ≈ is read before: "~5", "≈ -$5"
 # "Kč/m²", "m / s"; not "Kč / s DPH"; symbols of two letters or more also in capitals: "KG", "KM/H"
 _PER = rf"(?i:kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|hod|min)|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"
 _CAPITAL_PER = rf"|G|M{_POWER}|H|S(?!{_HS}+[^\W\d_])"  # one-letter symbols in capitals, in all-caps text only
@@ -374,7 +375,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±−]|#(?={_HS}*\d)"
         rf"|(?<=\d){_HS}*x{_NOT_LETTER_AFTER}{_HS}*"  # "3 x 4", "3    x 4", "3 x týdně"
-        rf"|(?<=\d){_HS}*\*{_HS}*(?=[-−–+]?\d)|[~≈](?={_HS}*[-−–+]?(?:[$€£]{_HS}*[-−–+]?)?\d))"  # "3*4", "~5 km", "≈$5", "3≈4"
+        rf"|(?<=\d){_HS}*\*{_HS}*(?=[-−–+]?\d)|[~≈](?={_APPROXIMATE_OPERAND}))"  # "3*4", "~5 km", "≈$5", "3≈4"
         rf"|(?P<slash>(?<=[^\W\d_]{{2}})/(?P<suffix>{_INCLUSIVE_SUFFIXES}){_NOT_LETTER_AFTER}"
         rf"|(?:(?<=[^\W\d_]{{2}})|(?<={_NOT_LETTER_BEFORE}[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]))"
         rf"{_HS}*/{_HS}*(?=[^\W\d_]{{2}}|[{_ONE_LETTER_WORDS}{_ONE_LETTER_WORDS.upper()}]{_NOT_LETTER_AFTER})"
@@ -1085,7 +1086,7 @@ class TextNormalizer:
         """Case, gender and animacy of a cardinal, from the noun it counts or the preposition before it."""
         before, after = text[:start].rstrip(), text[end:].lstrip()
         if (after_label or before[-1:] in _MATH_SIGNS or after[:1] in _MATH_SIGNS
-                or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(rf"[~≈]{_HS}*[-−–+]?\d", after)):
+                or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(f"[~≈]{_APPROXIMATE_OPERAND}", after)):
             return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
         prep_case = self._preposition_case(start, tags)
         noun = tags.head_after(end) or self._shared_count_head(end, tags)
