@@ -353,6 +353,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
+    "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
+                                                "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
+    "sk-ordinal-before-capitalised-noun-in-case": ("sk", None, "V 5. Symfónii zaznel zbor.",
+                                                   "V piatej Symfónii zaznel zbor."),
+    "number-ends-sentence-after-preposition": ("cs", None, "Čekal na 2. Vlak přijel.", "Čekal na dva. Vlak přijel."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

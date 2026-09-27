@@ -975,8 +975,15 @@ class TextNormalizer:
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
         prev = tags.before(m.start())
         attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT")  # "Beethovenova 5. Symfonie"
-        if following[:1].isupper() and not heading and (nxt is None or nxt.upos not in ("NOUN", "ADJ")
-                                                         or (not attributive and self._verb_follows(m.end(), tags))):
+        # after a preposition, a capitalised noun in its case is the ordinal's noun even when tagged a name
+        # ("V 5. Symfonii"); a nominative one before a verb starts a sentence ("Přišel v 5. Symfonie začala.")
+        after_preposition = prev is not None and prev.upos == "ADP" and nxt is not None
+        governed = (after_preposition and nxt.upos in ("NOUN", "PROPN") and nxt.feats.get("Animacy") != "Anim"
+                    and self._agrees_with_preposition(prev, nxt))
+        subject = after_preposition and nxt.feats.get("Case") == "Nom" and self._verb_follows(m.end(), tags)
+        if following[:1].isupper() and not heading and not governed and (
+                nxt is None or nxt.upos not in ("NOUN", "ADJ") or subject
+                or (not attributive and self._verb_follows(m.end(), tags))):
             # "Bylo jich 5. Pak…", "Měl jen 2. Děti odešly.": a number that ends the sentence; but "5. Symfonie",
             # "# 2. Kapitola"
             verb = self._rank_verb(m.start(), tags)
@@ -1223,6 +1230,12 @@ class TextNormalizer:
             if clitic is not False:
                 return GEN if clitic is None or self._clause_has(pos, tags, clitic) else None
         return None
+
+    def _agrees_with_preposition(self, prep: _Word, noun: _Word) -> bool:
+        case = _UD_CASES.get(noun.feats.get("Case"))
+        if prep.text.lower() in LOCATIVE_PREPOSITIONS[self.language]:
+            return case in (ACC, LOC)  # the tagger gives v, na, o, po either case
+        return case is not None and case == _UD_CASES.get(prep.feats.get("Case"))
 
     def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
