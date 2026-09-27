@@ -423,6 +423,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
+    "negated-verbs": ("cs", None, "Nedosáhl 20. století, nevzpomínal na XX. století a nepostavil se mezi 2 stromy.",
+                      "Nedosáhl dvacátého století, nevzpomínal na dvacáté století a nepostavil se mezi dva stromy."),
     "genitive-verbs-present": ("cs", None, "Budova dosahuje 2. podlaží. Obávají se 2. kola a dočkají se 2. dílu. "
                                            "Co se týče 2. století.",
                                "Budova dosahuje druhého podlaží. Obávají se druhého kola a dočkají se druhého dílu. "

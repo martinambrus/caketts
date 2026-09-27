@@ -205,7 +205,7 @@ GOING_VERBS = ("šel", "šla", "šli", "jde", "jdou", "jel", "jela", "jeli", "je
 PLACED_PARTICIPLES = ("polož", "vlož", "pověš", "umístěn", "zařazen", "schován")
 PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl", "žil", "žij", "zůstal", "zůstáv",
                "čekal", "čeká", "nacház", "rostl", "rost", "pracoval", "pracuj", "spal", "spí")
-PLACE_FORMS = frozenset({"je", "jsou", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # whole forms: not "jel"
+PLACE_FORMS = frozenset({"je", "jsou", "není", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # not "jel"
 # Czech verbs that take the genitive (a pattern for the start of the form) with the clitic they need:
 # "Dosáhli jsme XXI. století", "Bál se 2. dílu"; vzdát se, not vzdálit se (vzdálil, vzdaluje)
 GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "se", "dožij": "se", "dočkal": "se",
@@ -474,6 +474,11 @@ def _agree(a: "_Word", b: "_Word") -> bool:
     a present verb has no gender ("dosáhnou")."""
     return all(None in (a.feats.get(f), b.feats.get(f)) or a.feats.get(f) == b.feats.get(f)
                for f in ("Number", "Gender", "Animacy"))
+
+
+def _affirmative(form: str) -> str:
+    """A verb form without its negation, for the tables of verb stems: "nedosáhl" -> "dosáhl"; "nesl" stays."""
+    return form[2:] if form.startswith("ne") and len(form) > 4 else form
 
 
 def _starts_sentence(before: str) -> bool:
@@ -1146,7 +1151,7 @@ class TextNormalizer:
             decided = self._two_case(prep, noun, start, tags)
             verb = self._clause_verb(start, tags)
             if (decided == INS and prep.text.lower() == "za" and verb is not None
-                    and verb.text.lower().startswith(GOING_VERBS)):  # "Šel za 2 stromy": after them, or behind them
+                    and _affirmative(verb.text.lower()).startswith(GOING_VERBS)):  # "Šel za 2 stromy": after them, or behind them
                 self._warn(text, m, self._cardinal(value, INS, gender, animacy),
                            "za after going read as following (instrumental); a place behind is the accusative; check it")
             if decided:
@@ -1244,7 +1249,7 @@ class TextNormalizer:
                     context = NOM  # "Cíle dosáhlo 2. sdružení", not "Dožil se 2. tisíciletí", "Dosáhlo to 2. výročí"
                 if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
                     doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
-                elif ordinal and verb_case == ACC and self._clause_verb(start, tags).text.lower().startswith(NA_PLACE_VERBS):
+                elif ordinal and verb_case == ACC and _affirmative(self._clause_verb(start, tags).text.lower()).startswith(NA_PLACE_VERBS):
                     doubt = f"na {head.text!r} read as the accusative (waiting for); the locative (waiting at) fits too"
                 case = context
             # a singular nominative or accusative is the subject ("Cíle dosáhl 2. muž"), and so is an agreeing
@@ -1282,7 +1287,7 @@ class TextNormalizer:
         if (verb is None or verb.upos not in ("VERB", "AUX") or "Sing" not in verb.feats.get("Number", "Sing")
                 or self._gender(verb)[0] not in ("masculine", "feminine")):
             return None
-        return verb if verb.text.lower().startswith(RANK_VERBS[self.language]) else None
+        return verb if _affirmative(verb.text.lower()).startswith(RANK_VERBS[self.language]) else None
 
     @staticmethod
     def _clause_verb(pos: int, tags: _Tags) -> Optional[_Word]:
@@ -1294,7 +1299,7 @@ class TextNormalizer:
             j = i - 1 if step < 0 else i
             while (0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":")
                    and not (step < 0 and w[j].upos == "CCONJ")):
-                if w[j].upos == "VERB" or (w[j].upos == "AUX" and w[j].text.lower() in PLACE_FORMS):
+                if w[j].upos == "VERB" or (w[j].upos == "AUX" and _affirmative(w[j].text.lower()) in PLACE_FORMS):
                     found.append((abs(j - i), w[j]))
                     break
                 j += step
@@ -1321,11 +1326,11 @@ class TextNormalizer:
         if noun is not None and noun.text.lower() in TIME_PLURALS:
             return {"před": INS, "za": ACC}.get(word)
         verb = self._clause_verb(pos, tags)
-        form = verb.text.lower() if verb is not None else ""
+        form = _affirmative(verb.text.lower()) if verb is not None else ""
         clause = self._clause_before(pos, tags) + self._clause_after(pos, tags)  # "Mezi 2 svazky byl dopis položen"
         if (any(w.upos in ("ADJ", "VERB") and w.feats.get("VerbForm") == "Part"
-                and w.text.lower().startswith(PLACED_PARTICIPLES) for w in clause)
-                and not any(w.text.lower() in ("je", "jsou") for w in clause)):
+                and _affirmative(w.text.lower()).startswith(PLACED_PARTICIPLES) for w in clause)
+                and not any(w.text.lower() in ("je", "jsou", "není", "nejsou") for w in clause)):
             return ACC  # the event, "byl položen mezi dva svazky"; the state is a place: "je pověšen nad dvěma stoly"
         if verb is not None and verb.feats.get("Voice") == "Pass":
             return INS  # "Dům je postaven mezi dvěma stromy": a passive is the state, not the motion
@@ -1339,7 +1344,7 @@ class TextNormalizer:
         """The case a Czech verb gives a noun phrase at `pos`: the genitive after "dosáhnout", "bát se";
         the accusative after "na" with "vzpomínat", "čekat"."""
         verb = self._clause_verb(pos, tags)
-        form = verb.text.lower() if verb is not None else ""
+        form = _affirmative(verb.text.lower()) if verb is not None else ""
         if prev is not None and prev.upos == "ADP":
             return ACC if prev.text.lower() == "na" and form and form.startswith(NA_ACCUSATIVE_VERBS) else None
         clitic = next((c for stem, c in GENITIVE_VERBS.items() if re.match(stem, form)), False) if form else False
