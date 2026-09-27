@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**774 tests:** 102 for the TTS components, 104 for num2words, 564 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**778 tests:** 102 for the TTS components, 104 for num2words, 568 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -302,7 +302,8 @@ num2words ignores them silently). book_config["verse_references"] lists Bible bo
 which "3,16", "3:16" and "5,3–12" are chapter and verse ("Jan tři, šestnáct", "Mt pět, tři až
 dvanáct"), not decimals; it is off by default, as "Jan" is also a name. A numbered book is listed
 by its name ("Jan" for "1 Jan"; a name with a digit raises). Invisible characters (soft
-hyphen, zero-width space, BOM) are dropped and hyphen variants normalised on input.
+hyphen, word joiner, BOM) are dropped, a zero-width space becomes a space, and hyphen variants
+are normalised on input.
 
 Handle:
  1. Numbers -> words through num2words(n, to=..., gender=..., case=..., animacy=...), with the
@@ -456,7 +457,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 564 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 568 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -802,6 +803,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capital-era-after-number": ("cs", None, "ROKU 300 N. L. VLÁDL.", "ROKU tři sta našeho letopočtu VLÁDL."),
     "invisible-characters": ("cs", None, "\ufeffRakousko\u2011Uhersko má 5\u201110 Kč, text\u00adový.",
                              "Rakousko-Uhersko má pět až deset korun, textový."),
+    "zero-width-space-between-words": ("cs", None, "Ahoj\u200bsvěte.", "Ahoj světe."),
     "approximately": ("cs", None, "Je to ~5 km, tedy ≈5 000 m.",
                       "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
     "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
@@ -919,6 +921,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-before-conjunction": ("cs", "Dosáhl cíle a 2. místa.", "Dosáhl cíle a druhá místa.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
     "wait-on-one-form-noun": ("cs", "Čekal na 2. náměstí.", "Čekal na druhé náměstí.", "locative"),
+    "comma-list-object-or-subject": ("cs", "Viděl 1,2,5 mužů.", "Viděl jeden, dva, pět mužů.", "accusative"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
@@ -3870,7 +3873,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 773 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 777 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
