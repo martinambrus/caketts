@@ -302,6 +302,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"(?:{_HS}*(?P<year>\d{{4}})(?!\d)|{_HS}*(?P<shortyear>(?<=\.)\d{{2}}"
         rf"|(?<={_HS})(?:0\d|\d{{2}}(?!\d)(?!{_HS}*[^\W\d_])))(?!\d))?(?!\d))"  # "5. 6. 05", not "5. 6. 24 lidí"
         rf"|(?P<dotted>(?<![\d.,])(?![1-9]\d{{0,2}}(?:\.\d{{3}})+(?!\d|\.\d))\d+(?:\.\d+){{2,}}(?!\d))"  # "1.2.3"
+        rf"|(?P<commas>(?<![\d.,])(?!{_EN_AMOUNT})\d+(?:,\d+){{2,}}(?!\d))"  # "1,2,3": two decimal commas make no number
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
@@ -517,6 +518,11 @@ class TextNormalizer:
         self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}
         self._items = _items_pattern(self.abbreviations)
         self._items_in_capitals = _items_pattern(self.abbreviations, capitals=True)
+        books = sorted(filter(None, config.get("verse_references") or []), key=len, reverse=True)
+        # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29": chapter and verse, not a decimal or a time
+        self._verses = (re.compile(rf"(?<!\w)(?P<book>{'|'.join(map(re.escape, books))}){_HS}+(?P<chapter>\d+)[,:]"
+                                   rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d)")
+                        if books else None)
         phrases = sorted(filter(None, config.get("english") or []), key=len, reverse=True)
         self._english = (re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, phrases)) + r")(?!\w)")
                          if phrases else None)
@@ -543,6 +549,8 @@ class TextNormalizer:
     def _paragraph(self, text: str, heading: bool = False) -> str:
         if self._english:
             text = self._wrap_english(text)
+        if self._verses:
+            text = self._read_verses(text)
         spans = []
         for s in _SPAN_RE.finditer(text):
             bad = _unspeakable(s.group(2))
@@ -585,10 +593,30 @@ class TextNormalizer:
                 pos = m.end()
         return "".join(out) + text[pos:]
 
+    def _read_verses(self, text: str) -> str:
+        """"Jan 3,16" -> "Jan tři, šestnáct", "Mt 5,3–12" -> "Mt pět, tři až dvanáct", for the books of
+        book_config["verse_references"]."""
+        spans = [s.span() for s in _SPAN_RE.finditer(text)]
+
+        def number(digits: str) -> str:
+            return self._cardinal(int(digits), *self._label(int(digits)))
+
+        def read(v: re.Match) -> str:
+            if any(s < v.end() and v.start() < e for s, e in spans):
+                return v.group(0)
+            words = f"{v['book']} {number(v['chapter'])}, {number(v['verse'])}"
+            if v["last"]:
+                words += f" {RANGE_WORD} {number(v['last'])}"
+            if v["lastverse"]:
+                words += f", {number(v['lastverse'])}"
+            return words
+
+        return self._verses.sub(read, text)
+
     def _needs_tags(self, m: re.Match) -> bool:
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
-        return m.lastgroup not in ("isodate", "date", "dotted", "sign", "slash", "dash", "ellipsis")
+        return m.lastgroup not in ("isodate", "date", "dotted", "commas", "sign", "slash", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
         view = _SPAN_RE.sub(lambda s: " " * (s.start(2) - s.start()) + s.group(2) + " " * (s.end() - s.end(2)),
@@ -624,6 +652,8 @@ class TextNormalizer:
         if kind == "dotted":
             return start, f" {DOT_WORDS[self.language]} ".join(
                 self._cardinal(int(part), *self._label(int(part))) for part in m.group(0).split("."))
+        if kind == "commas":
+            return start, ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in m.group(0).split(","))
         if kind == "sign":
             return start, _spaced(text, start, end, SIGNS[self.language][m.group(0).strip()])
         if kind == "slash":
@@ -826,6 +856,7 @@ class TextNormalizer:
                 case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)
             words = (f"{self._signed(low_amount, self._cardinal(low, case, gender, animacy))} {RANGE_WORD} "
                      f"{self._signed(high_amount, self._cardinal(value, case, gender, animacy))}")
+            self._check_comma(text, (start, end), words, low_amount, high_amount)
         return words + (f" {self._per(per)}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
@@ -861,9 +892,13 @@ class TextNormalizer:
         words = read(case or NOM)
         if case is None and words != read(ACC):
             self._warn(text, (start, end), words, "no preposition; nominative")
-        if noun in MINOR_UNITS[self.language] and re.fullmatch(r"[-−–]?\d{1,3},\d{3}", amount):
-            self._warn(text, (start, end), words, "comma read as decimal, not thousands; check it")
+        self._check_comma(text, (start, end), words, amount)
         return self._signed(amount, words) + suffix
+
+    def _check_comma(self, text: str, where, words: str, *amounts: str) -> None:
+        """"2,000" is read with a decimal comma, as Czech and Slovak write it; English means two thousand."""
+        if any(re.fullmatch(r"[-−–+]?\d{1,3},\d{3}", amount) for amount in amounts):
+            self._warn(text, where, words, "comma read as decimal, not thousands; check it")
 
     def _signed(self, amount: str, words: str) -> str:
         if amount.startswith("+"):
@@ -946,6 +981,7 @@ class TextNormalizer:
             words = self._cardinal(value, *self._context(value, m.start(), m.end(), text, tags,
                                                          after_label, m))
         words = self._signed(m["value"], words)
+        self._check_comma(text, m, words, m["value"])
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
         if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x[-−–]?\d", text[m.end():m.end() + 3]):

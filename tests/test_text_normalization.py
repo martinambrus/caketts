@@ -327,6 +327,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                       "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
     "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
     "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
+    "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
+    "verse-references": ("cs", {"verse_references": ["Jan", "Mt"]},
+                         "Viz Jan 3,16, Mt 5,3–12, Mt 5,3–7,29 a Jan 3:16. Jan přišel v 5,5.",
+                         "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "
+                         "Jan tři, šestnáct. Jan přišel v pět celých pět desetin."),
+    "sk-verse-references": ("sk", {"verse_references": ["Ján"]}, "Pozri Ján 3,16.", "Pozri Ján tri, šestnásť."),
+    "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -336,6 +343,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "decimal-comma-before-currency": ("cs", "Stálo to 1,234 USD.",
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
     "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
+    "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
