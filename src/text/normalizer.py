@@ -1201,11 +1201,15 @@ class TextNormalizer:
                 j += step
         return min(found, key=lambda f: f[0])[1] if found else None
 
-    def _clause_has(self, pos: int, tags: _Tags, clitic: str) -> bool:
-        i, w = bisect.bisect_left(tags.starts, pos), tags.words
+    @staticmethod
+    def _clitic_of(verb: _Word, tags: _Tags, clitic: str) -> bool:
+        """Whether `clitic` ("se", "si") belongs to `verb`: it stands in the verb's own clause, which a comma,
+        a sentence end, a conjunction or another verb closes ("Smál se a vzdal 2. kolo": "se" is smál's)."""
+        i, w = bisect.bisect_left(tags.starts, verb.start), tags.words
         for step in (-1, 1):
-            j = i - 1 if step < 0 else i
-            while 0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":"):
+            j = i + step
+            while (0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":")
+                   and w[j].upos not in ("CCONJ", "VERB")):
                 if w[j].text.lower() == clitic:
                     return True
                 j += step
@@ -1233,7 +1237,7 @@ class TextNormalizer:
         if prev is not None and prev.upos == "ADP":
             return ACC if prev.text.lower() == "na" and form and form.startswith(NA_ACCUSATIVE_VERBS) else None
         clitic = next((c for stem, c in GENITIVE_VERBS.items() if form.startswith(stem)), False) if form else False
-        return GEN if clitic is None or (clitic and self._clause_has(pos, tags, clitic)) else None
+        return GEN if clitic is None or (clitic and self._clitic_of(verb, tags, clitic)) else None
 
     def _agrees_with_preposition(self, prep: _Word, noun: _Word) -> bool:
         case = _UD_CASES.get(noun.feats.get("Case"))

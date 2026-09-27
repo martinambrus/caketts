@@ -366,6 +366,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                              "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
     "acronym-starts-sentence-in-mixed-text": ("cs", None, "Byl tam atd. USA zasáhly. Vládl Karel IV. NATO vzniklo později.",
                                               "Byl tam a tak dále. USA zasáhly. Vládl Karel čtvrtý. NATO vzniklo později."),
+    "clitic-of-another-verb": ("cs", None, "Smál se a vzdal 2. kolo.", "Smál se a vzdal druhé kolo."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
