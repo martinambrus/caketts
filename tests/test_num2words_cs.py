@@ -351,6 +351,12 @@ def test_decimals(x, expected):
     assert w(x) == expected
 
 
+def test_long_decimals_keep_every_digit():
+    digits = "14159265358979323846264338327950288"
+    names = ["nula", "jedna", "dvě", "tři", "čtyři", "pět", "šest", "sedm", "osm", "devět"]
+    assert w("3," + digits) == "tři celé " + " ".join(names[int(d)] for d in digits)
+
+
 def test_integer_values_keep_every_option():
     assert w(1.0, case="accusative", animacy="animate") == "jednoho"
     assert w(Decimal("1847"), case="genitive", oblique_style="full") == "tisíce osmi set čtyřiceti sedmi"

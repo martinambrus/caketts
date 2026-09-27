@@ -393,7 +393,7 @@ def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", an
     except InvalidOperation:
         raise ValueError(f"not a number: {x!r}")
     sign = MINUS + " " if d < 0 else ""
-    d = abs(d)
+    d = d.copy_abs()  # abs() would round to the 28-digit context precision
     whole = int(d)
     text = format(d, "f")
     frac = text.split(".")[1].rstrip("0") if "." in text else ""

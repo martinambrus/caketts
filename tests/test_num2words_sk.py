@@ -224,6 +224,14 @@ def test_decimals(x, expected):
     assert w(x) == expected
 
 
+def test_long_decimals_keep_every_digit():
+    digits = "14159265358979323846264338327950288"
+    names = ["nula", "jedna", "dve", "tri", "štyri", "päť", "šesť", "sedem", "osem", "deväť"]
+    assert w("3," + digits) == "tri celé " + " ".join(names[int(d)] for d in digits)
+    whole = 12345678901234567890123456789
+    assert w(f"{whole},5") == w(whole, gender="feminine") + " celých päť desatín"
+
+
 def test_integer_values_keep_every_option():
     assert w(2.0, animacy="personal") == "dvaja"
     assert w(Decimal("22"), case="dative", declined=False) == "dvadsaťdva"
