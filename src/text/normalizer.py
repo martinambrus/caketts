@@ -728,6 +728,9 @@ class TextNormalizer:
                 if noun is not None and noun.start > end:  # "s 1,2,3 přáteli": the values agree with the noun they count
                     form = self._context(int(parts[-1]), start, end, text, tags, after_label, m)
                     words = ", ".join(self._cardinal(int(part), *form) for part in parts)
+                    # the noun's form is the last value's: "Viděl 1,2,5 mužů" may want "jednoho" as an object
+                    if form[0] == NOM and words != ", ".join(self._cardinal(int(part), ACC, *form[1:]) for part in parts):
+                        self._warn(text, m, words, "list read in the nominative; as an object it takes the accusative")
                 else:
                     words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
                 self._check_glued(text, m, words)
