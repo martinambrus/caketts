@@ -356,6 +356,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                           "Balení jeden, dva, tři kusy. Potom šel se dvěma, třemi, čtyřmi kilogramy."),
     "comma-list-with-rate": ("cs", None, "Tok 1,2,3 kg/s, cena 1,2,3 Kč/kg.",
                              "Tok jeden, dva, tři kilogramy za sekundu, cena jedna, dvě, tři koruny za kilogram."),
+    "comma-list-with-scale": ("cs", None, "Stálo to 1,2,3 tis. Kč. Šel s 1,2,3 mil.",
+                              "Stálo to jeden, dva, tři tisíce korun. Šel s jedním, dvěma, třemi miliony."),
+    "sk-comma-list-with-thousands": ("sk", None, "Stálo to 1,2,3 tis. Kč.", "Stálo to tisíc, dvetisíc, tritisíc korún."),
     "verse-references": ("cs", {"verse_references": ["Jan", "Mt"]},
                          "Viz Jan 3,16, Mt 5,3–12, Mt 5,3–7,29 a Jan 3:16. Jan přišel v 5,5.",
                          "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "

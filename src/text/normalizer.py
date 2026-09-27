@@ -339,7 +339,8 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?<={_HS})(?:0\d|\d{{2}}(?!\d)(?!{_HS}*[^\W\d_])))(?!\d))?(?!\d))"  # "5. 6. 05", not "5. 6. 24 lidí"
         rf"|(?P<dotted>(?<![\d.,])(?![1-9]\d{{0,2}}(?:\.\d{{3}})+(?!\d|\.\d))\d+(?:\.\d+){{2,}}(?!\d))"  # "1.2.3"
         rf"|(?P<commas>(?P<commalist>(?<![\d.,])(?!{_EN_AMOUNT})\d+(?:,\d+){{2,}}(?!\d))"  # "1,2,3": no number has two commas
-        rf"(?:{_HS}*{unit_per('comma')})?)"  # "1,2,3 kg", "1,2,3 Kč/kg"
+        rf"(?:{_HS}*(?:(?P<commascale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}(?:{_HS}+{unit_per('commascale')})?"
+        rf"|{unit_per('comma')}))?)"  # "1,2,3 kg", "1,2,3 Kč/kg", "1,2,3 tis. Kč"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
@@ -651,7 +652,7 @@ class TextNormalizer:
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
         if m.lastgroup == "commas":
-            return bool(m["commaunit"])  # the case of "s 1,2,3 kg"
+            return bool(m["commaunit"] or m["commascale"])  # the case of "s 1,2,3 kg"
         return m.lastgroup not in ("isodate", "date", "dotted", "sign", "slash", "dash", "ellipsis")
 
     def _tag(self, text: str) -> List[_Word]:
@@ -719,16 +720,21 @@ class TextNormalizer:
                 words += "."
         elif kind == "commas":
             parts = m["commalist"].split(",")
-            if not m["commaunit"]:
+            if not (m["commaunit"] or m["commascale"]):
                 words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
                 self._check_glued(text, m, words)
             else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
-                gender = NOUNS[self.language][self._unit(m["commaunit"])[0]][0]
+                gender = (SCALE_GENDERS[self.language][m["commascale"].lower()] if m["commascale"]
+                          else NOUNS[self.language][self._unit(m["commaunit"])[0]][0])  # "1,2,3 tis. Kč": tisíc's
                 case = self._governing_case(start, tags) or NOM
-                words = ", ".join([self._cardinal(int(part), case, gender, "inanimate") for part in parts[:-1]]
-                                  + [self._measure(parts[-1], m["commaunit"], start, tags, text, end)])
-                if m["commaper"]:
-                    words += " " + self._per(m["commaper"])
+                if (m["commascale"] or "").lower() == "tis" and self.language == "sk":  # "dvetisíc": one word each
+                    head = [self._measure(part, m["commascale"], start, tags, text, end, comma=False) for part in parts[:-1]]
+                else:
+                    head = [self._cardinal(int(part), case, gender, "inanimate") for part in parts[:-1]]
+                words = ", ".join(head + [self._measure(parts[-1], m["commascale"] or m["commaunit"], start, tags, text,
+                                                        end, scale_unit=m["commascaleunit"])])
+                if m["commaper"] or m["commascaleper"]:
+                    words += " " + self._per(m["commaper"] or m["commascaleper"])
         elif kind == "time":
             words = self._time(m, tags)
         elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
