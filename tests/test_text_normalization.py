@@ -325,6 +325,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                              "JABLKA, HRUŠKY a tak dále LEŽELY NA STOLE. DNE pátého června ODEŠEL DOMŮ."),
     "capitals-list-then-verb": ("cs", None, "PŘINESL JABLKA, HRUŠKY ATD. ODEŠEL. KDYŽ PŘIŠEL, KAREL IV. ZALOŽIL UNIVERZITU.",
                                 "PŘINESL JABLKA, HRUŠKY a tak dále. ODEŠEL. KDYŽ PŘIŠEL, KAREL čtvrtý ZALOŽIL UNIVERZITU."),
+    "capitals-list-after-subordinate-clause": ("cs", None, "KDYŽ PŘIŠEL, JABLKA, HRUŠKY ATD. LEŽELY NA STOLE.",
+                                               "KDYŽ PŘIŠEL, JABLKA, HRUŠKY a tak dále LEŽELY NA STOLE."),
     "capitals-date-and-amount-in-own-clause": ("cs", None, "PŘIŠEL A DNE 5. 6. ODEŠEL. KDYŽ PŘIŠEL, ZA 5 MIN. ODEŠEL.",
                                                "PŘIŠEL A DNE pátého června ODEŠEL. KDYŽ PŘIŠEL, ZA pět minut ODEŠEL."),
     "capitals-page": ("cs", None, "NA STR. 45 SE PÍŠE.", "NA straně čtyřicet pět SE PÍŠE."),

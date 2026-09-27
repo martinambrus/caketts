@@ -1421,8 +1421,20 @@ class TextNormalizer:
     def _verb_before(pos: int, tags: _Tags, clause: bool) -> bool:
         """Whether the sentence before `pos` already has its verb; with `clause`, only the clause, which a comma
         or a conjunction also closes: a name, a date or an amount is in its own ("KDYŽ PŘIŠEL, KAREL IV.",
-        "PŘIŠEL A DNE 5. 6."), the end of a list is not ("PŘINESL JABLKA, HRUŠKY ATD.")."""
-        return any(w.upos in ("VERB", "AUX") for w in TextNormalizer._clause_before(pos, tags, clause))
+        "PŘIŠEL A DNE 5. 6."), the end of a list is not ("PŘINESL JABLKA, HRUŠKY ATD."), but a subordinate clause
+        before the list does not count: "KDYŽ PŘIŠEL, JABLKA, HRUŠKY ATD. LEŽELY"."""
+        words = TextNormalizer._clause_before(pos, tags, clause)
+        if clause:
+            return any(w.upos in ("VERB", "AUX") for w in words)
+        stretch = []  # the words between two commas, nearest first, so its first word is the last one
+        for w in words + [None]:
+            if w is not None and w.text != ",":
+                stretch.append(w)
+            elif any(x.upos in ("VERB", "AUX") for x in stretch) and stretch[-1].upos != "SCONJ":
+                return True
+            else:
+                stretch = []
+        return False
 
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
