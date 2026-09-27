@@ -208,10 +208,11 @@ PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl
 PLACE_FORMS = frozenset({"je", "jsou", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # whole forms: not "jel"
 # Czech verbs that take the genitive (a pattern for the start of the form) with the clitic they need:
 # "Dosáhli jsme XXI. století", "Bál se 2. dílu"; vzdát se, not vzdálit se (vzdálil, vzdaluje)
-GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dožil": "se", "dožij": "se", "dočkal": "se", "dočká": "se",
-                  "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se", "bál": "se", "bojí": "se",
-                  "obával": "se", "obává": "se", "všiml": "si", "všimn": "si", "všímá": "si", "dotkl": "se",
-                  "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se", "týká": "se", "týkal": "se"}
+GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "se", "dožij": "se", "dočkal": "se",
+                  "dočká": "se", "dočkaj": "se", "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se",
+                  "bál": "se", "bojí": "se", "obával": "se", "obává": "se", "obávaj": "se", "všiml": "si", "všimn": "si",
+                  "všímá": "si", "všímaj": "si", "dotkl": "se", "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se",
+                  "týká": "se", "týkaj": "se", "týkal": "se"}  # present plurals in -ají: "obávají se", "dočkají se"
 # Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
 NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", "čekal", "čeká", "těšil", "těší",
                        "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
