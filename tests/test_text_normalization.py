@@ -390,6 +390,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "between-place-verb-after": ("cs", None, "Mezi 2 stromy stála lavička.", "Mezi dvěma stromy stála lavička."),
     "between-direction": ("cs", None, "Postavil se mezi 2 stromy.", "Postavil se mezi dva stromy."),
     "behind-place": ("cs", None, "Stál za 2 stoly.", "Stál za dvěma stoly."),
+    "behind-while-going": ("cs", None, "Celou cestu jel za 2 vozy, pak se schoval za 2 stromy.",
+                           "Celou cestu jel za dvěma vozy, pak se schoval za dva stromy."),
     "ago-and-in": ("cs", None, "Před 2 roky odjel, přijel před 2 týdny a za 2 roky se vrátí.",
                    "Před dvěma roky odjel, přijel před dvěma týdny a za dva roky se vrátí."),
     "threshold-after-motion": ("cs", None, "Teplota klesla pod 5 °C, dnes je pod 5 °C.",

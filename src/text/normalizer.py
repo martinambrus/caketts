@@ -198,6 +198,8 @@ DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "sch
                    "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
                    "vrátil", "zapadl", "vlezl", "vběhl", "přiš", "přijd", "dal", "dá", "šel", "šla", "šli", "jde",
                    "jdou", "jel", "jela", "jeli", "jede", "jedou")
+# going with no prefix marks no destination: "jel za 2 vozy" follows them ("za dvěma vozy"); "zajel za roh" does not
+GOING_VERBS = ("šel", "šla", "šli", "jde", "jdou", "jel", "jela", "jeli", "jede", "jedou")
 PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl", "žil", "žij", "zůstal", "zůstáv",
                "čekal", "čeká", "nacház", "rostl", "rost", "pracoval", "pracuj", "spal", "spí")
 PLACE_FORMS = frozenset({"je", "jsou", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # whole forms: not "jel"
@@ -1299,7 +1301,7 @@ class TextNormalizer:
         if verb is not None and verb.feats.get("Voice") == "Pass":
             return INS  # "Dům je postaven mezi dvěma stromy": a passive is the state, not the motion
         if form and form.startswith(DIRECTION_VERBS) and form not in PLACE_FORMS:
-            return ACC
+            return INS if word == "za" and form.startswith(GOING_VERBS) else ACC
         if form and (form in PLACE_FORMS or form.startswith(PLACE_VERBS)):
             return INS
         return INS if word in ("mezi", "před") and noun is not None else None
