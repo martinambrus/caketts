@@ -1202,13 +1202,14 @@ class TextNormalizer:
 
     @staticmethod
     def _clause_verb(pos: int, tags: _Tags) -> Optional[_Word]:
-        """The verb nearest to `pos` in its clause, which a comma or a sentence end closes; an auxiliary
-        ("jsme", "by") is skipped, a copula ("je", "byl") counts. Only the nearest verb governs: in "Dosáhl
-        cíle a obsadil 2. místo" it is "obsadil"."""
+        """The verb nearest to `pos` in its clause, which a comma or a sentence end closes, and before `pos` also
+        a conjunction ("Cíle dosáhl a 2. místo obsadil"); an auxiliary ("jsme", "by") is skipped, a copula
+        ("je", "byl") counts. Only the nearest verb governs: in "Dosáhl cíle a obsadil 2. místo" it is "obsadil"."""
         i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
         for step in (-1, 1):
             j = i - 1 if step < 0 else i
-            while 0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":"):
+            while (0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":")
+                   and not (step < 0 and w[j].upos == "CCONJ")):
                 if w[j].upos == "VERB" or (w[j].upos == "AUX" and w[j].text.lower() in PLACE_FORMS):
                     found.append((abs(j - i), w[j]))
                     break

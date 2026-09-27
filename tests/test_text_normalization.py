@@ -375,6 +375,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                   "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy."),
     "vzdalit-is-not-vzdat": ("cs", None, "Vzdaluje se 2. kolo, vzdálilo se 3. kolo.",
                              "Vzdaluje se druhé kolo, vzdálilo se třetí kolo."),
+    "conjunction-ends-the-verb-search": ("cs", None, "Cíle dosáhl a 2. místo nakonec obsadil.",
+                                         "Cíle dosáhl a druhé místo nakonec obsadil."),
     "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
                                      "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
     "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
@@ -394,6 +396,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
                                    "Ujel jedna celá dvě stě třicet čtyři tisícin kilometru až dvě celé pět desetin kilometru.",
                                    "not thousands"),
+    # a verb shared across "a" is not applied (see the example above); the tagger's plural is logged
+    "genitive-verb-before-conjunction": ("cs", "Dosáhl cíle a 2. místa.", "Dosáhl cíle a druhá místa.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
