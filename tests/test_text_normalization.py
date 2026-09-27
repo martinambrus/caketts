@@ -494,6 +494,11 @@ def test_unknown_num2words_variant_raises():
         TextNormalizer("sk", {"num2words": {"inverted": True}})  # a Czech-only keyword
 
 
+def test_numbered_verse_book_raises():  # the digit of "1 Jan" would stay as written; "Jan" leaves it to be read
+    with pytest.raises(ValueError, match="verse_references"):
+        TextNormalizer("cs", {"verse_references": ["Jan", "1 Jan"]})
+
+
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
 @pytest.mark.parametrize("language,config,text", [(lang, None, text) for lang, text in TEST2_INPUTS]
                          + [example[:3] for example in EXAMPLES.values()]

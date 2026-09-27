@@ -553,6 +553,10 @@ class TextNormalizer:
         self._items = _items_pattern(self.abbreviations)
         self._items_in_capitals = _items_pattern(self.abbreviations, capitals=True)
         books = sorted(filter(None, config.get("verse_references") or []), key=len, reverse=True)
+        numbered = [book for book in books if re.search(r"\d", book)]
+        if numbered:
+            raise ValueError(f"book_config['verse_references'] has {numbered}, whose digits would stay as written; "
+                             f"list the name alone ('Jan' for '1 Jan'), and the number before it is read as usual")
         # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29": chapter and verse, not a decimal or a time
         self._verses = (re.compile(rf"(?<!\w)(?P<book>{'|'.join(map(re.escape, books))}){_HS}+(?P<chapter>\d+)[,:]"
                                    rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d|[^\W\d_])")
