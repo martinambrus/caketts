@@ -317,6 +317,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                           "ČEKAL 5 MIN. ODEŠEL.",
                                           "BYL TAM a tak dále. ODEŠEL DOMŮ. VLÁDL KAREL čtvrtý. ZALOŽIL UNIVERZITU. "
                                           "ČEKAL pět minut. ODEŠEL."),
+    "capitals-period-before-verb-untagged": ("cs", None, "JABLKA, HRUŠKY ATD. LEŽELY NA STOLE. DNE 5. 6. ODEŠEL DOMŮ.",
+                                             "JABLKA, HRUŠKY a tak dále LEŽELY NA STOLE. DNE pátého června ODEŠEL DOMŮ."),
     "capitals-page": ("cs", None, "NA STR. 45 SE PÍŠE.", "NA straně čtyřicet pět SE PÍŠE."),
     "capitals-units": ("cs", None, "CENA JE 5 KČ, JEL 50 KM/H A MĚŘÍ 5 CM.",
                        "CENA JE pět korun, JEL padesát kilometrů za hodinu A MĚŘÍ pět centimetrů."),

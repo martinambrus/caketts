@@ -644,6 +644,8 @@ class TextNormalizer:
     def _needs_tags(self, m: re.Match) -> bool:
         if m.re is self._verses:
             return False
+        if m.lastgroup in ("abbreviation", "date") and m.group(0).endswith(".") and _all_capitals(m.string):
+            return True  # in capitals only the tags tell whether the period ends the sentence: "ATD. ODEŠEL"
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
         if m.lastgroup == "commas":
