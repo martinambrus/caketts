@@ -688,17 +688,6 @@ class TextNormalizer:
         if kind == "dotted":
             return start, f" {DOT_WORDS[self.language]} ".join(
                 self._cardinal(int(part), *self._label(int(part))) for part in m.group(0).split("."))
-        if kind == "commas":
-            parts = m["commalist"].split(",")
-            if not m["commaunit"]:
-                words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
-                self._check_glued(text, m, words)
-                return start, words
-            # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
-            gender = NOUNS[self.language][self._unit(m["commaunit"])[0]][0]
-            case = self._governing_case(start, tags) or NOM
-            return start, ", ".join([self._cardinal(int(part), case, gender, "inanimate") for part in parts[:-1]]
-                                    + [self._measure(parts[-1], m["commaunit"], start, tags, text, end)])
         if kind == "sign":
             return start, _spaced(text, start, end, SIGNS[self.language][m.group(0).strip()])
         if kind == "slash":
@@ -726,6 +715,16 @@ class TextNormalizer:
             words = self._date(int(m["day"]), int(m["month"]), year)
             if year is None and self._ends_sentence(text, start, end, tags):
                 words += "."
+        elif kind == "commas":
+            parts = m["commalist"].split(",")
+            if not m["commaunit"]:
+                words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
+                self._check_glued(text, m, words)
+            else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
+                gender = NOUNS[self.language][self._unit(m["commaunit"])[0]][0]
+                case = self._governing_case(start, tags) or NOM
+                words = ", ".join([self._cardinal(int(part), case, gender, "inanimate") for part in parts[:-1]]
+                                  + [self._measure(parts[-1], m["commaunit"], start, tags, text, end)])
         elif kind == "time":
             words = self._time(m, tags)
         elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
@@ -779,7 +778,7 @@ class TextNormalizer:
             words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
             words = self._number(m, text, tags, after_label)
-        if (kind in ("range", "measure", "time", "money") and m.group(0).endswith(".")
+        if (kind in ("range", "measure", "time", "money", "commas") and m.group(0).endswith(".")
                 and self._ends_sentence(text, start, end, tags)):
             words += "."  # the period of "min.", "mil." or "hod." also ends the sentence
         return self._vocalise(text, start, words)

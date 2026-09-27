@@ -350,6 +350,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
     "comma-list-with-unit": ("cs", None, "Zvol 1,2,3 kg nebo 1,2,3 Kč, šel s 1,2,3 kg.",
                              "Zvol jeden, dva, tři kilogramy nebo jedna, dvě, tři koruny, šel s jedním, dvěma, třemi kilogramy."),
+    "comma-list-period-and-preposition": ("cs", None, "Balení 1,2,3 ks. Potom šel s 2,3,4 kg.",
+                                          "Balení jeden, dva, tři kusy. Potom šel se dvěma, třemi, čtyřmi kilogramy."),
     "verse-references": ("cs", {"verse_references": ["Jan", "Mt"]},
                          "Viz Jan 3,16, Mt 5,3–12, Mt 5,3–7,29 a Jan 3:16. Jan přišel v 5,5.",
                          "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "
