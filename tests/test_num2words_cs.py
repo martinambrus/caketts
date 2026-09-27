@@ -357,6 +357,26 @@ def test_long_decimals_keep_every_digit():
     assert w("3," + digits) == "tři celé " + " ".join(names[int(d)] for d in digits)
 
 
+def test_range_up_to_10_to_the_33():
+    assert w(10**24) == "kvadrilion"
+    assert w(2 * 10**27) == "dvě kvadriliardy"
+    assert w(10**30) == "kvintilion"
+    assert w(10**30, case="genitive") == "kvintilionu"
+    assert w(10**30, to="ordinal") == "kvintiliontý"
+    assert w(10**33 - 1) == (
+        "devět set devadesát devět kvintilionů devět set devadesát devět kvadriliard "
+        "devět set devadesát devět kvadrilionů devět set devadesát devět triliard "
+        "devět set devadesát devět trilionů devět set devadesát devět biliard "
+        "devět set devadesát devět bilionů devět set devadesát devět miliard "
+        "devět set devadesát devět milionů devět set devadesát devět tisíc "
+        "devět set devadesát devět")
+    whole = 12345678901234567890123456789
+    assert w(f"{whole},5") == w(whole, gender="feminine", construction="agreement") + " celých pět desetin"
+    for kind in ("cardinal", "ordinal"):
+        with pytest.raises(ValueError):
+            w(10**33, to=kind)
+
+
 def test_integer_values_keep_every_option():
     assert w(1.0, case="accusative", animacy="animate") == "jednoho"
     assert w(Decimal("1847"), case="genitive", oblique_style="full") == "tisíce osmi set čtyřiceti sedmi"

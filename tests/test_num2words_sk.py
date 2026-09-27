@@ -232,6 +232,21 @@ def test_long_decimals_keep_every_digit():
     assert w(f"{whole},5") == w(whole, gender="feminine") + " celých päť desatín"
 
 
+def test_range_up_to_10_to_the_33():
+    assert w(10**30) == "kvintilión"
+    assert w(10**30, case="genitive") == "kvintilióna"
+    assert w(2 * 10**30) == "dva kvintilióny"
+    assert w(10**30, to="ordinal") == "kvintiliónty"
+    assert w(10**33 - 1) == (
+        "deväťstodeväťdesiatdeväť kvintiliónov deväťstodeväťdesiatdeväť kvadriliárd "
+        "deväťstodeväťdesiatdeväť kvadriliónov deväťstodeväťdesiatdeväť triliárd "
+        "deväťstodeväťdesiatdeväť triliónov deväťstodeväťdesiatdeväť biliárd "
+        "deväťstodeväťdesiatdeväť biliónov deväťstodeväťdesiatdeväť miliárd "
+        "deväťstodeväťdesiatdeväť miliónov deväťstodeväťdesiatdeväťtisícdeväťstodeväťdesiatdeväť")
+    with pytest.raises(ValueError):
+        w(10**33)
+
+
 def test_integer_values_keep_every_option():
     assert w(2.0, animacy="personal") == "dvaja"
     assert w(Decimal("22"), case="dative", declined=False) == "dvadsaťdva"
@@ -250,4 +265,4 @@ def test_api():
     with pytest.raises(ValueError):
         w(5, to="fraction")
     with pytest.raises(ValueError):
-        w(10**30, to="ordinal")                                  # as the cardinal
+        w(10**33, to="ordinal")                                  # as the cardinal

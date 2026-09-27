@@ -63,6 +63,7 @@ These changes fall outside the notebook grid:
 - **1000th feminine / neuter:** tisícia / tisície → tisíca / tisíce (SSSJ, quoted by Šrámeková 2023).
 - **0** now declines: nula, nuly, nule, nulu, nulou.
 - **Decimals:** jeden celých päť → **jedna celá päť desatín**; tri celých štrnásť → **tri celé štrnásť stotín** (Duchková, JÚĽŠ). After *sto-* or *tisíc-* and a bare 2–4, as in *stodve knihy*: **stodve celé**.
+- **Range:** numbers go up to 10³³ − 1 (*kvintilión*), as in the Slovak module of the upstream num2words library.
 
 ---
 
@@ -88,6 +89,7 @@ These changes fall outside the grid:
 
 - **0** now declines like the Slovak one.
 - **Decimals:** jeden celých pět → **jedna celá pět desetin**; tři celých čtrnáct → **tři celé čtrnáct setin**; nula celých → **nula celá** (IJP chapter 791). After 11–19, also above 100: **sto dvanáct celých**.
+- **Range:** numbers go up to 10³³ − 1 (*kvadrilion*, *kvadriliarda*, *kvintilion*), as in the Czech module of the upstream num2words library.
 
 ---
 

@@ -89,6 +89,7 @@ _M = lambda s: ((s, s + "a", s + "u", s, s + "om", s + "e"),
 _F = lambda s, gpl: ((s + "a", s + "y", s + "e", s + "u", s + "ou", s + "e"),
                      (s + "y", gpl, s + "ám", s + "y", s + "ami", s + "ách"))
 SCALES = [
+    (30, "masculine", *_M("kvintilión")),
     (27, "feminine", *_F("kvadriliard", "kvadriliárd")),
     (24, "masculine", *_M("kvadrilión")),
     (21, "feminine", *_F("triliard", "triliárd")),

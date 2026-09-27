@@ -99,6 +99,9 @@ _ZENA = lambda s: ((s + "a", s + "y", s + "ě", s + "u", s + "ou", s + "ě"),
 TISIC = (("tisíc", "tisíce", "tisíci", "tisíc", "tisícem", "tisíci"),
          ("tisíce", "tisíc", "tisícům", "tisíce", "tisíci", "tisících"))
 SCALES = [  # (exponent, gender, sg, pl, ordinal lemma)
+    (30, "masculine", *_HRAD("kvintilion"), "kvintiliontý"),
+    (27, "feminine", *_ZENA("kvadriliard"), "kvadriliardtý"),
+    (24, "masculine", *_HRAD("kvadrilion"), "kvadriliontý"),
     (21, "feminine", *_ZENA("triliard"), "triliardtý"),
     (18, "masculine", *_HRAD("trilion"), "triliontý"),
     (15, "feminine", *_ZENA("biliard"), "biliardtý"),
