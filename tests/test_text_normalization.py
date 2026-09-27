@@ -378,6 +378,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                              "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
     "capital-acronym-before-approximate-amount": ("cs", None, "MAX. ≈5 KG, MAX. ±2 KG.",
                                                   "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy."),
+    "capital-acronym-before-number-kept": ("cs", None, "TURNAJ ATP. 500 ZAČAL.", "TURNAJ ATP. Pět set ZAČAL."),  # the tour
     "capital-acronym-before-spaced-prefix": ("cs", None, "MAX. ≈ 5 KG, MAX. ± 2 KG, MAX. $ 5.",
                                              "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy, "
                                              "maximálně pět dolarů."),

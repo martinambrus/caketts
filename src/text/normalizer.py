@@ -785,7 +785,9 @@ class TextNormalizer:
         if raw.isupper() and len(key) > 2 and key in CAPITAL_ACRONYMS:
             after = text[m.end():].lstrip(" \t  ")
             before = text[:m.start()].rstrip(" \t  ")
-            if not (re.match(r"(?:[-−–+±~≈$€£][ \t\u00a0\u202f]*)*\d", after)  # "MAX. ≈ 5", "300 N. L."
+            # MAX. and ODS. introduce an amount ("MAX. ≈ 5", "ODS. 2"), N. L. follows a year ("300 N. L."); the
+            # others keep their capital meaning also before a number: "TURNAJ ATP. 500"
+            if not ((key in ("max.", "ods.") and re.match(r"(?:[-−–+±~≈$€£][ \t\u00a0\u202f]*)*\d", after))
                     or (key == "n.l." and before[-1:].isdigit())):
                 if _all_capitals(text):
                     self._warn(text, m, raw, "acronym or abbreviation in capitals, kept as written; check it")
