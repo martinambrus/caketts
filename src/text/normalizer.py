@@ -865,7 +865,7 @@ class TextNormalizer:
         if head is None:
             # "Vyšel díl V. Kniha byla…", "…V. Nové vydání…": after a thing, not a person, and before a sentence
             # whose subject is a noun, V is a numeral
-            subject = tags.head_after(end) if nxt is not None and nxt.upos in ("NOUN", "ADJ") else None
+            subject = tags.head_after(end) if nxt is not None and nxt.upos in ("NOUN", "ADJ", "DET") else None
             numbers_a_thing = (prev is not None and prev.upos == "NOUN" and prev.feats.get("Animacy") != "Anim"
                                and subject is not None and subject.upos == "NOUN" and self._verb_follows(end, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
