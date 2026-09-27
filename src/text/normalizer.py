@@ -270,7 +270,8 @@ _EN_AMOUNT = r"\d{1,3}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)(?!\d)"  # "1,234.
 _UNSIGNED = rf"(?:{_EN_AMOUNT}|(?:{_INT})(?:[.,]\d+)?)"
 _AMOUNT = rf"(?:{_SIGN_START}[-−–](?=\d))?{_UNSIGNED}"  # "–5 °C": typeset text uses – for minus
 _POWER = r"(?:[²³]|[23](?!\d))?"  # m², and m2 as typed
-_OPERAND = rf"{_HS}*[-−–+±]?(?:[$€£]{_HS}*[-−–+±]?)?\d"  # what ~, ≈ or * is read before: "~5", "≈ -$5", "3*$4"
+# what ~, ≈ or * is read before: "~5", "≈ -$5", "3*$4", "3 * + $4"; a spaced hyphen is a dash, not a minus
+_OPERAND = rf"{_HS}*(?:[+±]{_HS}*|[-−–])?(?:[$€£]{_HS}*(?:[+±]{_HS}*|[-−–])?)?\d"
 # "Kč/m²", "m / s"; not "Kč / s DPH"; symbols of two letters or more also in capitals: "KG", "KM/H"
 _PER = rf"(?i:kg|ks|km{_POWER}|cm{_POWER}|mm{_POWER}|ml|hod|min)|g|l|L|m{_POWER}|h|s(?!{_HS}+[^\W\d_])"
 _CAPITAL_PER = rf"|G|M{_POWER}|H|S(?!{_HS}+[^\W\d_])"  # one-letter symbols in capitals, in all-caps text only
