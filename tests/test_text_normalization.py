@@ -373,6 +373,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
     "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
                                   "Išiel päť metrov za sekundu a potom zastal."),
+    "per-second-attached-before-word": ("cs", None, "Jel 5 km/s a dál, tok 5 l/s a víc, pak 5 KM/S a dál.",
+                                        "Jel pět kilometrů za sekundu a dál, tok pět litrů za sekundu a víc, pak pět "
+                                        "kilometrů za sekundu a dál."),
     "per-second-after-power": ("cs", None, "Plocha roste 5 m² / s a dál, pak 5 m2 / s a víc.",
                                "Plocha roste pět metrů čtverečních za sekundu a dál, pak pět metrů čtverečních za "
                                "sekundu a víc."),

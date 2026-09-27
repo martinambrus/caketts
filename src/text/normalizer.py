@@ -334,7 +334,8 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
                                                                 if capitals else "")
 
     def unit_per(name: str) -> str:  # after a length or volume, "/ s" is a second also before a word: "5 m / s a pak"
-        return (rf"(?P<{name}unit>(?P<{name}length>{length})(?![\w²³/])|{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
+        return (rf"(?P<{name}unit>(?P<{name}length>{length})(?![\w²³]|/(?!(?i:s){_NOT_LETTER_AFTER}))|{unit}|{_CURRENCY})"
+                rf"{_NOT_LETTER_AFTER}"  # a length before "/s", not "km/h" or "m/s", which are units of their own
                 rf"(?:{_HS}*/{_HS}*(?P<{name}per>{per}|(?({name}length)(?i:s)|(?!))){_NOT_LETTER_AFTER}\.?)?")
 
     return re.compile(
