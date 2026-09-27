@@ -241,3 +241,5 @@ def test_api():
         w(5, gender="plural")
     with pytest.raises(ValueError):
         w(5, to="fraction")
+    with pytest.raises(ValueError):
+        w(10**30, to="ordinal")                                  # as the cardinal

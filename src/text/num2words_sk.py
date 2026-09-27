@@ -308,6 +308,8 @@ def _ordinal_lemmas(n: int, codified: bool) -> Tuple[str, List[str]]:
     parts: List[str] = []
     for exp, sgender, sg, pl in SCALES:
         count, rest = divmod(rest, 10 ** exp)
+        if count >= 1000:
+            raise ValueError("number too large")
         if count and rest == 0:  # the scale group itself is the ordinal: miliónty, dvojmiliardtý
             base = sg[N][:-1] if sgender == "feminine" else sg[N]
             lemma = base + ("tý" if base.endswith("d") else "ty")  # miliardtý / miliónty
