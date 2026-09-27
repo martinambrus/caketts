@@ -340,6 +340,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
     "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
                                   "Išiel päť metrov za sekundu a potom zastal."),
+    "capitals-per-second-before-word": ("cs", None, "JEL 5 M / S A PAK 5 KM / S A DÁL.",
+                                        "JEL pět metrů za sekundu A PAK pět kilometrů za sekundu A DÁL."),
     "unit-slash-is-no-preposition": ("cs", None, "Jel 5 m/s a 5 km/h.",
                                      "Jel pět metrů za sekundu a pět kilometrů za hodinu."),
     # mezi, nad, pod, před, za: a masculine plural in -y is the same in the accusative and the instrumental

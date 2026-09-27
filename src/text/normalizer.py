@@ -324,6 +324,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
     abbr = "|".join(_abbreviation_pattern(k) for k in sorted(abbreviations, key=len, reverse=True))
     unit = _UNIT + (_CAPITAL_UNIT if capitals else "")
     per = _PER + (_CAPITAL_PER if capitals else "")
+    length = r"(?i:km|cm|mm|ml)|m|l|L" + ("|M" if capitals else "")
     return re.compile(
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
         rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
@@ -362,9 +363,9 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?P<measure>(?P<amount>{_AMOUNT})(?P<whole>,[-–—])?{_HS}*"
         rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+(?P<scaleunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
         rf"(?:{_HS}*/{_HS}*(?P<scaleper>{per}){_NOT_LETTER_AFTER}\.?)?)?"
-        rf"|(?P<unit>(?P<length>(?i:km|cm|mm|ml)|m|l|L)(?![\w²³/])|{unit}|{_CURRENCY})"
+        rf"|(?P<unit>(?P<length>{length})(?![\w²³/])|{unit}|{_CURRENCY})"
         # after a length or volume, "/ s" is a second also before a word: "5 m / s a pak"; not "Kč / s DPH"
-        rf"(?:{_HS}*/{_HS}*(?P<per>{per}|(?(length)s|(?!))){_NOT_LETTER_AFTER}\.?)?)"
+        rf"(?:{_HS}*/{_HS}*(?P<per>{per}|(?(length)(?i:s)|(?!))){_NOT_LETTER_AFTER}\.?)?)"
         rf"{_NOT_LETTER_AFTER})"
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–+]?\d)"
