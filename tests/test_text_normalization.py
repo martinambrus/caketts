@@ -312,6 +312,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capitals-roman-after-name": ("cs", None, "KAREL IV. ZALOŽIL UNIVERZITU.", "KAREL čtvrtý ZALOŽIL UNIVERZITU."),
     "capitals-clitic-before-verb": ("cs", None, "KAREL IV. SE NARODIL V PRAZE. VLÁDL KAREL IV. TO BYLO DÁVNO.",
                                     "KAREL čtvrtý SE NARODIL V PRAZE. VLÁDL KAREL čtvrtý. TO BYLO DÁVNO."),
+    "capitals-conjunction-after-period": ("cs", None, "KAREL IV. A VÁCLAV IV. ZALOŽILI UNIVERZITY. VLÁDL KAREL IV. A POTOM ZEMŘEL.",
+                                          "KAREL čtvrtý A VÁCLAV čtvrtý ZALOŽILI UNIVERZITY. VLÁDL KAREL čtvrtý A POTOM ZEMŘEL."),
     "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
                                "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
     "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
