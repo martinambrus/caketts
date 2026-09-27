@@ -269,7 +269,7 @@ _PRICE = rf"[-−–+]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
 _UNIT = (rf"(?i:km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|kg|ks\.?|ml|hod\.?|min\.?)|m{_POWER}|g|l|L|°C|°|%|‰|h\.?"
          rf"|s(?!{_HS}+[^\W\d_])\.?")  # "5 s.", but "Mám 5 s sebou"
-_CAPITAL_UNIT = rf"|M{_POWER}|G|H\.?|S(?!{_HS}+[^\W\d_])\.?"
+_CAPITAL_UNIT = rf"|M[²³]|(?<={_HS})(?:M{_POWER}|G|H\.?|S(?!{_HS}+[^\W\d_])\.?)"  # "5 G", but "5G", "5S" are names
 _CURRENCY = r"(?i:kč)|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
@@ -324,7 +324,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
     abbr = "|".join(_abbreviation_pattern(k) for k in sorted(abbreviations, key=len, reverse=True))
     unit = _UNIT + (_CAPITAL_UNIT if capitals else "")
     per = _PER + (_CAPITAL_PER if capitals else "")
-    length = r"(?i:km|cm|mm|ml)|m|l|L" + ("|M" if capitals else "")
+    length = r"(?i:km|cm|mm|ml)|m|l|L" + (rf"|(?<={_HS})M" if capitals else "")
     return re.compile(
         rf"(?P<isodate>(?<![\d.,-])(?P<isoyear>\d{{4}})-(?P<isomonth>0[1-9]|1[0-2])-(?P<isoday>0[1-9]|[12]\d|3[01])(?![\d-]))"
         rf"|(?P<date>(?<!\d)(?P<day>3[01]|[12]\d|0?[1-9])\.{_HS}*(?P<month>1[0-2]|0?[1-9])\."
