@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**681 tests:** 102 for the TTS components, 104 for num2words, 471 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**686 tests:** 102 for the TTS components, 104 for num2words, 476 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -453,7 +453,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 471 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 476 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -825,6 +825,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                              "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
     "acronym-starts-sentence-in-mixed-text": ("cs", None, "Byl tam atd. USA zasáhly. Vládl Karel IV. NATO vzniklo později.",
                                               "Byl tam a tak dále. USA zasáhly. Vládl Karel čtvrtý. NATO vzniklo později."),
+    "clitic-of-another-verb": ("cs", None, "Smál se a vzdal 2. kolo.", "Smál se a vzdal druhé kolo."),
+    "capital-acronym-before-signed-amount": ("cs", None, "MAX. -5 KG, MAX. $5.",
+                                             "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -895,6 +898,11 @@ def test_dates_need_no_tagger(monkeypatch):
     monkeypatch.setattr("src.text.normalizer._tagger", lambda language: pytest.fail("tagger loaded"))
     assert (TextNormalizer("cs").normalize("Dne 2024-01-15 a 1. 1.")
             == "Dne patnáctého ledna dva tisíce dvacet čtyři a prvního ledna.")
+
+
+def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16.18": read and logged as without the option
+    for text in ("Viz Jan 3,16a.", "Viz Jan 3,16.18."):
+        assert TextNormalizer("cs", {"verse_references": ["Jan"]}).normalize(text) == TextNormalizer("cs").normalize(text)
 
 
 def test_unknown_num2words_variant_raises():
@@ -3773,7 +3781,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 680 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 685 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
