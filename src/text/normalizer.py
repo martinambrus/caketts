@@ -722,7 +722,7 @@ class TextNormalizer:
         elif kind == "date":
             year = m["year"] or m["shortyear"]
             words = self._date(int(m["day"]), int(m["month"]), year)
-            if year is None and self._ends_sentence(text, end, tags):
+            if year is None and self._ends_sentence(text, start, end, tags):
                 words += "."
         elif kind == "time":
             words = self._time(m, tags)
@@ -778,7 +778,7 @@ class TextNormalizer:
         else:
             words = self._number(m, text, tags, after_label)
         if (kind in ("range", "measure", "time", "money") and m.group(0).endswith(".")
-                and self._ends_sentence(text, end, tags)):
+                and self._ends_sentence(text, start, end, tags)):
             words += "."  # the period of "min.", "mil." or "hod." also ends the sentence
         return self._vocalise(text, start, words)
 
@@ -813,7 +813,7 @@ class TextNormalizer:
                     words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
         if not raw.isupper() or _starts_sentence(text[:m.start()]):
             words = _capitalise_like(raw, words)
-        if key.endswith(".") and self._ends_sentence(text, m.end(), tags,
+        if key.endswith(".") and self._ends_sentence(text, m.start(), m.end(), tags,
                                                      introduces=key in NON_FINAL_ABBREVIATIONS):
             words += "."
         return words
@@ -849,7 +849,7 @@ class TextNormalizer:
               and case == GEN):
             # "díl V. knihy": "díl páté knihy" (of the fifth book), or "díl pátý knihy" (volume five of the book)
             self._warn(text, m, words, f"numeral after {prev.text!r} may number it instead; check it")
-        if head.start < m.start() and self._ends_sentence(text, end, tags, roman=True):
+        if head.start < m.start() and self._ends_sentence(text, m.start(), end, tags, roman=True):
             words += "."  # after "Karel IV." the period may end the sentence; before a noun it cannot
         return words
 
@@ -1333,6 +1333,17 @@ class TextNormalizer:
         return _UD_CASES.get(prep.feats.get("Case")) if prep else None
 
     @staticmethod
+    def _verb_before(pos: int, tags: _Tags) -> bool:
+        """Whether the clause before `pos` already has its verb; a comma, a sentence end or a conjunction
+        closes it, as in _clause_verb."""
+        for w in reversed(tags.words[:bisect.bisect_left(tags.starts, pos)]):
+            if w.text in (",", ".", "!", "?", "…", ";", ":") or w.upos == "CCONJ":
+                return False
+            if w.upos in ("VERB", "AUX"):
+                return True
+        return False
+
+    @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
         """Whether the noun phrase after `pos` is followed by a verb, as the subject of a new sentence;
         adverbs, particles and clitics may come between: "Malé děti se potom vrátily"."""
@@ -1389,9 +1400,9 @@ class TextNormalizer:
             return {1: "sg", 2: "pl", 3: "pl", 4: "pl"}.get(unit, "gen_pl")
         return "gen_pl"
 
-    def _ends_sentence(self, text: str, end: int, tags: _Tags, roman: bool = False,
+    def _ends_sentence(self, text: str, start: int, end: int, tags: _Tags, roman: bool = False,
                        introduces: bool = False) -> bool:
-        """Whether the period of an abbreviation, date or Roman numeral that ends at `end` also ends a
+        """Whether the period of an abbreviation, date or Roman numeral at `start`-`end` also ends a
         sentence: at the end of the paragraph, or before an uppercase word (Slovak "atď. Potom", but
         not "např. Prahu")."""
         rest = _SPAN_RE.sub(lambda s: s.group(2), text[end:])
@@ -1403,8 +1414,8 @@ class TextNormalizer:
         if introduces or not nxt[:1].isupper():
             return False
         word, capitals = tags.after(end), _all_capitals(text)
-        if capitals and word is not None and word.upos in ("VERB", "AUX"):
-            return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": in capitals no capital shows a sentence start
+        if capitals and word is not None and word.upos in ("VERB", "AUX") and not self._verb_before(start, tags):
+            return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             return (word is None or word.upos not in ("PROPN", "ADJ")
                     or (not capitals and len(word.text) > 1 and word.text.isupper())  # "…IV. USA vznikly" is no name
