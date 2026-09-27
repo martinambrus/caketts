@@ -848,9 +848,11 @@ class TextNormalizer:
                 and not self._verb_follows(end, tags)))  # not "D. Kapitola byla…", "Příloha C. Varianta D."
             head = (tags.head_after(end) if before_noun else None) or self._shared_head(end, tags)
         if head is None:
-            # "Vyšel díl V. Kniha byla…": after a thing, not a person, and before a sentence, V is a numeral
+            # "Vyšel díl V. Kniha byla…", "…V. Nové vydání…": after a thing, not a person, and before a sentence
+            # whose subject is a noun, V is a numeral
+            subject = tags.head_after(end) if nxt is not None and nxt.upos in ("NOUN", "ADJ") else None
             numbers_a_thing = (prev is not None and prev.upos == "NOUN" and prev.feats.get("Animacy") != "Anim"
-                               and nxt is not None and nxt.upos == "NOUN" and self._verb_follows(end, tags))
+                               and subject is not None and subject.upos == "NOUN" and self._verb_follows(end, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
                     or (len(numeral) == 1 and (numeral not in "IVX"
                                                or (nxt and nxt.text[:1].isupper() and not numbers_a_thing)))):
