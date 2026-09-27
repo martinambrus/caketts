@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**766 tests:** 102 for the TTS components, 104 for num2words, 556 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**774 tests:** 102 for the TTS components, 104 for num2words, 564 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -456,7 +456,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 556 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 564 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -814,6 +814,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
                                            "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
     "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
+    "comma-list-before-noun": ("cs", None, "Šel s 1,2,3 přáteli.", "Šel s jedním, dvěma, třemi přáteli."),
     "comma-list-with-unit": ("cs", None, "Zvol 1,2,3 kg nebo 1,2,3 Kč, šel s 1,2,3 kg.",
                              "Zvol jeden, dva, tři kilogramy nebo jedna, dvě, tři koruny, šel s jedním, dvěma, třemi kilogramy."),
     "comma-list-period-and-preposition": ("cs", None, "Balení 1,2,3 ks. Potom šel s 2,3,4 kg.",
@@ -869,6 +870,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                    "V piatej Symfónii zaznel zbor."),
     "number-ends-sentence-after-preposition": ("cs", None, "Čekal na 2. Vlak přijel.", "Čekal na dva. Vlak přijel."),
     "roman-numbers-a-thing": ("cs", None, "Vyšel díl V. Kniha byla úspěšná.", "Vyšel díl pátý. Kniha byla úspěšná."),
+    "roman-numbers-a-thing-before-adjective": ("cs", None, "Vyšel díl V. Nové vydání uspělo.",
+                                               "Vyšel díl pátý. Nové vydání uspělo."),
+    "initial-before-adjective-surname": ("cs", None, "Firma V. Nový vznikla.", "Firma V. Nový vznikla."),
     "initial-after-a-person": ("cs", None, "Autor V. Kovář napsal knihu.", "Autor V. Kovář napsal knihu."),
     "nearest-verb-governs": ("cs", None, "Dosáhl cíle a obsadil 2. místo, postavil se a zpíval mezi 2 stromy.",
                              "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
@@ -914,6 +918,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a verb shared across "a" is not applied (see the example above); the tagger's plural is logged
     "genitive-verb-before-conjunction": ("cs", "Dosáhl cíle a 2. místa.", "Dosáhl cíle a druhá místa.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
+    "wait-on-one-form-noun": ("cs", "Čekal na 2. náměstí.", "Čekal na druhé náměstí.", "locative"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
@@ -3865,7 +3870,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 765 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 773 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
