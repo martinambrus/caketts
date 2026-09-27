@@ -367,6 +367,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "acronym-starts-sentence-in-mixed-text": ("cs", None, "Byl tam atd. USA zasáhly. Vládl Karel IV. NATO vzniklo později.",
                                               "Byl tam a tak dále. USA zasáhly. Vládl Karel čtvrtý. NATO vzniklo později."),
     "clitic-of-another-verb": ("cs", None, "Smál se a vzdal 2. kolo.", "Smál se a vzdal druhé kolo."),
+    "capital-acronym-before-signed-amount": ("cs", None, "MAX. -5 KG, MAX. $5.",
+                                             "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
