@@ -340,6 +340,19 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                   "Išiel päť metrov za sekundu a potom zastal."),
     "unit-slash-is-no-preposition": ("cs", None, "Jel 5 m/s a 5 km/h.",
                                      "Jel pět metrů za sekundu a pět kilometrů za hodinu."),
+    # mezi, nad, pod, před, za: a masculine plural in -y is the same in the accusative and the instrumental
+    "between-place": ("cs", None, "Stál mezi 2 stromy.", "Stál mezi dvěma stromy."),
+    "between-place-verb-after": ("cs", None, "Mezi 2 stromy stála lavička.", "Mezi dvěma stromy stála lavička."),
+    "between-direction": ("cs", None, "Postavil se mezi 2 stromy.", "Postavil se mezi dva stromy."),
+    "behind-place": ("cs", None, "Stál za 2 stoly.", "Stál za dvěma stoly."),
+    "ago-and-in": ("cs", None, "Před 2 roky odjel, přijel před 2 týdny a za 2 roky se vrátí.",
+                   "Před dvěma roky odjel, přijel před dvěma týdny a za dva roky se vrátí."),
+    "threshold-after-motion": ("cs", None, "Teplota klesla pod 5 °C, dnes je pod 5 °C.",
+                               "Teplota klesla pod pět stupňů Celsia, dnes je pod pěti stupni Celsia."),
+    "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
+                       "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
+    "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
+    "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -354,6 +367,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
+    "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

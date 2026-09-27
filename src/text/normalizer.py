@@ -188,6 +188,29 @@ RANK_VERBS = {"cs": ("skončil", "doběhl", "dojel", "doplaval", "umístil", "by
               "sk": ("skončil", "dobeh", "doplával", "umiestnil", "bol")}
 SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medzi", "k", "ku", "na"})
 
+# Czech prepositions with the accusative of direction and the instrumental of place. A masculine plural in -y
+# has one form for both ("Postavil se mezi dva stromy", "Stál mezi dvěma stromy"), so the verb decides;
+# the tagger cannot. Verbs are matched by the start of the word form, as the tagger gives no lemma.
+TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
+TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
+DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
+                   "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
+                   "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
+                   "vrátil", "zapadl", "vlezl", "vběhl", "přiš", "přijd", "dal", "dá", "šel", "šla", "šli", "jde",
+                   "jdou", "jel", "jela", "jeli", "jede", "jedou")
+PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl", "žil", "žij", "zůstal", "zůstáv",
+               "čekal", "čeká", "nacház", "rostl", "rost", "pracoval", "pracuj", "spal", "spí")
+PLACE_FORMS = frozenset({"je", "jsou", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # whole forms: not "jel"
+# Czech verbs that take the genitive, with the clitic they need: "Dosáhli jsme XXI. století", "Bál se 2. dílu"
+GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dožil": "se", "dožij": "se", "dočkal": "se", "dočká": "se",
+                  "vzdal": "se", "vzdá": "se", "zúčastn": "se", "účastn": "se", "bál": "se", "bojí": "se",
+                  "obával": "se", "obává": "se", "všiml": "si", "všimn": "si", "všímá": "si", "dotkl": "se",
+                  "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se", "týká": "se", "týkal": "se"}
+# Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
+NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", "čekal", "čeká", "těšil", "těší",
+                       "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
+                       "naráží", "odkaz", "odkázal")
+
 # preposition -> (vocalised form, starts of the number words that call for it)
 VOCALISATION = {
     "cs": {"v": ("ve", ("v", "f", "dv", "tř", "čt", "st")), "k": ("ke", ("k", "g", "dv", "tř", "čt", "st")),
@@ -865,6 +888,10 @@ class TextNormalizer:
                  whole: bool = False, scale_unit: Optional[str] = None) -> str:
         value, integer, fraction = _parse(amount)
         case = self._governing_case(start, tags)
+        prep = self._preposition(start, tags)
+        if (self.language == "cs" and prep is not None and prep.text.lower() in ("pod", "nad")
+                and self._two_case(prep, None, start, tags) == ACC):
+            case = ACC  # "Teplota klesla pod pět stupňů", but "je pod pěti stupni"
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1013,6 +1040,13 @@ class TextNormalizer:
                 tagged_case = GEN  # "o 5 minút": a genitive plural tagged with the preposition's case
             if self._number_fits(value, noun):
                 noun_case = tagged_case
+        prep = self._preposition(start, tags)
+        if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS
+                and noun is not None and noun.feats.get("Gender") == "Masc" and noun.feats.get("Number") == "Plur"
+                and noun.text.lower().endswith("y")):
+            decided = self._two_case(prep, noun, start, tags)
+            if decided:
+                return decided, gender, animacy
         if noun_case in (DAT, INS, LOC):
             case = noun_case  # "s pěti přáteli"
         elif prep_case == GEN:
@@ -1096,12 +1130,18 @@ class TextNormalizer:
             start = self._chain_start(start, tags)
             prev = tags.before(start)
             prep_case = _UD_CASES.get(prev.feats.get("Case")) if prev is not None and prev.upos == "ADP" else None
+            verb_case = self._verb_case(start, prev, tags) if self.language == "cs" else None
+            if verb_case == ACC:
+                prep_case = ACC  # "na" with "vzpomínat": "na dvacáté století"
             if self.language == "cs" and head.feats.get("Gender") == "Neut" and head.text.lower().endswith("í"):
                 # "století" has one form for every case but the instrumental, so the context decides
-                context = prep_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
+                context = prep_case or verb_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
                 if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
                     doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
                 case = context
+            elif verb_case == GEN:
+                case = GEN  # "Dosáhli 5. místa", "Bál se 2. dílu": a genitive singular that looks plural or dative
+                plural = plural and not head.text.lower().endswith(("a", "y", "e", "ě", "u"))
             elif prep_case and (case == NOM or (case == GEN and prep_case != GEN)):
                 case = prep_case  # "v XXI. století" tagged nominative or genitive
             elif case == GEN and head.text.lower() not in MONTHS_GENITIVE[self.language]:
@@ -1133,6 +1173,56 @@ class TextNormalizer:
                 or self._gender(verb)[0] not in ("masculine", "feminine")):
             return None
         return verb if verb.text.lower().startswith(RANK_VERBS[self.language]) else None
+
+    @staticmethod
+    def _clause_verbs(pos: int, tags: _Tags) -> List[_Word]:
+        """The verbs of the clause around `pos`, nearest first; a comma or a sentence end closes the clause."""
+        i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
+        for step in (-1, 1):
+            j = i - 1 if step < 0 else i
+            while 0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":"):
+                if w[j].upos in ("VERB", "AUX"):
+                    found.append((abs(j - i), w[j]))
+                j += step
+        return [verb for _, verb in sorted(found, key=lambda f: f[0])]
+
+    def _clause_has(self, pos: int, tags: _Tags, clitic: str) -> bool:
+        i, w = bisect.bisect_left(tags.starts, pos), tags.words
+        for step in (-1, 1):
+            j = i - 1 if step < 0 else i
+            while 0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":"):
+                if w[j].text.lower() == clitic:
+                    return True
+                j += step
+        return False
+
+    def _two_case(self, prep: _Word, noun: Optional[_Word], pos: int, tags: _Tags) -> Optional[str]:
+        """The case after mezi, nad, pod, před or za when the noun has one form for both: the accusative
+        after a verb of direction, the instrumental after one of place; mezi and před are mostly places."""
+        word = prep.text.lower()
+        if noun is not None and noun.text.lower() in TIME_PLURALS:
+            return {"před": INS, "za": ACC}.get(word)
+        for verb in self._clause_verbs(pos, tags):
+            form = verb.text.lower()
+            if form.startswith(DIRECTION_VERBS) and form not in PLACE_FORMS:
+                return ACC
+            if form in PLACE_FORMS or form.startswith(PLACE_VERBS):
+                return INS
+        return INS if word in ("mezi", "před") and noun is not None else None
+
+    def _verb_case(self, pos: int, prev: Optional[_Word], tags: _Tags) -> Optional[str]:
+        """The case a Czech verb gives a noun phrase at `pos`: the genitive after "dosáhnout", "bát se";
+        the accusative after "na" with "vzpomínat", "čekat"."""
+        verbs = [v.text.lower() for v in self._clause_verbs(pos, tags)]
+        if prev is not None and prev.upos == "ADP":
+            if prev.text.lower() == "na" and any(v.startswith(NA_ACCUSATIVE_VERBS) for v in verbs):
+                return ACC
+            return None
+        for form in verbs:
+            clitic = next((c for stem, c in GENITIVE_VERBS.items() if form.startswith(stem)), False)
+            if clitic is not False:
+                return GEN if clitic is None or self._clause_has(pos, tags, clitic) else None
+        return None
 
     def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
