@@ -377,6 +377,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                              "Vzdaluje se druhé kolo, vzdálilo se třetí kolo."),
     "conjunction-ends-the-verb-search": ("cs", None, "Cíle dosáhl a 2. místo nakonec obsadil.",
                                          "Cíle dosáhl a druhé místo nakonec obsadil."),
+    "passive-is-a-place": ("cs", None, "Dům je postaven mezi 2 stromy.", "Dům je postaven mezi dvěma stromy."),
     "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
                                      "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
     "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
