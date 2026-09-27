@@ -410,6 +410,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
     "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
     "capital-letter-glued-to-number": ("cs", "TELEFON PODPORUJE 5G.", "TELEFON PODPORUJE pět G.", "glued"),
+    "comma-list-glued-to-word": ("cs", "Vyber 1,2,3G.", "Vyber jedna, dva, tři G.", "glued"),
+    "range-glued-to-word": ("cs", "Váží 5–10G.", "Váží pět až deset G.", "glued"),
     "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
     "decimal-comma-in-unit-range": ("cs", "Ujel 1,234–2 km.", "Ujel jedna celá dvě stě třicet čtyři tisícin až dva kilometry.",
                                     "not thousands"),
@@ -424,6 +426,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
+    "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

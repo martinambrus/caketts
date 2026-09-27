@@ -689,7 +689,9 @@ class TextNormalizer:
         if kind == "commas":
             parts = m["commalist"].split(",")
             if not m["commaunit"]:
-                return start, ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
+                words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
+                self._check_glued(text, m, words)
+                return start, words
             # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
             gender = NOUNS[self.language][self._unit(m["commaunit"])[0]][0]
             case = self._governing_case(start, tags) or NOM
@@ -912,6 +914,7 @@ class TextNormalizer:
             words = (f"{self._signed(low_amount, self._cardinal(low, case, gender, animacy))} {RANGE_WORD} "
                      f"{self._signed(high_amount, self._cardinal(value, case, gender, animacy))}")
         self._check_comma(text, (start, end), words, low_amount, high_amount)  # one check for both ends
+        self._check_glued(text, m, words)
         return words + (f" {self._per(per)}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
@@ -951,6 +954,13 @@ class TextNormalizer:
         if comma:
             self._check_comma(text, (start, end), words, amount)
         return self._signed(amount, words) + suffix
+
+    def _check_glued(self, text: str, m: re.Match, words: str) -> bool:
+        """Log a word glued after the last digit: "5G", "1,2,3G", "5–10G"; not the "x" of "3x4", read as a sign."""
+        if text[m.end():m.end() + 1].isalpha() and not re.match(f"x{_NOT_LETTER_AFTER}", text[m.end():]):
+            self._warn(text, m, words, "digits glued to a word")
+            return True
+        return False
 
     def _check_comma(self, text: str, where, words: str, *amounts: str) -> None:
         """"2,000" is read with a decimal comma, as Czech and Slovak write it; English means two thousand."""
@@ -1051,8 +1061,7 @@ class TextNormalizer:
         self._check_comma(text, m, words, m["value"])
         if m.start() and text[m.start() - 1].isalpha():
             words = " " + words
-        if m.end() < len(text) and text[m.end()].isalpha() and not re.match(r"x[-−–]?\d", text[m.end():m.end() + 3]):
-            self._warn(text, m, words, "digits glued to a word")  # "3x4" is a multiplication, read by the sign
+        if self._check_glued(text, m, words):
             words += " "
         return words
 
