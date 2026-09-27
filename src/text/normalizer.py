@@ -250,7 +250,7 @@ _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹�
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
 _MATH_SIGNS = frozenset("×*=+±/−")
 # no sound, so dropped or replaced on input: soft hyphen, zero-width space, word joiner, BOM, hyphen variants
-_TYPOGRAPHY = str.maketrans({"\u00ad": None, "\u200b": None, "\u2060": None, "\ufeff": None,
+_TYPOGRAPHY = str.maketrans({"\u00ad": None, "\u200b": " ", "\u2060": None, "\ufeff": None,
                              "\u2010": "-", "\u2011": "-", "\u2012": "–", "\u2015": "—", "\u2044": "/"})
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}

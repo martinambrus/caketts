@@ -340,6 +340,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capital-era-after-number": ("cs", None, "ROKU 300 N. L. VLÁDL.", "ROKU tři sta našeho letopočtu VLÁDL."),
     "invisible-characters": ("cs", None, "\ufeffRakousko\u2011Uhersko má 5\u201110 Kč, text\u00adový.",
                              "Rakousko-Uhersko má pět až deset korun, textový."),
+    "zero-width-space-between-words": ("cs", None, "Ahoj\u200bsvěte.", "Ahoj světe."),
     "approximately": ("cs", None, "Je to ~5 km, tedy ≈5 000 m.",
                       "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
     "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
