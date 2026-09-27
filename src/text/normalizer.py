@@ -543,7 +543,7 @@ class TextNormalizer:
         books = sorted(filter(None, config.get("verse_references") or []), key=len, reverse=True)
         # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29": chapter and verse, not a decimal or a time
         self._verses = (re.compile(rf"(?<!\w)(?P<book>{'|'.join(map(re.escape, books))}){_HS}+(?P<chapter>\d+)[,:]"
-                                   rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d)")
+                                   rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d|[^\W\d_])")
                         if books else None)
         phrases = sorted(filter(None, config.get("english") or []), key=len, reverse=True)
         self._english = (re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, phrases)) + r")(?!\w)")

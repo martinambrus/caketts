@@ -441,6 +441,11 @@ def test_dates_need_no_tagger(monkeypatch):
             == "Dne patnáctého ledna dva tisíce dvacet čtyři a prvního ledna.")
 
 
+def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16.18": read and logged as without the option
+    for text in ("Viz Jan 3,16a.", "Viz Jan 3,16.18."):
+        assert TextNormalizer("cs", {"verse_references": ["Jan"]}).normalize(text) == TextNormalizer("cs").normalize(text)
+
+
 def test_unknown_num2words_variant_raises():
     with pytest.raises(ValueError):
         TextNormalizer("sk", {"num2words": {"inverted": True}})  # a Czech-only keyword
