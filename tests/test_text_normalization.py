@@ -405,6 +405,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
     "genitive-verb-with-subject-after": ("cs", None, "Cíle dosáhl 2. muž.", "Cíle dosáhl druhý muž."),
+    "genitive-verb-with-neuter-subject": ("cs", None, "Cíle dosáhlo 2. sdružení. Dožil se 2. tisíciletí. Dosáhlo to 2. výročí.",
+                                          "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
     "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
                                                 "V páté Symfonii zazněl sbor, o páté Symfonii psal."),

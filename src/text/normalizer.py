@@ -461,6 +461,10 @@ def _canonical(symbol: str, keys) -> str:
     return symbol if symbol in keys else next((k for k in keys if k.lower() == symbol.lower()), symbol)
 
 
+def _agree(a: "_Word", b: "_Word") -> bool:
+    return all(a.feats.get(f) == b.feats.get(f) for f in ("Gender", "Number"))
+
+
 def _starts_sentence(before: str) -> bool:
     """Whether text after `before` (the paragraph up to it) starts a sentence, also direct speech
     after a colon: Řekl: „Pět…“."""
@@ -1210,6 +1214,10 @@ class TextNormalizer:
             if self.language == "cs" and head.feats.get("Gender") == "Neut" and head.text.lower().endswith("í"):
                 # "století" has one form for every case but the instrumental, so the context decides
                 context = prep_case or verb_case or (GEN if prev is not None and prev.upos in ("NOUN", "PROPN") else NOM)
+                verb = self._clause_verb(start, tags) if verb_case == GEN and case == NOM else None
+                if (verb is not None and _agree(verb, head)
+                        and not any(w.feats.get("Case") == "Nom" and _agree(verb, w) for w in self._clause_before(start, tags))):
+                    context = NOM  # the subject: "Cíle dosáhlo 2. sdružení", not "Dožil se 2. tisíciletí", "Dosáhlo to 2. výročí"
                 if ordinal and context == NOM and case not in (None, NOM, ACC) and not self._clause_start(start, tags):
                     doubt = f"{head.text!r} tagged {case}, read {context}"  # "Dosáhli jsme XXI. století"
                 elif ordinal and verb_case == ACC and self._clause_verb(start, tags).text.lower().startswith(NA_PLACE_VERBS):
@@ -1365,16 +1373,22 @@ class TextNormalizer:
         return _UD_CASES.get(prep.feats.get("Case")) if prep else None
 
     @staticmethod
+    def _clause_before(pos: int, tags: _Tags, clause: bool = True) -> List[_Word]:
+        """The words before `pos`, nearest first, back to the sentence start; with `clause`, back to a comma or a
+        conjunction too."""
+        words = []
+        for w in reversed(tags.words[:bisect.bisect_left(tags.starts, pos)]):
+            if w.text in (".", "!", "?", "…", ";", ":") or (clause and (w.text == "," or w.upos == "CCONJ")):
+                break
+            words.append(w)
+        return words
+
+    @staticmethod
     def _verb_before(pos: int, tags: _Tags, clause: bool) -> bool:
         """Whether the sentence before `pos` already has its verb; with `clause`, only the clause, which a comma
         or a conjunction also closes: a name, a date or an amount is in its own ("KDYŽ PŘIŠEL, KAREL IV.",
         "PŘIŠEL A DNE 5. 6."), the end of a list is not ("PŘINESL JABLKA, HRUŠKY ATD.")."""
-        for w in reversed(tags.words[:bisect.bisect_left(tags.starts, pos)]):
-            if w.text in (".", "!", "?", "…", ";", ":") or (clause and (w.text == "," or w.upos == "CCONJ")):
-                return False
-            if w.upos in ("VERB", "AUX"):
-                return True
-        return False
+        return any(w.upos in ("VERB", "AUX") for w in TextNormalizer._clause_before(pos, tags, clause))
 
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
