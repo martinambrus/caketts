@@ -378,6 +378,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                              "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
     "capital-acronym-before-approximate-amount": ("cs", None, "MAX. ≈5 KG, MAX. ±2 KG.",
                                                   "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy."),
+    "capital-acronym-before-spaced-prefix": ("cs", None, "MAX. ≈ 5 KG, MAX. ± 2 KG, MAX. $ 5.",
+                                             "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy, "
+                                             "maximálně pět dolarů."),
     "vzdalit-is-not-vzdat": ("cs", None, "Vzdaluje se 2. kolo, vzdálilo se 3. kolo.",
                              "Vzdaluje se druhé kolo, vzdálilo se třetí kolo."),
     "conjunction-ends-the-verb-search": ("cs", None, "Cíle dosáhl a 2. místo nakonec obsadil.",

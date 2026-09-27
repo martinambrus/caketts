@@ -785,7 +785,8 @@ class TextNormalizer:
         if raw.isupper() and len(key) > 2 and key in CAPITAL_ACRONYMS:
             after = text[m.end():].lstrip(" \t  ")
             before = text[:m.start()].rstrip(" \t  ")
-            if not (re.match(r"[-−–+±~≈$€£]*\d", after) or (key == "n.l." and before[-1:].isdigit())):  # "MAX. ≈5", "300 N. L."
+            if not (re.match(r"(?:[-−–+±~≈$€£][ \t\u00a0\u202f]*)*\d", after)  # "MAX. ≈ 5", "300 N. L."
+                    or (key == "n.l." and before[-1:].isdigit())):
                 if _all_capitals(text):
                     self._warn(text, m, raw, "acronym or abbreviation in capitals, kept as written; check it")
                 return raw
