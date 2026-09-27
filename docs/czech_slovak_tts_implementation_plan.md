@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**717 tests:** 102 for the TTS components, 104 for num2words, 507 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**725 tests:** 102 for the TTS components, 104 for num2words, 515 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -330,8 +330,9 @@ Handle:
     after a preposition ("na str. 45" -> "na straně čtyřicet pět"); sv. and tzv. agree with their
     noun. Symbols with a reading: & + @ = × ± #1, ~ and ≈ before a number ("přibližně"), * between
     numbers ("krát"), and / between words ("nebo") or numbers ("lomeno"). Unit and currency symbols
-    also match in capitals ("5 KČ", "50 KM/H"), and a capital acronym such as "MAX." expands before
-    a number ("maximálně pět kilogramů"); one kept as written in capitals ("TJ.") is LOGGED.
+    also match in capitals ("5 KČ", "50 KM/H"; a one-letter one only after a space: "5 G", not
+    "5G"), and "MAX." and "ODS." expand before a number ("maximálně pět kilogramů"); an acronym
+    kept as written in capitals ("TJ.", "ATP.") is LOGGED.
  4. Dashes: normalise "–" and " - " to "—", or to "až" between numbers; normalise "..." to "…".
  5. English spans: wrap every exact, case-sensitive, whole-word occurrence of a
     book_config["english"] phrase in <en>…</en>, longest phrase first. <cs>/<sk>/<en> spans
@@ -453,7 +454,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 507 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 515 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -777,6 +778,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                        "CENA JE pět korun, JEL padesát kilometrů za hodinu A MĚŘÍ pět centimetrů."),
     "capitals-one-letter-units": ("cs", None, "VZDÁLENOST 100 M, VÁHA 5 G A MÁM 5 S SEBOU.",
                                   "VZDÁLENOST sto metrů, VÁHA pět gramů A MÁM pět S SEBOU."),
+    "capitals-glued-letter-is-no-unit": ("cs", None, "TELEFON PODPORUJE 5G, JE TO IPHONE 5S. BYT MÁ 60M².",
+                                         "TELEFON PODPORUJE pět G, JE TO IPHONE pět S. BYT MÁ šedesát metrů čtverečních."),
     "capitals-scale-and-currency": ("cs", None, "STÁLO TO 5 TIS. KČ.", "STÁLO TO pět tisíc korun."),
     "sk-capitals-currency": ("sk", None, "CENA JE 5 KČ.", "CENA JE päť korún."),
     "capital-acronym-before-number": ("cs", None, "MAX. 5 KG.", "Maximálně pět kilogramů."),
@@ -817,6 +820,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                    "Před dvěma roky odjel, přijel před dvěma týdny a za dva roky se vrátí."),
     "threshold-after-motion": ("cs", None, "Teplota klesla pod 5 °C, dnes je pod 5 °C.",
                                "Teplota klesla pod pět stupňů Celsia, dnes je pod pěti stupni Celsia."),
+    "threshold-range-after-motion": ("cs", None,
+                                     "Teplota klesla pod 1–2 °C, pak vystoupala nad 10–20 °C. Cena klesla pod 5–10 tis. Kč.",
+                                     "Teplota klesla pod jeden až dva stupně Celsia, pak vystoupala nad deset až dvacet "
+                                     "stupňů Celsia. Cena klesla pod pět až deset tisíc korun."),
+    "threshold-list-after-motion": ("cs", None, "Teploty klesly pod 5 °C, 3 °C a 1 °C. Pak klesly pod 3,2,1 °C.",
+                                    "Teploty klesly pod pět stupňů Celsia, tři stupně Celsia a jeden stupeň Celsia. "
+                                    "Pak klesly pod tři, dva, jeden stupeň Celsia."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
@@ -859,6 +869,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "decimal-comma-before-currency": ("cs", "Stálo to 1,234 USD.",
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
     "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
+    "capital-letter-glued-to-number": ("cs", "TELEFON PODPORUJE 5G.", "TELEFON PODPORUJE pět G.", "glued"),
     "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
     "decimal-comma-in-unit-range": ("cs", "Ujel 1,234–2 km.", "Ujel jedna celá dvě stě třicet čtyři tisícin až dva kilometry.",
                                     "not thousands"),
@@ -3811,7 +3822,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 716 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 724 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
