@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**725 tests:** 102 for the TTS components, 104 for num2words, 515 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**731 tests:** 102 for the TTS components, 104 for num2words, 521 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -454,7 +454,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 515 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 521 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -870,6 +870,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
     "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
     "capital-letter-glued-to-number": ("cs", "TELEFON PODPORUJE 5G.", "TELEFON PODPORUJE pět G.", "glued"),
+    "comma-list-glued-to-word": ("cs", "Vyber 1,2,3G.", "Vyber jedna, dva, tři G.", "glued"),
+    "range-glued-to-word": ("cs", "Váží 5–10G.", "Váží pět až deset G.", "glued"),
     "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
     "decimal-comma-in-unit-range": ("cs", "Ujel 1,234–2 km.", "Ujel jedna celá dvě stě třicet čtyři tisícin až dva kilometry.",
                                     "not thousands"),
@@ -884,6 +886,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
+    "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -3822,7 +3825,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 724 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 730 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
