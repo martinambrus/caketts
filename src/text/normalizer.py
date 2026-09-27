@@ -778,7 +778,7 @@ class TextNormalizer:
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
-                case = NOM if decimal else self._preposition_case(start, tags) or NOM
+                case = NOM if decimal else self._governing_case(start, tags) or NOM
                 words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
             if decimal:
@@ -792,8 +792,7 @@ class TextNormalizer:
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
                  whole: bool = False, scale_unit: Optional[str] = None) -> str:
         value, integer, fraction = _parse(amount)
-        prep = self._preposition(start, tags) or self._shared_preposition(start, tags)  # "s 2 kg a 3 kg"
-        case = _UD_CASES.get(prep.feats.get("Case")) if prep else None
+        case = self._governing_case(start, tags)
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1054,6 +1053,12 @@ class TextNormalizer:
             return None
         return verb if verb.text.lower().startswith(RANK_VERBS[self.language]) else None
 
+    def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
+        """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
+        "s 2 kg a 3 kg", "s 1 kg a 2–3 kg"."""
+        prep = self._preposition(pos, tags) or self._shared_preposition(pos, tags)
+        return _UD_CASES.get(prep.feats.get("Case")) if prep else None
+
     def _shared_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
         "od 2:00–3:00", "s 2 kg a 3 kg"."""
@@ -1065,6 +1070,11 @@ class TextNormalizer:
             text = w[i].text
             if w[i].upos == "ADP":
                 return w[i]
+            if text in (".", "!", "?", "…") and not (text == "." and 0 < i < len(w) - 1 and (
+                    (w[i - 1].text.isdigit() and w[i + 1].text.isdigit() and w[i + 1].start == w[i].end)  # "8.30"
+                    or ((re.fullmatch(_HOUR_WORD, w[i - 1].text.lower()) or w[i - 1].text.lower() in SCALES)
+                        and not w[i + 1].text[:1].isupper()))):  # "hod.–3:00", but "s 2 kg. A 3 kg"
+                return None
             if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
                     or re.fullmatch(_HOUR_WORD, text.lower()) or text in unit_words or text.lower() in SCALES):
                 return None

@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**576 tests:** 102 for the TTS components, 94 for num2words, 376 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**580 tests:** 102 for the TTS components, 94 for num2words, 380 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -444,7 +444,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 376 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 380 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -687,6 +687,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "legal-reference": ("cs", None, "Podle § 5 odst. 2 platí.", "Podle paragrafu pět odstavce dva platí."),
     "coordinated-references": ("cs", None, "Podle § 5 a § 6 platí.", "Podle paragrafu pět a paragrafu šest platí."),
     "reference-after-sentence-end": ("cs", None, "Podle § 5. § 6 platí.", "Podle paragrafu pět. Paragraf šest platí."),
+    "shared-preposition-into-range": ("cs", None, "Pracoval s 1 kg a 2–3 kg.",
+                                      "Pracoval s jedním kilogramem a dvěma až třemi kilogramy."),
+    "shared-preposition-stops-at-sentence-end": ("cs", None, "Pracoval s 2 kg. A 3 kg stačily.",
+                                                 "Pracoval se dvěma kilogramy. A tři kilogramy stačily."),
     "coordinated-measures-share-preposition": ("cs", None, "Pracoval s 2 kg a 3 kg, bez 5 € a 3 €.",
                                                "Pracoval se dvěma kilogramy a třemi kilogramy, bez pěti eur a tří eur."),
     "compact-labels": ("cs", None, "Podle §5 odst.2 písm.a zákona, viz str.45.",
@@ -3685,7 +3689,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 575 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 579 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
