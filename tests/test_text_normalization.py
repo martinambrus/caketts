@@ -369,6 +369,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "clitic-of-another-verb": ("cs", None, "Smál se a vzdal 2. kolo.", "Smál se a vzdal druhé kolo."),
     "capital-acronym-before-signed-amount": ("cs", None, "MAX. -5 KG, MAX. $5.",
                                              "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
+    "capital-acronym-before-approximate-amount": ("cs", None, "MAX. ≈5 KG, MAX. ±2 KG.",
+                                                  "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy."),
     "vzdalit-is-not-vzdat": ("cs", None, "Vzdaluje se 2. kolo, vzdálilo se 3. kolo.",
                              "Vzdaluje se druhé kolo, vzdálilo se třetí kolo."),
     "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
