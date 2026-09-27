@@ -328,7 +328,8 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
     abbr = "|".join(_abbreviation_pattern(k) for k in sorted(abbreviations, key=len, reverse=True))
     unit = _UNIT + (_CAPITAL_UNIT if capitals else "")
     per = _PER + (_CAPITAL_PER if capitals else "")
-    length = r"(?i:km|cm|mm|ml)|m|l|L" + (rf"|(?<={_HS})M" if capitals else "")
+    length = rf"(?i:km|cm|mm){_POWER}|(?i:ml)|m{_POWER}|l|L" + (rf"|(?<={_HS})M{_POWER}|M(?:[²³]|[23](?!\d))"
+                                                                if capitals else "")
 
     def unit_per(name: str) -> str:  # after a length or volume, "/ s" is a second also before a word: "5 m / s a pak"
         return (rf"(?P<{name}unit>(?P<{name}length>{length})(?![\w²³/])|{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}"
