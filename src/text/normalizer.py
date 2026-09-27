@@ -201,9 +201,10 @@ DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "sch
 PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl", "žil", "žij", "zůstal", "zůstáv",
                "čekal", "čeká", "nacház", "rostl", "rost", "pracoval", "pracuj", "spal", "spí")
 PLACE_FORMS = frozenset({"je", "jsou", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # whole forms: not "jel"
-# Czech verbs that take the genitive, with the clitic they need: "Dosáhli jsme XXI. století", "Bál se 2. dílu"
+# Czech verbs that take the genitive (a pattern for the start of the form) with the clitic they need:
+# "Dosáhli jsme XXI. století", "Bál se 2. dílu"; vzdát se, not vzdálit se (vzdálil, vzdaluje)
 GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dožil": "se", "dožij": "se", "dočkal": "se", "dočká": "se",
-                  "vzdal": "se", "vzdá": "se", "zúčastn": "se", "účastn": "se", "bál": "se", "bojí": "se",
+                  "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se", "bál": "se", "bojí": "se",
                   "obával": "se", "obává": "se", "všiml": "si", "všimn": "si", "všímá": "si", "dotkl": "se",
                   "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se", "týká": "se", "týkal": "se"}
 # Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
@@ -1236,7 +1237,7 @@ class TextNormalizer:
         form = verb.text.lower() if verb is not None else ""
         if prev is not None and prev.upos == "ADP":
             return ACC if prev.text.lower() == "na" and form and form.startswith(NA_ACCUSATIVE_VERBS) else None
-        clitic = next((c for stem, c in GENITIVE_VERBS.items() if form.startswith(stem)), False) if form else False
+        clitic = next((c for stem, c in GENITIVE_VERBS.items() if re.match(stem, form)), False) if form else False
         return GEN if clitic is None or (clitic and self._clitic_of(verb, tags, clitic)) else None
 
     def _agrees_with_preposition(self, prep: _Word, noun: _Word) -> bool:
