@@ -352,6 +352,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                              "Zvol jeden, dva, tři kilogramy nebo jedna, dvě, tři koruny, šel s jedním, dvěma, třemi kilogramy."),
     "comma-list-period-and-preposition": ("cs", None, "Balení 1,2,3 ks. Potom šel s 2,3,4 kg.",
                                           "Balení jeden, dva, tři kusy. Potom šel se dvěma, třemi, čtyřmi kilogramy."),
+    "comma-list-with-rate": ("cs", None, "Tok 1,2,3 kg/s, cena 1,2,3 Kč/kg.",
+                             "Tok jeden, dva, tři kilogramy za sekundu, cena jedna, dvě, tři koruny za kilogram."),
     "verse-references": ("cs", {"verse_references": ["Jan", "Mt"]},
                          "Viz Jan 3,16, Mt 5,3–12, Mt 5,3–7,29 a Jan 3:16. Jan přišel v 5,5.",
                          "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "

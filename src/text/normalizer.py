@@ -337,7 +337,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?<={_HS})(?:0\d|\d{{2}}(?!\d)(?!{_HS}*[^\W\d_])))(?!\d))?(?!\d))"  # "5. 6. 05", not "5. 6. 24 lidí"
         rf"|(?P<dotted>(?<![\d.,])(?![1-9]\d{{0,2}}(?:\.\d{{3}})+(?!\d|\.\d))\d+(?:\.\d+){{2,}}(?!\d))"  # "1.2.3"
         rf"|(?P<commas>(?P<commalist>(?<![\d.,])(?!{_EN_AMOUNT})\d+(?:,\d+){{2,}}(?!\d))"  # "1,2,3": no number has two commas
-        rf"(?:{_HS}*(?P<commaunit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER})?)"  # "1,2,3 kg"
+        rf"(?:{_HS}*{unit_per('comma')})?)"  # "1,2,3 kg", "1,2,3 Kč/kg"
         rf"|(?P<time>(?<![\d.,:])(?P<hour>2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})(?P<minute>[0-5]\d)(?::(?P<second>[0-5]\d))?(?![\d:])"
         rf"(?:{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})?)"
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
@@ -725,6 +725,8 @@ class TextNormalizer:
                 case = self._governing_case(start, tags) or NOM
                 words = ", ".join([self._cardinal(int(part), case, gender, "inanimate") for part in parts[:-1]]
                                   + [self._measure(parts[-1], m["commaunit"], start, tags, text, end)])
+                if m["commaper"]:
+                    words += " " + self._per(m["commaper"])
         elif kind == "time":
             words = self._time(m, tags)
         elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
