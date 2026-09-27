@@ -870,7 +870,9 @@ class TextNormalizer:
             # "Vyšel díl V. Kniha byla…", "…V. Nové vydání…": after a thing, not a person, and before a sentence
             # whose subject is a noun, V is a numeral
             subject = tags.head_after(end) if nxt is not None and nxt.upos in ("NOUN", "ADJ", "DET") else nxt
-            numbers_a_thing = (prev is not None and prev.upos == "NOUN" and prev.feats.get("Animacy") != "Anim"
+            # a thing by its tag or as a known label: CAC gives feminine nouns no animacy, so "Paní V." has none
+            numbers_a_thing = (prev is not None and prev.upos == "NOUN"
+                               and (prev.feats.get("Animacy") == "Inan" or prev.text.lower() in ROMAN_LABEL_NOUNS[self.language])
                                and subject is not None and subject.upos in ("NOUN", "PRON")
                                and self._verb_follows(end, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400

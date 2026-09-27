@@ -431,6 +431,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                "Vyšel díl pátý. Nové vydání uspělo. Vyšel díl desátý. Toto vydání uspělo."),
     "roman-numbers-a-thing-before-pronoun": ("cs", None, "Vyšel díl V. On uspěl.", "Vyšel díl pátý. On uspěl."),
     "initial-before-adjective-surname": ("cs", None, "Firma V. Nový vznikla.", "Firma V. Nový vznikla."),
+    "initial-after-a-woman": ("cs", None, "Paní V. Ona poté odešla. Vyšla část V. Kniha byla úspěšná.",
+                              "Paní V. Ona poté odešla. Vyšla část pátá. Kniha byla úspěšná."),
     "initial-after-a-person": ("cs", None, "Autor V. Kovář napsal knihu.", "Autor V. Kovář napsal knihu."),
     "nearest-verb-governs": ("cs", None, "Dosáhl cíle a obsadil 2. místo, postavil se a zpíval mezi 2 stromy.",
                              "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
