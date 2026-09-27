@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**738 tests:** 102 for the TTS components, 104 for num2words, 528 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**746 tests:** 102 for the TTS components, 104 for num2words, 536 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -321,7 +321,8 @@ Handle:
     a decimal comma and LOGGED, and "1,2,3" is a list. Where Czech forms coincide the verb decides:
     "Stál mezi dvěma stromy" but "Postavil se mezi dva stromy", "Dosáhli jsme dvacátého prvního
     století", "Vzpomínal na dvacáté století". Text in capitals is tagged lowercased, as the tagger
-    reads capitals as caseless names.
+    reads capitals as caseless names; there a period before a verb ends the sentence only when its
+    clause already has a verb ("KAREL IV. ZALOŽIL" goes on, "BYL TAM ATD. ODEŠEL" ends).
  2. Dates ("1. ledna 2024" -> "Prvního ledna dva tisíce dvacet čtyři"), times read digitally
     ("ve čtrnáct třicet", Slovak "o štrnástej tridsať"), currency ("sto korun", "čtyři eura
     padesát centů"), units that agree with their number ("5 km" -> "pět kilometrů", "80 m²" ->
@@ -455,7 +456,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 528 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 536 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -774,6 +775,14 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
                                "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
     "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
+    "capitals-verb-after-a-full-clause": ("cs", None, "BYL TAM ATD. ODEŠEL DOMŮ. VLÁDL KAREL IV. ZALOŽIL UNIVERZITU. "
+                                          "ČEKAL 5 MIN. ODEŠEL.",
+                                          "BYL TAM a tak dále. ODEŠEL DOMŮ. VLÁDL KAREL čtvrtý. ZALOŽIL UNIVERZITU. "
+                                          "ČEKAL pět minut. ODEŠEL."),
+    "capitals-period-before-verb-untagged": ("cs", None, "JABLKA, HRUŠKY ATD. LEŽELY NA STOLE. DNE 5. 6. ODEŠEL DOMŮ.",
+                                             "JABLKA, HRUŠKY a tak dále LEŽELY NA STOLE. DNE pátého června ODEŠEL DOMŮ."),
+    "capitals-list-then-verb": ("cs", None, "PŘINESL JABLKA, HRUŠKY ATD. ODEŠEL. KDYŽ PŘIŠEL, KAREL IV. ZALOŽIL UNIVERZITU.",
+                                "PŘINESL JABLKA, HRUŠKY a tak dále. ODEŠEL. KDYŽ PŘIŠEL, KAREL čtvrtý ZALOŽIL UNIVERZITU."),
     "capitals-page": ("cs", None, "NA STR. 45 SE PÍŠE.", "NA straně čtyřicet pět SE PÍŠE."),
     "capitals-units": ("cs", None, "CENA JE 5 KČ, JEL 50 KM/H A MĚŘÍ 5 CM.",
                        "CENA JE pět korun, JEL padesát kilometrů za hodinu A MĚŘÍ pět centimetrů."),
@@ -796,6 +805,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
     "approximately-before-currency": ("cs", None, "Stálo to ≈$5, tedy ~ €5 a ≈ -$5.",
                                       "Stálo to přibližně pět dolarů, tedy přibližně pět eur a přibližně mínus pět dolarů."),
+    "approximately-between-numbers": ("cs", None, "Platí 3≈4 a 3~4.", "Platí tři přibližně čtyři a tři přibližně čtyři."),
     "asterisk-times": ("cs", None, "Spočítej 3*4 a 5 * 6.", "Spočítej tři krát čtyři a pět krát šest."),
     "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
                                            "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
@@ -3840,7 +3850,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 737 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 745 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
