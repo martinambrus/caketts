@@ -296,6 +296,7 @@ def test_compound_ordinals_every_part_ordinal():
     assert w(2345, **a) == "dvoutisící třístý čtyřicátý pátý"                    # WIKI-ČČ
     assert w(1520, **a) == "tisící pětistý dvacátý"                              # IJP:tisíc
     assert w(5205, **a) == "pětitisící dvoustý pátý"                             # CHL (Gebauer)
+    assert w(1_345_000, **a) == "miliontý tři sta čtyřicet pět tisící"           # words stay in order
     assert w(25, to="ordinal", inverted=True) == "pětadvacátý"                   # IJP-791
     assert w(21, to="ordinal", inverted=True) == "jednadvacátý"                  # NESČ
 

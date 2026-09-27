@@ -313,11 +313,10 @@ def decline_ordinal(lemma: str, c: int, gender: str, animacy: str, plural: bool)
     return stem + e
 
 
-def _ordinal_parts(n: int, ordinal_style: str, inverted: bool) -> Tuple[List[str], List[str]]:
-    """(cardinal words kept as they are, ordinal lemmas to decline)."""
+def _ordinal_parts(n: int, ordinal_style: str, inverted: bool) -> List[Tuple[str, bool]]:
+    """The words in order, each with True if it is an ordinal lemma to decline."""
     comps = _components(n)
-    card: List[str] = []
-    lemmas: List[str] = []
+    parts: List[Tuple[str, bool]] = []
     for k, (value, scale) in enumerate(comps):
         last = k == len(comps) - 1
         mixed_prefix = ordinal_style == "mixed" and not last
@@ -325,26 +324,26 @@ def _ordinal_parts(n: int, ordinal_style: str, inverted: bool) -> Tuple[List[str
             sg, pl, sgender = scale
             lemma = [s for s in SCALES if s[2] is sg][0][4]
             if mixed_prefix:
-                card.append(_count_noun(value, sg, pl, sgender, N, "genitive"))
+                parts.append((_count_noun(value, sg, pl, sgender, N, "genitive"), False))
             elif value == 1:
-                lemmas.append(lemma)
+                parts.append((lemma, True))
             elif value < 100 or value == 100:
-                lemmas.append(_combining(value) + lemma)
+                parts.append((_combining(value) + lemma, True))
             else:  # 345 000th and similar: cardinal count + ordinal scale word
-                card.append(_below_1000(value, N, sgender, "inanimate", "genitive"))
-                lemmas.append(lemma)
+                parts.append((_below_1000(value, N, sgender, "inanimate", "genitive"), False))
+                parts.append((lemma, True))
         elif value >= 100:
             if mixed_prefix:
-                card.append(HUNDREDS[value // 100][N])
+                parts.append((HUNDREDS[value // 100][N], False))
             else:
-                lemmas.append(ORDINALS[value])
+                parts.append((ORDINALS[value], True))
         elif value in ORDINALS:
-            lemmas.append(ORDINALS[value])
+            parts.append((ORDINALS[value], True))
         elif inverted:  # jednadvacátý, pětadvacátý
-            lemmas.append(INVERTED_UNIT[value % 10] + "a" + ORDINALS[value - value % 10])
+            parts.append((INVERTED_UNIT[value % 10] + "a" + ORDINALS[value - value % 10], True))
         else:
-            lemmas += [ORDINALS[value - value % 10], ORDINALS[value % 10]]
-    return card, lemmas
+            parts += [(ORDINALS[value - value % 10], True), (ORDINALS[value % 10], True)]
+    return parts
 
 
 def int_to_ordinal(n: int, gender: str = "masculine", case: str = "nominative",
@@ -356,8 +355,8 @@ def int_to_ordinal(n: int, gender: str = "masculine", case: str = "nominative",
     c = _idx(case)
     if n == 0:
         return decline_ordinal(ORDINALS[0], c, gender, animacy, plural)
-    card, lemmas = _ordinal_parts(n, ordinal_style, inverted)
-    return " ".join(card + [decline_ordinal(l, c, gender, animacy, plural) for l in lemmas])
+    parts = _ordinal_parts(n, ordinal_style, inverted)
+    return " ".join(decline_ordinal(w, c, gender, animacy, plural) if ordinal else w for w, ordinal in parts)
 
 
 # --------------------------------------------------------------------------------------
