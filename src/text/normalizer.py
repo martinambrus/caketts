@@ -1335,11 +1335,12 @@ class TextNormalizer:
         return _UD_CASES.get(prep.feats.get("Case")) if prep else None
 
     @staticmethod
-    def _verb_before(pos: int, tags: _Tags) -> bool:
-        """Whether the clause before `pos` already has its verb; a comma, a sentence end or a conjunction
-        closes it, as in _clause_verb."""
+    def _verb_before(pos: int, tags: _Tags, clause: bool) -> bool:
+        """Whether the sentence before `pos` already has its verb; with `clause`, only the clause, which a comma
+        or a conjunction also closes: a name heads its own ("KDYŽ PŘIŠEL, KAREL IV."), a list does not
+        ("PŘINESL JABLKA, HRUŠKY ATD.")."""
         for w in reversed(tags.words[:bisect.bisect_left(tags.starts, pos)]):
-            if w.text in (",", ".", "!", "?", "…", ";", ":") or w.upos == "CCONJ":
+            if w.text in (".", "!", "?", "…", ";", ":") or (clause and (w.text == "," or w.upos == "CCONJ")):
                 return False
             if w.upos in ("VERB", "AUX"):
                 return True
@@ -1416,7 +1417,7 @@ class TextNormalizer:
         if introduces or not nxt[:1].isupper():
             return False
         word, capitals = tags.after(end), _all_capitals(text)
-        if capitals and word is not None and word.upos in ("VERB", "AUX") and not self._verb_before(start, tags):
+        if capitals and word is not None and word.upos in ("VERB", "AUX") and not self._verb_before(start, tags, roman):
             return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             return (word is None or word.upos not in ("PROPN", "ADJ")
