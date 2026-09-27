@@ -259,6 +259,7 @@ _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
 _NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d[:.]\d\d{_HS}*{_HOUR_WORD})$")  # a dash between these reads "až"
 _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
+_DATE_BEFORE = re.compile(rf"(?<![\d.])(?:3[01]|[12]\d|0?[1-9])\.{_HS}*(?:1[0-2]|0?[1-9])\.{_HS}+$")  # "5. 6. "
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–+]?\d|[IVXLCDM]+\.)")
 
 
@@ -976,6 +977,9 @@ class TextNormalizer:
             words = self._cardinal(value, NOM, "masculine", "inanimate")
         elif m["times"]:
             words = self._cardinal(value, NOM, "masculine", "inanimate") + "krát"
+        elif (len(m["value"]) == 2 and m["value"].isdigit() and _DATE_BEFORE.search(text[:m.start()])
+              and tags.head_after(m.end()) is None):
+            words = self._cardinal(value, NOM, "masculine", "inanimate")  # "5. 6. 24 v Praze": the year of the date
         elif text[m.end():m.end() + 1] == "." and self._rank_verb(m.start(), tags) is not None:
             words = self._ordinal(value, NOM, *self._gender(self._rank_verb(m.start(), tags)))  # "Skončil 2."
         else:

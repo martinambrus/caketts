@@ -351,6 +351,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
     "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
 }
+UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
+    "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
+}
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
 TEST2_INPUTS = [  # every input of the Test 2 block above
@@ -374,6 +378,13 @@ def test_reading_is_logged_for_review(caplog, language, text, expected, warning)
     records = [r for r in caplog.records if r.name == "src.text.normalizer"]
     assert [r.levelno for r in records] == [logging.WARNING]
     assert warning in records[0].getMessage()
+
+
+@pytest.mark.parametrize("language,text,expected", UNLOGGED.values(), ids=list(UNLOGGED))
+def test_reading_is_not_logged(caplog, language, text, expected):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        assert TextNormalizer(language).normalize(text) == expected
+    assert not [r for r in caplog.records if r.name == "src.text.normalizer"]
 
 
 def test_line_structure_and_headings(cs):
@@ -407,6 +418,7 @@ def test_unknown_num2words_variant_raises():
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
 @pytest.mark.parametrize("language,config,text", [(lang, None, text) for lang, text in TEST2_INPUTS]
                          + [example[:3] for example in EXAMPLES.values()]
-                         + [(language, None, text) for language, text, _, _ in LOGGED.values()])
+                         + [(language, None, text) for language, text, _, _ in LOGGED.values()]
+                         + [(language, None, text) for language, text, _ in UNLOGGED.values()])
 def test_output_is_tokenizable(language, config, text):
     G2P[language].tokenize(TextNormalizer(language, config).normalize(text))
