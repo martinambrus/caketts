@@ -225,6 +225,9 @@ NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "c
                            "odst.", "ods.", "písm."}
 # keys whose capital form is an acronym, a name or initials: "TURNAJ ATP.", "TJ SOKOL", "voliči ODS."
 CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j.", "tj.", "vr."})
+# nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
+ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
+                     "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
 AGREEING_ABBREVIATIONS = {"sv.", "tzv."}  # adjectives: they take the case and gender of the next word
 LABEL_ABBREVIATIONS = {"č.", "str.", "r.", "§", "odst.", "ods.", "písm."}  # the number after them names
 # prepositions with the accusative or the locative; before a page, number or year the locative
@@ -821,6 +824,10 @@ class TextNormalizer:
             self._warn(text, m, words, "no noun to agree with; nominative masculine inanimate")
         elif doubt:
             self._warn(text, m, words, f"{doubt}; check it")
+        elif (prev is not None and prev.text.lower() in ROMAN_LABEL_NOUNS[self.language] and head.start > m.start()
+              and case == GEN):
+            # "díl V. knihy": "díl páté knihy" (of the fifth book), or "díl pátý knihy" (volume five of the book)
+            self._warn(text, m, words, f"numeral after {prev.text!r} may number it instead; check it")
         if head.start < m.start() and self._ends_sentence(text, end, tags, roman=True):
             words += "."  # after "Karel IV." the period may end the sentence; before a noun it cannot
         return words

@@ -370,6 +370,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                       "Stálo to jedna celá dvě stě třicet čtyři tisícin dolaru.", "not thousands"),
     "capital-acronym-kept": ("cs", "HRÁL ZA TJ. SOKOL.", "HRÁL ZA TJ. SOKOL.", "kept as written"),
     "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
+    "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
