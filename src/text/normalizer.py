@@ -1193,16 +1193,19 @@ class TextNormalizer:
         return verb if verb.text.lower().startswith(RANK_VERBS[self.language]) else None
 
     @staticmethod
-    def _clause_verbs(pos: int, tags: _Tags) -> List[_Word]:
-        """The verbs of the clause around `pos`, nearest first; a comma or a sentence end closes the clause."""
+    def _clause_verb(pos: int, tags: _Tags) -> Optional[_Word]:
+        """The verb nearest to `pos` in its clause, which a comma or a sentence end closes; an auxiliary
+        ("jsme", "by") is skipped, a copula ("je", "byl") counts. Only the nearest verb governs: in "Dosáhl
+        cíle a obsadil 2. místo" it is "obsadil"."""
         i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
         for step in (-1, 1):
             j = i - 1 if step < 0 else i
             while 0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":"):
-                if w[j].upos in ("VERB", "AUX"):
+                if w[j].upos == "VERB" or (w[j].upos == "AUX" and w[j].text.lower() in PLACE_FORMS):
                     found.append((abs(j - i), w[j]))
+                    break
                 j += step
-        return [verb for _, verb in sorted(found, key=lambda f: f[0])]
+        return min(found, key=lambda f: f[0])[1] if found else None
 
     def _clause_has(self, pos: int, tags: _Tags, clitic: str) -> bool:
         i, w = bisect.bisect_left(tags.starts, pos), tags.words
@@ -1220,27 +1223,23 @@ class TextNormalizer:
         word = prep.text.lower()
         if noun is not None and noun.text.lower() in TIME_PLURALS:
             return {"před": INS, "za": ACC}.get(word)
-        for verb in self._clause_verbs(pos, tags):
-            form = verb.text.lower()
-            if form.startswith(DIRECTION_VERBS) and form not in PLACE_FORMS:
-                return ACC
-            if form in PLACE_FORMS or form.startswith(PLACE_VERBS):
-                return INS
+        verb = self._clause_verb(pos, tags)
+        form = verb.text.lower() if verb is not None else ""
+        if form and form.startswith(DIRECTION_VERBS) and form not in PLACE_FORMS:
+            return ACC
+        if form and (form in PLACE_FORMS or form.startswith(PLACE_VERBS)):
+            return INS
         return INS if word in ("mezi", "před") and noun is not None else None
 
     def _verb_case(self, pos: int, prev: Optional[_Word], tags: _Tags) -> Optional[str]:
         """The case a Czech verb gives a noun phrase at `pos`: the genitive after "dosáhnout", "bát se";
         the accusative after "na" with "vzpomínat", "čekat"."""
-        verbs = [v.text.lower() for v in self._clause_verbs(pos, tags)]
+        verb = self._clause_verb(pos, tags)
+        form = verb.text.lower() if verb is not None else ""
         if prev is not None and prev.upos == "ADP":
-            if prev.text.lower() == "na" and any(v.startswith(NA_ACCUSATIVE_VERBS) for v in verbs):
-                return ACC
-            return None
-        for form in verbs:
-            clitic = next((c for stem, c in GENITIVE_VERBS.items() if form.startswith(stem)), False)
-            if clitic is not False:
-                return GEN if clitic is None or self._clause_has(pos, tags, clitic) else None
-        return None
+            return ACC if prev.text.lower() == "na" and form and form.startswith(NA_ACCUSATIVE_VERBS) else None
+        clitic = next((c for stem, c in GENITIVE_VERBS.items() if form.startswith(stem)), False) if form else False
+        return GEN if clitic is None or (clitic and self._clause_has(pos, tags, clitic)) else None
 
     def _agrees_with_preposition(self, prep: _Word, noun: _Word) -> bool:
         case = _UD_CASES.get(noun.feats.get("Case"))

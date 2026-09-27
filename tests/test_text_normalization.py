@@ -360,6 +360,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "number-ends-sentence-after-preposition": ("cs", None, "Čekal na 2. Vlak přijel.", "Čekal na dva. Vlak přijel."),
     "roman-numbers-a-thing": ("cs", None, "Vyšel díl V. Kniha byla úspěšná.", "Vyšel díl pátý. Kniha byla úspěšná."),
     "initial-after-a-person": ("cs", None, "Autor V. Kovář napsal knihu.", "Autor V. Kovář napsal knihu."),
+    "nearest-verb-governs": ("cs", None, "Dosáhl cíle a obsadil 2. místo, postavil se a zpíval mezi 2 stromy.",
+                             "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
