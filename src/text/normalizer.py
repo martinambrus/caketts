@@ -572,8 +572,6 @@ class TextNormalizer:
     def _paragraph(self, text: str, heading: bool = False) -> str:
         if self._english:
             text = self._wrap_english(text)
-        if self._verses:
-            text = self._read_verses(text)
         spans = []
         for s in _SPAN_RE.finditer(text):
             bad = _unspeakable(s.group(2))
@@ -581,8 +579,11 @@ class TextNormalizer:
                 raise ValueError(f"{bad!r} in {s.group(0)!r}: spans are kept as written, so spell it out")
             spans.append(s.span())
         pattern = self._items_in_capitals if _all_capitals(text) else self._items
-        items = [m for m in pattern.finditer(text)
-                 if not any(s < m.end() and m.start() < e for s, e in spans)]
+        verses = list(self._verses.finditer(text)) if self._verses else []
+        items = sorted(verses + [m for m in pattern.finditer(text)
+                                 if not any(v.start() < m.end() and m.start() < v.end() for v in verses)],
+                       key=lambda m: m.start())
+        items = [m for m in items if not any(s < m.end() and m.start() < e for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
         out, pos, after_label = [], 0, -1
         for m in items:
@@ -616,27 +617,22 @@ class TextNormalizer:
                 pos = m.end()
         return "".join(out) + text[pos:]
 
-    def _read_verses(self, text: str) -> str:
+    def _verse(self, v: re.Match) -> str:
         """"Jan 3,16" -> "Jan tři, šestnáct", "Mt 5,3–12" -> "Mt pět, tři až dvanáct", for the books of
         book_config["verse_references"]."""
-        spans = [s.span() for s in _SPAN_RE.finditer(text)]
-
         def number(digits: str) -> str:
             return self._cardinal(int(digits), *self._label(int(digits)))
 
-        def read(v: re.Match) -> str:
-            if any(s < v.end() and v.start() < e for s, e in spans):
-                return v.group(0)
-            words = f"{v['book']} {number(v['chapter'])}, {number(v['verse'])}"
-            if v["last"]:
-                words += f" {RANGE_WORD} {number(v['last'])}"
-            if v["lastverse"]:
-                words += f", {number(v['lastverse'])}"
-            return words
-
-        return self._verses.sub(read, text)
+        words = f"{v['book']} {number(v['chapter'])}, {number(v['verse'])}"
+        if v["last"]:
+            words += f" {RANGE_WORD} {number(v['last'])}"
+        if v["lastverse"]:
+            words += f", {number(v['lastverse'])}"
+        return words
 
     def _needs_tags(self, m: re.Match) -> bool:
+        if m.re is self._verses:
+            return False
         if m.lastgroup == "abbreviation":
             return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
         return m.lastgroup not in ("isodate", "date", "dotted", "commas", "sign", "slash", "dash", "ellipsis")
@@ -666,6 +662,8 @@ class TextNormalizer:
     def _resolve(self, m: re.Match, text: str, tags: _Tags, after_label: bool, heading: bool) -> Tuple[int, str]:
         """(start of the replaced text, replacement) for one item."""
         kind, start, end = m.lastgroup, m.start(), m.end()
+        if m.re is self._verses:
+            return start, self._verse(m)
         if kind == "dash":
             if _NUMBER_BEFORE.search(text[:start].rstrip()) and _NUMBER_AFTER.match(text[end:].lstrip()):
                 return start, _spaced(text, start, end, RANGE_WORD)  # "10:00–12:00", "XIX.–XX. století"

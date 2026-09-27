@@ -371,6 +371,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                              "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
     "vzdalit-is-not-vzdat": ("cs", None, "Vzdaluje se 2. kolo, vzdálilo se 3. kolo.",
                              "Vzdaluje se druhé kolo, vzdálilo se třetí kolo."),
+    "verse-references-in-capitals": ("cs", {"verse_references": ["JAN"]}, "VIZ JAN 3,16. VÁHA 5 G.",
+                                     "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
