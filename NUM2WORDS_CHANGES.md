@@ -87,7 +87,7 @@ These changes fall outside the notebook grid:
 These changes fall outside the grid:
 
 - **0** now declines like the Slovak one.
-- **Decimals:** jeden celých pět → **jedna celá pět desetin**; tři celých čtrnáct → **tři celé čtrnáct setin**; nula celých → **nula celá** (IJP chapter 791).
+- **Decimals:** jeden celých pět → **jedna celá pět desetin**; tři celých čtrnáct → **tři celé čtrnáct setin**; nula celých → **nula celá** (IJP chapter 791). After 11–19, also above 100: **sto dvanáct celých**.
 
 ---
 

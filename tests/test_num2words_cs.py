@@ -342,6 +342,8 @@ def test_mixed_ordinal_style_is_the_default():
     (0.26, "nula celá dvacet šest setin"),                                        # HRD
     ("2,5", "dvě celé pět desetin"),
     (-2.5, "mínus dvě celé pět desetin"),
+    (111.5, "sto jedenáct celých pět desetin"),
+    (112.5, "sto dvanáct celých pět desetin"),
 ])
 def test_decimals(x, expected):
     assert w(x) == expected

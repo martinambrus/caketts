@@ -376,7 +376,7 @@ def _count_with_noun(v: int, forms: Tuple[str, str, str], agreement: bool) -> st
     if v == 0:
         return f"nula {forms[0]}"  # nula celá (IJP)
     last2 = v % 100
-    tail = last2 % 10 if last2 > 20 or v > 100 else last2
+    tail = last2 if last2 < 20 else last2 % 10
     construction = "agreement" if agreement else "genitive"
     num = int_to_cardinal(v, "feminine", "nominative", construction=construction)
     if tail == 1 and (v == 1 or agreement):
