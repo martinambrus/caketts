@@ -869,9 +869,10 @@ class TextNormalizer:
         if head is None:
             # "Vyšel díl V. Kniha byla…", "…V. Nové vydání…": after a thing, not a person, and before a sentence
             # whose subject is a noun, V is a numeral
-            subject = tags.head_after(end) if nxt is not None and nxt.upos in ("NOUN", "ADJ", "DET") else None
+            subject = tags.head_after(end) if nxt is not None and nxt.upos in ("NOUN", "ADJ", "DET") else nxt
             numbers_a_thing = (prev is not None and prev.upos == "NOUN" and prev.feats.get("Animacy") != "Anim"
-                               and subject is not None and subject.upos == "NOUN" and self._verb_follows(end, tags))
+                               and subject is not None and subject.upos in ("NOUN", "PRON")
+                               and self._verb_follows(end, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
                     or (len(numeral) == 1 and (numeral not in "IVX"
                                                or (nxt and nxt.text[:1].isupper() and not numbers_a_thing)))):
@@ -1419,10 +1420,12 @@ class TextNormalizer:
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
         """Whether the noun phrase after `pos` is followed by a verb, as the subject of a new sentence;
-        adverbs, particles and clitics may come between: "Malé děti se potom vrátily"."""
+        adverbs, particles and clitics may come between: "Malé děti se potom vrátily"; or a pronoun: "On uspěl"."""
         head = tags.head_after(pos)
         if head is None:
-            return False
+            head = tags.after(pos)
+            if head is None or head.upos != "PRON":
+                return False
         i = bisect.bisect_left(tags.starts, head.end)
         for w in tags.words[i:]:
             if w.upos in ("VERB", "AUX"):
