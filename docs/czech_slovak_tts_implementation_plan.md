@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**750 tests:** 102 for the TTS components, 104 for num2words, 540 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**756 tests:** 102 for the TTS components, 104 for num2words, 546 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -456,7 +456,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 540 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 546 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -783,6 +783,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                              "JABLKA, HRUŠKY a tak dále LEŽELY NA STOLE. DNE pátého června ODEŠEL DOMŮ."),
     "capitals-list-then-verb": ("cs", None, "PŘINESL JABLKA, HRUŠKY ATD. ODEŠEL. KDYŽ PŘIŠEL, KAREL IV. ZALOŽIL UNIVERZITU.",
                                 "PŘINESL JABLKA, HRUŠKY a tak dále. ODEŠEL. KDYŽ PŘIŠEL, KAREL čtvrtý ZALOŽIL UNIVERZITU."),
+    "capitals-date-and-amount-in-own-clause": ("cs", None, "PŘIŠEL A DNE 5. 6. ODEŠEL. KDYŽ PŘIŠEL, ZA 5 MIN. ODEŠEL.",
+                                               "PŘIŠEL A DNE pátého června ODEŠEL. KDYŽ PŘIŠEL, ZA pět minut ODEŠEL."),
     "capitals-page": ("cs", None, "NA STR. 45 SE PÍŠE.", "NA straně čtyřicet pět SE PÍŠE."),
     "capitals-units": ("cs", None, "CENA JE 5 KČ, JEL 50 KM/H A MĚŘÍ 5 CM.",
                        "CENA JE pět korun, JEL padesát kilometrů za hodinu A MĚŘÍ pět centimetrů."),
@@ -897,6 +899,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "comma-list-glued-to-word": ("cs", "Vyber 1,2,3G.", "Vyber jedna, dva, tři G.", "glued"),
     "range-glued-to-word": ("cs", "Váží 5–10G.", "Váží pět až deset G.", "glued"),
     "decimal-comma-before-noun": ("cs", "Přišlo 2,000 lidí.", "Přišlo dva lidí.", "not thousands"),
+    "decimal-comma-before-scale": ("cs", "Stálo to 2,000 tis. Kč.", "Stálo to dva tisíce korun.", "not thousands"),
     "decimal-comma-in-unit-range": ("cs", "Ujel 1,234–2 km.", "Ujel jedna celá dvě stě třicet čtyři tisícin až dva kilometry.",
                                     "not thousands"),
     "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
@@ -911,6 +914,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
+    "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -3854,7 +3858,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 749 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 755 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
