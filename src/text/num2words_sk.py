@@ -89,6 +89,7 @@ _M = lambda s: ((s, s + "a", s + "u", s, s + "om", s + "e"),
 _F = lambda s, gpl: ((s + "a", s + "y", s + "e", s + "u", s + "ou", s + "e"),
                      (s + "y", gpl, s + "ám", s + "y", s + "ami", s + "ách"))
 SCALES = [
+    (30, "masculine", *_M("kvintilión")),
     (27, "feminine", *_F("kvadriliard", "kvadriliárd")),
     (24, "masculine", *_M("kvadrilión")),
     (21, "feminine", *_F("triliard", "triliárd")),
@@ -308,6 +309,8 @@ def _ordinal_lemmas(n: int, codified: bool) -> Tuple[str, List[str]]:
     parts: List[str] = []
     for exp, sgender, sg, pl in SCALES:
         count, rest = divmod(rest, 10 ** exp)
+        if count >= 1000:
+            raise ValueError("number too large")
         if count and rest == 0:  # the scale group itself is the ordinal: miliónty, dvojmiliardtý
             base = sg[N][:-1] if sgender == "feminine" else sg[N]
             lemma = base + ("tý" if base.endswith("d") else "ty")  # miliardtý / miliónty
@@ -362,17 +365,19 @@ DENOMINATORS = {  # (1, 2-4, 5+ and compounds)
 
 
 def _count_with_noun(v: int, forms: Tuple[str, str, str]) -> str:
-    """Feminine count + noun in the nominative: jedna celá / dve celé / päť celých."""
+    """Feminine count + noun in the nominative: jedna celá / dve celé / päť celých / stodve celé."""
     if v == 0:
         return f"nula {forms[2]}"
     if v == 1:
         return f"jedna {forms[0]}"
     if v in (2, 3, 4):
         return f"{_simple(v, N, 'feminine', 'inanimate', 'genitive', False)} {forms[1]}"
-    return f"{int_to_cardinal(v, 'feminine')} {forms[2]}"
+    # a bare 2-4 after sto-/tisíc- agrees like a simple 2-4: stodve celé, like "stodve knihy"
+    return f"{int_to_cardinal(v, 'feminine')} {forms[1] if v % 100 in (2, 3, 4) else forms[2]}"
 
 
-def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **_) -> str:
+def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", animacy: str = "inanimate",
+                      construction: str = "genitive", declined: bool = True) -> str:
     """
     Decimal numbers are read in the nominative (no source covers oblique cases); the integer
     part agrees with the feminine "celá" and the fraction takes desatina/stotina/tisícina.
@@ -382,11 +387,11 @@ def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **
     except InvalidOperation:
         raise ValueError(f"not a number: {x!r}")
     sign = MINUS + " " if d < 0 else ""
-    d = abs(d)
+    d = d.copy_abs()  # abs() would round to the 28-digit context precision
     whole = int(d)
     frac = format(d, "f").split(".")[1].rstrip("0") if "." in format(d, "f") else ""
     if not frac:
-        return sign + int_to_cardinal(whole, gender, case)
+        return sign + int_to_cardinal(whole, gender, case, animacy, construction, declined)
     if len(frac) > 6:
         digits = " ".join(int_to_cardinal(int(ch), "feminine") for ch in frac)
         return f"{sign}{_count_with_noun(whole, ('celá', 'celé', 'celých'))} {digits}"
@@ -413,10 +418,11 @@ class Num2Word_SK:
 
     def to_cardinal(self, number, **kwargs) -> str:
         o = _options(kwargs)
+        args = (o["gender"], o["case"], o["animacy"], kwargs.get("construction", "genitive"),
+                kwargs.get("declined", True))
         if isinstance(number, (float, Decimal)) or (isinstance(number, str) and any(s in number for s in ".,")):
-            return float_to_cardinal(number, o["gender"], o["case"])
-        return int_to_cardinal(int(number), o["gender"], o["case"], o["animacy"],
-                               kwargs.get("construction", "genitive"), kwargs.get("declined", True))
+            return float_to_cardinal(number, *args)
+        return int_to_cardinal(int(number), *args)
 
     def to_ordinal(self, number, **kwargs) -> str:
         o = _options(kwargs)

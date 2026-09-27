@@ -8,6 +8,7 @@ where the sources are silent or allow variants (test_native_review_decisions).
 Run: pytest test_num2words_sk.py
 """
 import re
+from decimal import Decimal
 
 import pytest
 
@@ -216,9 +217,39 @@ def test_compound_ordinals_keep_cardinal_prefixes():
     ("68,50", "šesťdesiatosem celých päť desatín"),
     (3.14, "tri celé štrnásť stotín"),
     (-2.5, "mínus dve celé päť desatín"),
+    (102.3, "stodve celé tri desatiny"),                             # like "stodve knihy" (native review)
+    (0.102, "nula celých stodve tisíciny"),
 ])
 def test_decimals(x, expected):
     assert w(x) == expected
+
+
+def test_long_decimals_keep_every_digit():
+    digits = "14159265358979323846264338327950288"
+    names = ["nula", "jedna", "dve", "tri", "štyri", "päť", "šesť", "sedem", "osem", "deväť"]
+    assert w("3," + digits) == "tri celé " + " ".join(names[int(d)] for d in digits)
+    whole = 12345678901234567890123456789
+    assert w(f"{whole},5") == w(whole, gender="feminine") + " celých päť desatín"
+
+
+def test_range_up_to_10_to_the_33():
+    assert w(10**30) == "kvintilión"
+    assert w(10**30, case="genitive") == "kvintilióna"
+    assert w(2 * 10**30) == "dva kvintilióny"
+    assert w(10**30, to="ordinal") == "kvintiliónty"
+    assert w(10**33 - 1) == (
+        "deväťstodeväťdesiatdeväť kvintiliónov deväťstodeväťdesiatdeväť kvadriliárd "
+        "deväťstodeväťdesiatdeväť kvadriliónov deväťstodeväťdesiatdeväť triliárd "
+        "deväťstodeväťdesiatdeväť triliónov deväťstodeväťdesiatdeväť biliárd "
+        "deväťstodeväťdesiatdeväť biliónov deväťstodeväťdesiatdeväť miliárd "
+        "deväťstodeväťdesiatdeväť miliónov deväťstodeväťdesiatdeväťtisícdeväťstodeväťdesiatdeväť")
+    with pytest.raises(ValueError):
+        w(10**33)
+
+
+def test_integer_values_keep_every_option():
+    assert w(2.0, animacy="personal") == "dvaja"
+    assert w(Decimal("22"), case="dative", declined=False) == "dvadsaťdva"
 
 
 # ---------------------------------------------------------------- API
@@ -233,3 +264,5 @@ def test_api():
         w(5, gender="plural")
     with pytest.raises(ValueError):
         w(5, to="fraction")
+    with pytest.raises(ValueError):
+        w(10**33, to="ordinal")                                  # as the cardinal

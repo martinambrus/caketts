@@ -7,7 +7,7 @@ Both modules were rewritten from published grammar rather than patched:
 - **Slovak sources:** Morfológia slovenského jazyka (1966), the Pravidlá slovenského pravopisu (1991 and 1998, quoted by Jarošová 2021), Navrátil (2003), Encyclopaedia Beliana, and language columns by JÚĽŠ SAV linguists.
 - **Czech sources:** the Internetová jazyková příručka of ÚJČ AV ČR (IJP), Czech Wikipedia, Nový encyklopedický slovník češtiny, Český rozhlas and the National Library's answer service.
 
-Every expected value in the test suites is a form quoted from one of these sources, and each test names its source. Where the sources were silent or allowed variants, you decided in the review of 25 September (§4). There are 94 tests: 44 Slovak and 50 Czech.
+Every expected value in the test suites is a form quoted from one of these sources, and each test names its source. Where the sources were silent or allowed variants, you decided in the review of 25 September (§4). There are 104 tests: 49 Slovak and 55 Czech.
 
 The main problem in v1 was the same in both languages. Wherever a cardinal had to decline, v1 produced an **ordinal** form: 21 G "dvadsiatehojedného" / "dvacátéhojednoho", 100 G "stého", 1000 G "tisíceho" / "tisícího". Czech also had wrong spelling on top of that: words were run together ("dvoutisícdvacetčtyři" for 2024) and 2000 was "dvoutisíc".
 
@@ -62,7 +62,8 @@ These changes fall outside the notebook grid:
 - **22 feminine:** dvadsaťdve → dvadsaťdva. MSJ p. 326: "jeden a dva má pri všetkých podstatných menách mužský tvar".
 - **1000th feminine / neuter:** tisícia / tisície → tisíca / tisíce (SSSJ, quoted by Šrámeková 2023).
 - **0** now declines: nula, nuly, nule, nulu, nulou.
-- **Decimals:** jeden celých päť → **jedna celá päť desatín**; tri celých štrnásť → **tri celé štrnásť stotín** (Duchková, JÚĽŠ).
+- **Decimals:** jeden celých päť → **jedna celá päť desatín**; tri celých štrnásť → **tri celé štrnásť stotín** (Duchková, JÚĽŠ). After *sto-* or *tisíc-* and a bare 2–4, as in *stodve knihy*: **stodve celé**.
+- **Range:** numbers go up to 10³³ − 1 (*kvintilión*), as in the Slovak module of the upstream num2words library.
 
 ---
 
@@ -87,7 +88,8 @@ These changes fall outside the notebook grid:
 These changes fall outside the grid:
 
 - **0** now declines like the Slovak one.
-- **Decimals:** jeden celých pět → **jedna celá pět desetin**; tři celých čtrnáct → **tři celé čtrnáct setin**; nula celých → **nula celá** (IJP chapter 791).
+- **Decimals:** jeden celých pět → **jedna celá pět desetin**; tři celých čtrnáct → **tři celé čtrnáct setin**; nula celých → **nula celá** (IJP chapter 791). After 11–19, also above 100: **sto dvanáct celých**.
+- **Range:** numbers go up to 10³³ − 1 (*kvadrilion*, *kvadriliarda*, *kvintilion*), as in the Czech module of the upstream num2words library.
 
 ---
 

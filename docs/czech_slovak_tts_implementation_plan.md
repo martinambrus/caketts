@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**580 tests:** 102 for the TTS components, 94 for num2words, 380 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**590 tests:** 102 for the TTS components, 104 for num2words, 380 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -441,7 +441,7 @@ if __name__ == "__main__":
 
 The num2words suites ship with the reference implementation:
 
-- `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 94 tests. Each expectation is quoted from a named source or was decided in native review.
+- `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
 Normalizer tests (tested, 380 tests; the first run downloads the Stanza models, 250 MB):
@@ -3689,7 +3689,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 579 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 589 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
@@ -3702,8 +3702,8 @@ uv run pytest tests/ -q                 # + end-to-end synthetic training test, 
 | test_model_components.py | 22 | Defects 1 and 3; MAS equals exhaustive search; decoder overfits one utterance; LayerNorm crash; exact padding invariance |
 | test_eval_and_discriminator.py | 12 | SSL discriminator gradients and freezing; tempo labels; pace metrics; ASR failure shapes; per-token retry scaling |
 | test_integration.py | 1 | The whole model learns alignment, durations and content on a synthetic language, and keeps every token |
-| test_num2words_sk.py | 44 | Slovak numerals; expectations quoted from MSJ, PSP, Navrátil, Beliana or JÚĽŠ columns, or decided in native review; no ordinal forms in cardinals |
-| test_num2words_cs.py | 50 | Czech numerals; expectations quoted from IJP, cs.wikipedia, ČRo or NK; every output word is a dictionary word |
+| test_num2words_sk.py | 49 | Slovak numerals; expectations quoted from MSJ, PSP, Navrátil, Beliana or JÚĽŠ columns, or decided in native review; no ordinal forms in cardinals |
+| test_num2words_cs.py | 55 | Czech numerals; expectations quoted from IJP, cs.wikipedia, ČRo or NK; every output word is a dictionary word |
 
 ### End-to-end test (tested)
 

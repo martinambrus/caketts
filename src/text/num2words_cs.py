@@ -99,6 +99,9 @@ _ZENA = lambda s: ((s + "a", s + "y", s + "ě", s + "u", s + "ou", s + "ě"),
 TISIC = (("tisíc", "tisíce", "tisíci", "tisíc", "tisícem", "tisíci"),
          ("tisíce", "tisíc", "tisícům", "tisíce", "tisíci", "tisících"))
 SCALES = [  # (exponent, gender, sg, pl, ordinal lemma)
+    (30, "masculine", *_HRAD("kvintilion"), "kvintiliontý"),
+    (27, "feminine", *_ZENA("kvadriliard"), "kvadriliardtý"),
+    (24, "masculine", *_HRAD("kvadrilion"), "kvadriliontý"),
     (21, "feminine", *_ZENA("triliard"), "triliardtý"),
     (18, "masculine", *_HRAD("trilion"), "triliontý"),
     (15, "feminine", *_ZENA("biliard"), "biliardtý"),
@@ -313,11 +316,10 @@ def decline_ordinal(lemma: str, c: int, gender: str, animacy: str, plural: bool)
     return stem + e
 
 
-def _ordinal_parts(n: int, ordinal_style: str, inverted: bool) -> Tuple[List[str], List[str]]:
-    """(cardinal words kept as they are, ordinal lemmas to decline)."""
+def _ordinal_parts(n: int, ordinal_style: str, inverted: bool) -> List[Tuple[str, bool]]:
+    """The words in order, each with True if it is an ordinal lemma to decline."""
     comps = _components(n)
-    card: List[str] = []
-    lemmas: List[str] = []
+    parts: List[Tuple[str, bool]] = []
     for k, (value, scale) in enumerate(comps):
         last = k == len(comps) - 1
         mixed_prefix = ordinal_style == "mixed" and not last
@@ -325,26 +327,26 @@ def _ordinal_parts(n: int, ordinal_style: str, inverted: bool) -> Tuple[List[str
             sg, pl, sgender = scale
             lemma = [s for s in SCALES if s[2] is sg][0][4]
             if mixed_prefix:
-                card.append(_count_noun(value, sg, pl, sgender, N, "genitive"))
+                parts.append((_count_noun(value, sg, pl, sgender, N, "genitive"), False))
             elif value == 1:
-                lemmas.append(lemma)
+                parts.append((lemma, True))
             elif value < 100 or value == 100:
-                lemmas.append(_combining(value) + lemma)
+                parts.append((_combining(value) + lemma, True))
             else:  # 345 000th and similar: cardinal count + ordinal scale word
-                card.append(_below_1000(value, N, sgender, "inanimate", "genitive"))
-                lemmas.append(lemma)
+                parts.append((_below_1000(value, N, sgender, "inanimate", "genitive"), False))
+                parts.append((lemma, True))
         elif value >= 100:
             if mixed_prefix:
-                card.append(HUNDREDS[value // 100][N])
+                parts.append((HUNDREDS[value // 100][N], False))
             else:
-                lemmas.append(ORDINALS[value])
+                parts.append((ORDINALS[value], True))
         elif value in ORDINALS:
-            lemmas.append(ORDINALS[value])
+            parts.append((ORDINALS[value], True))
         elif inverted:  # jednadvacátý, pětadvacátý
-            lemmas.append(INVERTED_UNIT[value % 10] + "a" + ORDINALS[value - value % 10])
+            parts.append((INVERTED_UNIT[value % 10] + "a" + ORDINALS[value - value % 10], True))
         else:
-            lemmas += [ORDINALS[value - value % 10], ORDINALS[value % 10]]
-    return card, lemmas
+            parts += [(ORDINALS[value - value % 10], True), (ORDINALS[value % 10], True)]
+    return parts
 
 
 def int_to_ordinal(n: int, gender: str = "masculine", case: str = "nominative",
@@ -356,8 +358,8 @@ def int_to_ordinal(n: int, gender: str = "masculine", case: str = "nominative",
     c = _idx(case)
     if n == 0:
         return decline_ordinal(ORDINALS[0], c, gender, animacy, plural)
-    card, lemmas = _ordinal_parts(n, ordinal_style, inverted)
-    return " ".join(card + [decline_ordinal(l, c, gender, animacy, plural) for l in lemmas])
+    parts = _ordinal_parts(n, ordinal_style, inverted)
+    return " ".join(decline_ordinal(w, c, gender, animacy, plural) if ordinal else w for w, ordinal in parts)
 
 
 # --------------------------------------------------------------------------------------
@@ -376,7 +378,7 @@ def _count_with_noun(v: int, forms: Tuple[str, str, str], agreement: bool) -> st
     if v == 0:
         return f"nula {forms[0]}"  # nula celá (IJP)
     last2 = v % 100
-    tail = last2 % 10 if last2 > 20 or v > 100 else last2
+    tail = last2 if last2 < 20 else last2 % 10
     construction = "agreement" if agreement else "genitive"
     num = int_to_cardinal(v, "feminine", "nominative", construction=construction)
     if tail == 1 and (v == 1 or agreement):
@@ -386,19 +388,20 @@ def _count_with_noun(v: int, forms: Tuple[str, str, str], agreement: bool) -> st
     return f"{num} {forms[2]}"
 
 
-def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", **_) -> str:
+def float_to_cardinal(x, gender: str = "masculine", case: str = "nominative", animacy: str = "inanimate",
+                      construction: str = "genitive", oblique_style: str = "auto") -> str:
     """Decimals are read in the nominative; "celá" agrees with the integer part."""
     try:
         d = Decimal(str(x).replace(",", "."))
     except InvalidOperation:
         raise ValueError(f"not a number: {x!r}")
     sign = MINUS + " " if d < 0 else ""
-    d = abs(d)
+    d = d.copy_abs()  # abs() would round to the 28-digit context precision
     whole = int(d)
     text = format(d, "f")
     frac = text.split(".")[1].rstrip("0") if "." in text else ""
     if not frac:
-        return sign + int_to_cardinal(whole, gender, case)
+        return sign + int_to_cardinal(whole, gender, case, animacy, construction, oblique_style)
     integer = _count_with_noun(whole, ("celá", "celé", "celých"), agreement=True)
     if len(frac) > 6:
         return f"{sign}{integer} " + " ".join(int_to_cardinal(int(ch), "feminine") for ch in frac)
@@ -424,10 +427,11 @@ class Num2Word_CS:
 
     def to_cardinal(self, number, **kwargs) -> str:
         o = _options(kwargs)
+        args = (o["gender"], o["case"], o["animacy"], kwargs.get("construction", "genitive"),
+                kwargs.get("oblique_style", "auto"))
         if isinstance(number, (float, Decimal)) or (isinstance(number, str) and any(s in number for s in ".,")):
-            return float_to_cardinal(number, o["gender"], o["case"])
-        return int_to_cardinal(int(number), o["gender"], o["case"], o["animacy"],
-                               kwargs.get("construction", "genitive"), kwargs.get("oblique_style", "auto"))
+            return float_to_cardinal(number, *args)
+        return int_to_cardinal(int(number), *args)
 
     def to_ordinal(self, number, **kwargs) -> str:
         o = _options(kwargs)

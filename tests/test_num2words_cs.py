@@ -8,6 +8,7 @@ dictionary entries; WIKI-ČČ / WIKI-ŘČ = cs.wikipedia "České číslovky" / 
 Run: pytest test_num2words_cs.py
 """
 import re
+from decimal import Decimal
 
 import pytest
 
@@ -296,6 +297,7 @@ def test_compound_ordinals_every_part_ordinal():
     assert w(2345, **a) == "dvoutisící třístý čtyřicátý pátý"                    # WIKI-ČČ
     assert w(1520, **a) == "tisící pětistý dvacátý"                              # IJP:tisíc
     assert w(5205, **a) == "pětitisící dvoustý pátý"                             # CHL (Gebauer)
+    assert w(1_345_000, **a) == "miliontý tři sta čtyřicet pět tisící"           # words stay in order
     assert w(25, to="ordinal", inverted=True) == "pětadvacátý"                   # IJP-791
     assert w(21, to="ordinal", inverted=True) == "jednadvacátý"                  # NESČ
 
@@ -342,9 +344,42 @@ def test_mixed_ordinal_style_is_the_default():
     (0.26, "nula celá dvacet šest setin"),                                        # HRD
     ("2,5", "dvě celé pět desetin"),
     (-2.5, "mínus dvě celé pět desetin"),
+    (111.5, "sto jedenáct celých pět desetin"),
+    (112.5, "sto dvanáct celých pět desetin"),
 ])
 def test_decimals(x, expected):
     assert w(x) == expected
+
+
+def test_long_decimals_keep_every_digit():
+    digits = "14159265358979323846264338327950288"
+    names = ["nula", "jedna", "dvě", "tři", "čtyři", "pět", "šest", "sedm", "osm", "devět"]
+    assert w("3," + digits) == "tři celé " + " ".join(names[int(d)] for d in digits)
+
+
+def test_range_up_to_10_to_the_33():
+    assert w(10**24) == "kvadrilion"
+    assert w(2 * 10**27) == "dvě kvadriliardy"
+    assert w(10**30) == "kvintilion"
+    assert w(10**30, case="genitive") == "kvintilionu"
+    assert w(10**30, to="ordinal") == "kvintiliontý"
+    assert w(10**33 - 1) == (
+        "devět set devadesát devět kvintilionů devět set devadesát devět kvadriliard "
+        "devět set devadesát devět kvadrilionů devět set devadesát devět triliard "
+        "devět set devadesát devět trilionů devět set devadesát devět biliard "
+        "devět set devadesát devět bilionů devět set devadesát devět miliard "
+        "devět set devadesát devět milionů devět set devadesát devět tisíc "
+        "devět set devadesát devět")
+    whole = 12345678901234567890123456789
+    assert w(f"{whole},5") == w(whole, gender="feminine", construction="agreement") + " celých pět desetin"
+    for kind in ("cardinal", "ordinal"):
+        with pytest.raises(ValueError):
+            w(10**33, to=kind)
+
+
+def test_integer_values_keep_every_option():
+    assert w(1.0, case="accusative", animacy="animate") == "jednoho"
+    assert w(Decimal("1847"), case="genitive", oblique_style="full") == "tisíce osmi set čtyřiceti sedmi"
 
 
 # ---------------------------------------------------------------- API
