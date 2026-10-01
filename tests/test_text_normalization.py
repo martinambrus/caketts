@@ -364,6 +364,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                  "Spočítej tři krát čtyři dolary a tři krát plus čtyři dolary."),
     "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
                                            "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
+    "range-with-az": ("cs", None, "Při 1 až 2 °C voda zamrzne. Stálo to $5 až 10.",
+                      "Při jednom až dvou stupních Celsia voda zamrzne. Stálo to pět až deset dolarů."),
+    "sk-range-with-az": ("sk", None, "Pri 1 až 2 °C voda zamrzne.", "Pri jednom až dvoch stupňoch Celzia voda zamrzne."),
+    "az-before-time-or-word": ("cs", None, "Otevřeno 8 až 9.30 hod. a 8 až 9:30. Opakuj to 2 až 3krát, byl to 2 až 3letý "
+                                           "chlapec a zlepšení nastane 5 až 6. den.",
+                               "Otevřeno osm až devět třicet a osm až devět třicet. Opakuj to dvě až třikrát, byl to dva až "
+                               "tříletý chlapec a zlepšení nastane pět až šestý den."),
     "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
     "comma-list-before-noun": ("cs", None, "Šel s 1,2,3 přáteli.", "Šel s jedním, dvěma, třemi přáteli."),
     "comma-list-with-unit": ("cs", None, "Zvol 1,2,3 kg nebo 1,2,3 Kč, šel s 1,2,3 kg.",
