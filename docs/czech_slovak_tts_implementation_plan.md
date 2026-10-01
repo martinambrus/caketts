@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**914 tests:** 102 for the TTS components, 104 for num2words, 704 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**922 tests:** 102 for the TTS components, 104 for num2words, 712 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -472,7 +472,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 704 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 712 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -951,6 +951,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhne pěti bodů právě Petr. Zúčastní se padesát lidí z Prahy."),
     "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
                                                     "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
+    # CAC tags a neuter in -í after 5 nominative singular, but it can only be a genitive plural there
+    "one-form-neuter-after-five": ("cs", None, "Dosáhl 5 vítězství. Bál se 5 rozhodnutí. Má 5 stavení.",
+                                   "Dosáhl pěti vítězství. Bál se pěti rozhodnutí. Má pět stavení."),
     "asking-verbs-take-the-genitive": ("cs", None, "Ptal se 5 mužů. Chtěl se zeptat 5 lidí. Ptal se na 2. kapitolu.",
                                        "Ptal se pěti mužů. Chtěl se zeptat pěti lidí. Ptal se na druhou kapitolu."),
     "genitive-verb-plain-subject-conjunct": ("cs", None, "Cíle dosáhla Eva a 5 žen. Cíle dosáhl Jiří a 5 mužů. "
@@ -986,6 +989,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "unit-shared-across-a-link": ("cs", None, "Mělo to 1 nebo 2 %. Od 1 do 2 h. Bylo od 1 do 2 hodin. Mezi 1 a 2 h.",
                                   "Mělo to jedno nebo dvě procenta. Od jedné do dvou hodin. Bylo od jedné do dvou hodin. "
                                   "Mezi jednou a dvěma hodinami."),
+    "amount-after-approximator-opening-a-clause": ("cs", None, "Experimentoval s 2 kg a asi 3 kg zůstaly.",
+                                                   "Experimentoval se dvěma kilogramy a asi tři kilogramy zůstaly."),
+    "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
+                                                 "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
     "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),
     "one-sharing-a-neuter-plural": ("cs", None, "Má 1 nebo 2 děti. Měl 1 nebo 2 oči zavřené.",
                                     "Má jedno nebo dvě děti. Měl jedno nebo dvě oči zavřené."),
@@ -1074,6 +1081,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pěti bodů.", "read as the object"),
     "genitive-verb-present-tense-concerning": ("cs", "Týká se 50 lidí.", "Týká se padesáti lidí.", "read as the object"),
     "genitive-verb-present-tense-taking-part": ("cs", "Zúčastní se 50 lidí.", "Zúčastní se padesát lidí.", "read as the subject"),
+    # a verbal noun names an event, which is what one takes part in
+    "genitive-verb-present-tense-taking-part-in-events": ("cs", "Zúčastní se 50 jednání.", "Zúčastní se padesáti jednání.",
+                                                          "read as the object"),
     "genitive-verb-present-tense-time": ("cs", "Bojí se 5 minut.", "Bojí se pěti minut.", "duration"),
     "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pěti bodů.",
                                                       "subject or object"),
@@ -4060,7 +4070,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 913 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 921 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
