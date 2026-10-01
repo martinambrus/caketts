@@ -827,13 +827,13 @@ class TextNormalizer:
         elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
             words = f" {RANGE_WORD} ".join(
                 self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"],
-                              comma=False)
+                              comma=False, verb_log=end_ == "high")
                 + (f" {self._per(m[end_ + 'scaleper'])}" if m[end_ + "scaleper"] else "")
                 for end_ in ("low", "high"))
             self._check_comma(text, (start, end), words, m["low"], m["high"])
         elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
             words = f" {RANGE_WORD} ".join(
-                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end, comma=False)
+                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end, comma=False, verb_log=end_ == "high")
                 + (f" {self._per(m[end_ + 'per'])}" if m[end_ + "per"] else "")
                 for end_ in ("low", "high"))
             self._check_comma(text, (start, end), words, m["low"], m["high"])
@@ -847,14 +847,16 @@ class TextNormalizer:
             scale = (m["moneyscale"] or m["highmoneyscale"] or "").lower() or None
             if m["lowmoneyscale"] and m["lowmoneyscale"].lower() != scale:  # "$500 tis.–$1 mil."
                 words = f" {RANGE_WORD} ".join(
-                    self._measure(amount, amount_scale, start, tags, text, end, scale_unit=m["symbol"])
-                    for amount, amount_scale in ((sign + price, m["lowmoneyscale"]),
-                                                 ((m["highsign"] or "") + _plain_price(m["pricehigh"]), scale)))
+                    self._measure(amount, amount_scale, start, tags, text, end, scale_unit=m["symbol"], verb_log=high)
+                    for amount, amount_scale, high in (
+                            (sign + price, m["lowmoneyscale"], False),
+                            ((m["highsign"] or "") + _plain_price(m["pricehigh"]), scale, True)))
             elif m["lowmoneyper"]:  # "$4/kg–$5/kg"
                 words = f" {RANGE_WORD} ".join(
-                    f"{self._measure(amount, m['symbol'], start, tags, text, end)} {self._per(per)}"
-                    for amount, per in ((sign + price, m["lowmoneyper"]),
-                                        ((m["highpersign"] or "") + _plain_price(m["highprice"]), m["highmoneyper"])))
+                    f"{self._measure(amount, m['symbol'], start, tags, text, end, verb_log=high)} {self._per(per)}"
+                    for amount, per, high in (
+                            (sign + price, m["lowmoneyper"], False),
+                            ((m["highpersign"] or "") + _plain_price(m["highprice"]), m["highmoneyper"], True)))
             elif m["pricehigh"]:  # "$5–10" -> "pět až deset dolarů"
                 words = self._range(m, sign + price, (m["highsign"] or "") + _plain_price(m["pricehigh"]),
                                     None if scale else m["symbol"],
@@ -1004,7 +1006,8 @@ class TextNormalizer:
         if unit or scale:
             high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit, comma=False)
             if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:  # "1,50–2,50 €"
-                words = f"{self._measure(low_amount, unit, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
+                low_words = self._measure(low_amount, unit, start, tags, text, end, comma=False, verb_log=False)
+                words = f"{low_words} {RANGE_WORD} {high}"
             elif scale and scale.lower() == "tis" and self.language == "sk":  # "dvetisíc až tritisíc": one word each
                 words = f"{self._measure(low_amount, scale, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
             else:
@@ -1025,10 +1028,13 @@ class TextNormalizer:
         return words + (f" {self._per(per)}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
-                 whole: bool = False, scale_unit: Optional[str] = None, comma: bool = True) -> str:
-        """comma: log a "2,000" read as a decimal (a range checks both ends itself)."""
+                 whole: bool = False, scale_unit: Optional[str] = None, comma: bool = True,
+                 verb_log: bool = True) -> str:
+        """comma: log a "2,000" read as a decimal (a range checks both ends itself); verb_log: log a genitive
+        verb's doubt (a range logs it at its upper end only)."""
         value, integer, fraction = _parse(amount)
-        case = self._governing_case(start, tags) or self._unit_verb_case(amount, unit, start, end, text, tags)
+        case = self._governing_case(start, tags) or self._unit_verb_case(amount, unit, start, end, text, tags,
+                                                                         log=verb_log)
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
