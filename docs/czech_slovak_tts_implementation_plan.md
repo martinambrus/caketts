@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**858 tests:** 102 for the TTS components, 104 for num2words, 648 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**864 tests:** 102 for the TTS components, 104 for num2words, 654 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -326,8 +326,8 @@ Handle:
     object unless the verb is neuter singular or the number is coordinated with a nominative subject
     ("Dosáhl pěti bodů", but "Zúčastnilo se padesát lidí", "Cíle dosáhli Petr a pět mužů"; a present
     verb shows no gender, so the number is its object only when a nominative subject precedes ("Petr
-    dosáhne pěti bodů") and is LOGGED otherwise, as is a nominative the verb's agreement does not
-    confirm), and 1 to 4 before a genitive noun take its case ("Dosáhl dvou bodů"). Text in capitals is tagged lowercased, as the tagger
+    dosáhne pěti bodů"; LOGGED when the subject is shared across "a": "Petr přijde a dosáhne pěti
+    bodů") and is LOGGED otherwise, as is a nominative the verb's agreement does not confirm), and 1 to 4 before a genitive noun take its case ("Dosáhl dvou bodů"). Text in capitals is tagged lowercased, as the tagger
     reads capitals as caseless names; there a period before a verb ends the sentence only when its
     clause already has a verb ("KAREL IV. ZALOŽIL" goes on, "BYL TAM ATD. ODEŠEL" ends), and a
     conjunction after a name goes on ("KAREL IV. A VÁCLAV IV.").
@@ -466,7 +466,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 648 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 654 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -924,6 +924,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                             "Hráči dosáhnou 5 bodů.",
                                                 "Petr dosáhne pěti bodů. Teplota dosáhne pěti stupňů. "
                                                 "Hráči dosáhnou pěti bodů."),
+    "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
+                                                    "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
     "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
                                                           "Báli se otce a 5 mužů.",
                                               "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
@@ -1020,6 +1022,12 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
     "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
                                                           "Každý rok se akce zúčastní padesát lidí.", "subject or object"),
+    # the subject of "přijde" is shared by "dosáhne", unless "a" opens a clause whose subject is the number
+    "genitive-verb-present-tense-shared-subject": ("cs", "Petr přijde a dosáhne 5 bodů.", "Petr přijde a dosáhne pěti bodů.",
+                                                   "shared across"),
+    # a number before its verb opens a clause of its own, so "Petr" is not its verb's subject
+    "genitive-verb-present-tense-number-first": ("cs", "Petr přišel a 5 mužů dosáhne cíle.",
+                                                 "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
     "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
@@ -3982,7 +3990,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 857 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 863 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
