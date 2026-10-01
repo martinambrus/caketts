@@ -1188,6 +1188,16 @@ class TextNormalizer:
             elif (tagged_case in PLURAL_ENDINGS and noun.feats.get("Number") == "Plur"
                     and not noun.text.lower().endswith(PLURAL_ENDINGS[tagged_case])):
                 tagged_case = GEN  # "o 5 minút": a genitive plural tagged with the preposition's case
+            approximator = tags.before(start)
+            if (approximator is not None and approximator.text.lower() in APPROXIMATORS and tagged_case != NOM
+                    and noun.feats.get("Number") == "Plur" and not self._verb_follows(end, tags)):
+                # "s 5 lidmi a ~3 psy": past "~" CAC loses the case that "a" shares with the earlier noun
+                link = tags.before(approximator.start)
+                earlier = tags.before(link.start) if link is not None and link.upos == "CCONJ" else None
+                if earlier is not None and earlier.upos == "NOUN":
+                    shared_case = _UD_CASES.get(earlier.feats.get("Case"))
+                    if shared_case in PLURAL_ENDINGS and noun.text.lower().endswith(PLURAL_ENDINGS[shared_case]):
+                        tagged_case = shared_case
             if self._number_fits(value, noun):
                 noun_case = tagged_case
         prep = self._preposition(start, tags)
@@ -1515,6 +1525,8 @@ class TextNormalizer:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
         "od 2:00–3:00", "s 2 kg a 3 kg"."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
+        while i >= 0 and w[i].text.lower() in APPROXIMATORS:  # "s 2 kg a ~3 kg"
+            i -= 1
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
         unit_words = {part.lower() for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}

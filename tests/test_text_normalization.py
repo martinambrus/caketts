@@ -357,6 +357,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "approximately-after-preposition": ("cs", None, "Pracoval s ~5 kg a bez ≈5 lidí.",
                                         "Pracoval s přibližně pěti kilogramy a bez přibližně pěti lidí."),
     "sk-approximately-after-preposition": ("sk", None, "Pracoval s ~5 kg.", "Pracoval s približne piatimi kilogramami."),
+    # after "a" and an approximator the amount shares the case of the one before; "pak" opens a clause of its own
+    "approximately-after-conjunction": ("cs", None, "Šel s 5 lidmi a ~3 psy. Pracoval s 2 kg a asi 3 kg. "
+                                                    "Přišel s 5 přáteli a pak 3 psi utekli.",
+                                        "Šel s pěti lidmi a přibližně třemi psy. Pracoval se dvěma kilogramy a asi třemi "
+                                        "kilogramy. Přišel s pěti přáteli a pak tři psi utekli."),
     "approximately-before-currency": ("cs", None, "Stálo to ≈$5, tedy ~ €5 a ≈ -$5.",
                                       "Stálo to přibližně pět dolarů, tedy přibližně pět eur a přibližně mínus pět dolarů."),
     "approximately-between-numbers": ("cs", None, "Platí 3≈4 a 3~4.", "Platí tři přibližně čtyři a tři přibližně čtyři."),
