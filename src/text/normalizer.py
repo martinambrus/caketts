@@ -203,6 +203,10 @@ TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
 TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
 # a time after a genitive verb is its object ("Dožil se devadesáti let") or a duration ("Bál se pět minut")
 DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků"})
+# events, which one takes part in, after a number: "Zúčastní se pěti závodů"
+EVENT_GENITIVES = frozenset({"akcí", "bitev", "debat", "diskusí", "etap", "festivalů", "her", "koncertů", "konferencí",
+                             "kongresů", "kol", "kurzů", "mistrovství", "olympiád", "porad", "přednášek", "schůzí",
+                             "seminářů", "sjezdů", "soutěží", "turnajů", "válek", "voleb", "výstav", "zápasů", "závodů"})
 # nouns of time whose nominative is also their accusative of time, so no subject: "Každý rok se akce zúčastní"
 TIME_NOUNS = frozenset({"rok", "den", "týden", "měsíc", "večer", "čas", "víkend", "okamžik", "moment", "podzim",
                         "život", "léto", "jaro", "ráno", "noc"})
@@ -1541,7 +1545,8 @@ class TextNormalizer:
         # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject; so is "to" ("Dosáhlo to
         # pěti bodů"), but not of taking part ("Zúčastnilo se to padesát lidí") or after a question word ("Čeho se to")
         taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                       and noun.feats.get("VerbForm") != "Vnoun")  # an event: "padesáti jednání"
+                       and noun.feats.get("VerbForm") != "Vnoun"  # an event: "padesáti jednání"
+                       and noun.text.lower() not in EVENT_GENITIVES)
         clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
         pronouns = [w.start for w in clause if w.upos == "PRON" and w.text.lower() not in ("se", "si")]
         subject = subject or any((w.upos == "AUX" and w.feats.get("Person") in ("1", "2"))

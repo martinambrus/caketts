@@ -633,6 +633,11 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a verbal noun names an event, which is what one takes part in
     "genitive-verb-present-tense-taking-part-in-events": ("cs", "Zúčastní se 50 jednání.", "Zúčastní se padesáti jednání.",
                                                           "read as the object"),
+    "genitive-verb-present-tense-taking-part-in-races": ("cs", "Zúčastní se 5 závodů.", "Zúčastní se pěti závodů.",
+                                                         "read as the object"),
+    "guard-genitive-verb-present-tense-taking-part-after-the-race": ("cs", "Závodu se zúčastní 5 jezdců.",
+                                                                     "Závodu se zúčastní pět jezdců.",
+                                                                     "read as the subject"),
     "guard-genitive-verb-present-tense-taking-part-with-to": ("cs", "Zúčastní se to 50 lidí.",
                                                               "Zúčastní se to padesát lidí.", "read as the subject"),
     "guard-genitive-verb-present-tense-to-after-a-question-word": ("cs", "Čeho se to bojí 5 psů?",
