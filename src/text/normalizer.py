@@ -1307,8 +1307,9 @@ class TextNormalizer:
                 elif feats.get("Gender") is None:
                     # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
                     # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
-                    after = verb.start < start and not _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                    case = GEN if after else NOM
+                    taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                                   and noun.feats.get("VerbForm") != "Vnoun")  # an event: "padesáti jednání"
+                    case = GEN if verb.start < start and not taking_part else NOM
                 elif colloquial and start < verb.start:
                     case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
                     self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),

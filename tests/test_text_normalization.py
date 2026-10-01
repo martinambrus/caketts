@@ -599,6 +599,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pěti bodů.", "read as the object"),
     "genitive-verb-present-tense-concerning": ("cs", "Týká se 50 lidí.", "Týká se padesáti lidí.", "read as the object"),
     "genitive-verb-present-tense-taking-part": ("cs", "Zúčastní se 50 lidí.", "Zúčastní se padesát lidí.", "read as the subject"),
+    # a verbal noun names an event, which is what one takes part in
+    "genitive-verb-present-tense-taking-part-in-events": ("cs", "Zúčastní se 50 jednání.", "Zúčastní se padesáti jednání.",
+                                                          "read as the object"),
     "genitive-verb-present-tense-time": ("cs", "Bojí se 5 minut.", "Bojí se pěti minut.", "duration"),
     "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pěti bodů.",
                                                       "subject or object"),
