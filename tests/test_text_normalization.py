@@ -563,7 +563,11 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
                                    "Ujel jedna celá dvě stě třicet čtyři tisícin kilometru až dvě celé pět desetin kilometru.",
                                    "not thousands"),
-    "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pět bodů.", "subject or object"),
+    # with no subject, a number after a present genitive verb is its object, but after "zúčastnit se" its subject
+    "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pěti bodů.", "read as the object"),
+    "genitive-verb-present-tense-concerning": ("cs", "Týká se 50 lidí.", "Týká se padesáti lidí.", "read as the object"),
+    "genitive-verb-present-tense-taking-part": ("cs", "Zúčastní se 50 lidí.", "Zúčastní se padesát lidí.", "read as the subject"),
+    "genitive-verb-present-tense-time": ("cs", "Bojí se 5 minut.", "Bojí se pěti minut.", "duration"),
     "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pět bodů.",
                                                       "subject or object"),
     # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number

@@ -1246,8 +1246,10 @@ class TextNormalizer:
                 elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
                     case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
                 elif feats.get("Gender") is None:
-                    # a present verb shows no gender, but a subject before the number does: "Petr dosáhne pěti bodů"
-                    case = GEN if subject else NOM
+                    # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
+                    # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
+                    after = verb.start < start and not _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                    case = GEN if subject or after else NOM
                 elif (start < verb.start and feats.get("Number") == "Plur"
                       and noun.feats.get("Gender") in (feats.get("Gender") or "").split(",")
                       and (noun.feats.get("Gender") != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy"))):
@@ -1256,18 +1258,20 @@ class TextNormalizer:
                                "subject of a plural verb, as people say, or an object put first; check it")
                 else:
                     case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
-                if case == NOM and feats.get("Gender") is None and feats.get("VerbForm") != "Inf":
-                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
-                               "subject or object of a present genitive verb, read as the subject; check it")
+                if case == GEN and noun.text.lower() in DURATION_GENITIVES:
+                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                               "time after a genitive verb, read as its object; a duration is the accusative; check it")
+                elif (feats.get("Gender") is None and feats.get("VerbForm") != "Inf"
+                      and feats.get("Person") not in ("1", "2") and (case == NOM or not subject)):
+                    self._warn(text, m, self._cardinal(value, case, gender or "masculine", animacy or "inanimate"),
+                               "subject or object of a present genitive verb, read as the "
+                               + ("subject" if case == NOM else "object") + "; check it")
                 elif case == GEN and nominative and not subject:  # unconfirmed by agreement ("dosáhla": two genders)
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "conjunct of a nominative subject or the verb's object, read as the object; check it")
                 elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "object of a subject shared across \"a\", or a new clause's subject; check it")
-                elif case == GEN and noun.text.lower() in DURATION_GENITIVES:
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "time after a genitive verb, read as its object; a duration is the accusative; check it")
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:
