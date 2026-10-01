@@ -373,6 +373,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "range-with-az-before-sentence-end": ("cs", None, "Počítal s 1 až 2. Potom odešel.",
                                           "Počítal s jedním až dvěma. Potom odešel."),
     "capitals-ordinal-after-az": ("cs", None, "ZLEPŠENÍ NASTANE 5 AŽ 6. DEN.", "ZLEPŠENÍ NASTANE pět AŽ šestý DEN."),
+    "ordinal-before-sentence-with-conjunction": ("cs", None, "Bylo jich 1. A 2. díl vyšel.",
+                                                 "Bylo jich jeden. A druhý díl vyšel."),
     "capitals-ordinal-chain": ("cs", None, "ODE DNE 1. AŽ 5. LEDNA A 1. A 2. DÍL. BYLO JICH 5. A PAK ODEŠEL.",
                                "ODE DNE prvního AŽ pátého LEDNA A první A druhý DÍL. BYLO JICH pět. A PAK ODEŠEL."),
     "ordinal-range-with-az": ("cs", None, "Od 1. až 5. ledna. Přečti 2. až 4. kapitolu. XIX. až XX. století bylo bohaté.",

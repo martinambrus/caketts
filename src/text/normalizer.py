@@ -1097,8 +1097,10 @@ class TextNormalizer:
         governed = (after_preposition and nxt.upos in ("NOUN", "PROPN") and nxt.feats.get("Animacy") != "Anim"
                     and self._agrees_with_preposition(prev, nxt))
         subject = after_preposition and nxt.feats.get("Case") == "Nom" and self._verb_follows(m.end(), tags)
-        # a chain is no sentence end: "1. AŽ 5. LEDNA", "1. A 2. DÍL" in capitals
-        if following[:1].isupper() and not heading and not governed and self._shared_head(m.end(), tags) is None and (
+        # in capitals a chain is no sentence end ("1. AŽ 5. LEDNA", "1. A 2. DÍL"); in mixed text a chain's "a" is
+        # lowercase, so a capital "A" starts a sentence: "Bylo jich 1. A 2. díl vyšel."
+        if following[:1].isupper() and not heading and not governed and (
+                not _all_capitals(text) or self._shared_head(m.end(), tags) is None) and (
                 nxt is None or nxt.upos not in ("NOUN", "ADJ") or subject
                 or (not attributive and self._verb_follows(m.end(), tags))):
             # "Bylo jich 5. Pak…", "Měl jen 2. Děti odešly.": a number that ends the sentence; but "5. Symfonie",
