@@ -457,6 +457,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                                      "Každý rok se akce zúčastní 50 lidí.",
                                                          "Auto dosáhne pěti metrů. Zákon se týká padesáti lidí. "
                                                          "Každý rok se akce zúčastní padesát lidí."),
+    "present-genitive-verb-before-its-subject": ("cs", None, "Dosáhne 5 bodů právě Petr. Zúčastní se 50 lidí z Prahy.",
+                                                 "Dosáhne pěti bodů právě Petr. Zúčastní se padesát lidí z Prahy."),
     "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
                                                     "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
     "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "

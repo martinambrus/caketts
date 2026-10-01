@@ -1224,14 +1224,15 @@ class TextNormalizer:
                 conjunction = tags.before(start)
                 first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
                 nominative = first is not None and first.feats.get("Case") == "Nom"
-                # a subject in the verb's clause, also before an "a" joining the verb to another predicate ("Petr
-                # přijde a dosáhne pěti bodů"); a number before its verb opens its own clause ("a 5 mužů dosáhne")
+                # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
+                # "a" joining the verb to another predicate ("Petr přijde a dosáhne pěti bodů"); not before "a 5 mužů"
                 subject = shared = False
                 if verb.start < start:
                     words = self._clause_before(verb.start, tags)
                     stop = tags.before(words[-1].start if words else verb.start)
                     subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
-                        w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first])
+                        w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
+                        + self._clause_after(noun.end, tags))
                     if not subject and stop is not None and stop.upos == "CCONJ" and all(
                             w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
                         subject = shared = any(_plain_nominative(w) and _agree(verb, w)
