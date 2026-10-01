@@ -186,6 +186,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "compact-time-range": ("cs", None, "Otevřeno 10:00-12:00.", "Otevřeno deset hodin až dvanáct hodin."),
     "dot-times-sharing-hour-word": ("cs", None, "Schůzky jsou v 8.30 a 9.30 hod.", "Schůzky jsou v osm třicet a devět třicet."),
     "hour-abbreviation-h": ("cs", None, "Otevřeno 14:30 h a 14.30 h.", "Otevřeno čtrnáct třicet a čtrnáct třicet."),
+    "hour-unit-after-v-in-ranges-and-lists": ("cs", None, "Otevřeno v 9–17 h, přijdu v 1 h nebo v 5 nebo 6 h, po 2 h odejdu.",
+                                              "Otevřeno v devět až sedmnáct hodin, přijdu v jednu hodinu nebo v pět nebo "
+                                              "šest hodin, po dvou hodinách odejdu."),
     "mixed-time-range-with-hour-word": ("cs", None, "Otevřeno 8.30–9:30 hod.", "Otevřeno osm třicet až devět třicet."),
     "dot-time-before-az-do": ("cs", None, "Od 8.30 až do 9.30 hod.", "Od osmi třiceti až do devíti třiceti."),
     "sk-times-sharing-preposition": ("sk", None, "Stretnutia sú o 8.30 a 9.30 hod.",
@@ -792,6 +795,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
                                          "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),
+    "hour-unit-after-v-is-a-clock-time": ("cs", "Přijdu ve 2 h.", "Přijdu ve dvě hodiny."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),

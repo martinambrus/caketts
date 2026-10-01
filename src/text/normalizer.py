@@ -827,7 +827,7 @@ class TextNormalizer:
             else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
                 gender = (SCALE_GENDERS[self.language][m["commascale"].lower()] if m["commascale"]
                           else NOUNS[self.language][self._unit(m["commaunit"])[0]][0])  # "1,2,3 tis. Kč": tisíc's
-                case = self._governing_case(start, tags) or self._unit_verb_case(
+                case = self._governing_case(start, tags, parts[-1], m["commascale"] or m["commaunit"]) or self._unit_verb_case(
                     parts[-1], m["commascale"] or m["commaunit"], start, end, text, tags, log=False) or NOM
                 if (m["commascale"] or "").lower() == "tis" and self.language == "sk":  # "dvetisíc": one word each
                     head = [self._measure(part, m["commascale"], start, tags, text, end, comma=False) for part in parts[:-1]]
@@ -1028,7 +1028,7 @@ class TextNormalizer:
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
-                case = self._governing_case(start, tags) or self._unit_verb_case(
+                case = self._governing_case(start, tags, high_amount, scale or unit) or self._unit_verb_case(
                     high_amount, scale or unit, start, end, text, tags, log=False) or NOM
                 words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
@@ -1048,7 +1048,7 @@ class TextNormalizer:
         """comma: log a "2,000" read as a decimal (a range checks both ends itself); verb_log: log a genitive
         verb's doubt (a range logs it at its upper end only)."""
         value, integer, fraction = _parse(amount)
-        case = self._governing_case(start, tags) or self._unit_verb_case(amount, unit, start, end, text, tags,
+        case = self._governing_case(start, tags, amount, unit) or self._unit_verb_case(amount, unit, start, end, text, tags,
                                                                          log=verb_log)
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
@@ -1219,7 +1219,7 @@ class TextNormalizer:
             later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
             if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
                 unit_gender = NOUNS[self.language][self._unit(later_unit["unit"])[0]][0]
-                unit_case = self._governing_case(start, tags) or self._unit_verb_case(
+                unit_case = self._governing_case(start, tags, later_unit["later"], later_unit["unit"]) or self._unit_verb_case(
                     later_unit["later"], later_unit["unit"], end + later_unit.start("later"),
                     end + later_unit.end("unit"), text, tags, log=False)
                 words = self._cardinal(value, NOM, unit_gender, "inanimate")
@@ -1670,7 +1670,8 @@ class TextNormalizer:
                 and getattr(tags.before(before.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
                 not in ("ADP", "NOUN", "PROPN"))
 
-    def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
+    def _governing_case(self, pos: int, tags: _Tags, amount: Optional[str] = None,
+                        unit: Optional[str] = None) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
         "s 2 kg a 3 kg", "s 1 kg a 2–3 kg"."""
         prep = self._preposition(pos, tags) or self._shared_preposition(pos, tags)
@@ -1679,6 +1680,9 @@ class TextNormalizer:
         if (self.language == "cs" and prep.text.lower() in ("pod", "nad")
                 and self._two_case(prep, None, prep.start, tags) == ACC):
             return ACC  # "Teplota klesla pod pět stupňů", but "je pod pěti stupni"
+        if (self.language == "cs" and prep.text.lower() in TIME_PREPOSITIONS["cs"] and unit
+                and re.fullmatch(_HOUR_WORD, unit.lower()) and _parse(amount)[0] in range(25)):
+            return ACC  # "ve 2 h" is a clock time, as "ve 2 hodiny"
         return _UD_CASES.get(prep.feats.get("Case"))
 
     def _shared_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
