@@ -267,6 +267,11 @@ CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
 ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
+# a ruler's title in a singular case: after one, a single I, V or X after the name is the ruler's number ("císař Karel V.")
+RULER_TITLES = {"cs": re.compile(r"(?:král|císař|papež|car|kurfiřt|sultán)(?:e|i|ovi|em)?|kníže(?:te|ti|tem)?|vévod(?:a|y|ovi|u|ou)"
+                                 r"|(?:královn|císařovn|kněžn|carevn)(?:a|y|ě|u|ou)"),
+                "sk": re.compile(r"(?:kráľ|cisár|pápež|cár|kurfirst|sultán)(?:a|ovi|om)?|knieža(?:ťa|ťu|ťom)?|vojvod(?:a|u|ovi|om)"
+                                 r"|(?:kráľovn|cisárovn|kňažn)(?:á|ej|ú|ou)")}
 AGREEING_ABBREVIATIONS = {"sv.", "tzv."}  # adjectives: they take the case and gender of the next word
 LABEL_ABBREVIATIONS = {"č.", "str.", "r.", "§", "odst.", "ods.", "písm."}  # the number after them names
 # prepositions with the accusative or the locative; before a page, number or year the locative
@@ -937,6 +942,10 @@ class TextNormalizer:
     def _roman(self, m: re.Match, text: str, tags: _Tags, heading: bool) -> str:
         numeral, end = m["numeral"], m.end()
         nxt, prev = tags.after(end), tags.before(m.start())
+        # after a name a single I, V or X is a ruler's number when a title comes first ("Císař Karel V. Kniha…"); else it
+        # may be a surname's initial ("Karel V. byl zadržen"), and the reading is logged
+        name = prev is not None and prev.upos == "PROPN" and len(numeral) == 1 and numeral in "IVX"
+        ruler = name and self._after_title(prev, tags)
         head = None
         if prev is None or prev.upos != "PROPN":
             # "XXI. století", "XIX.–XX. století", "# V. Kapitola", but "Karel IV. univerzitu" agrees with Karel
@@ -957,7 +966,9 @@ class TextNormalizer:
                                and self._verb_follows(lead.start, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
                     or (len(numeral) == 1 and (numeral not in "IVX"
-                                               or (nxt and nxt.text[:1].isupper() and not numbers_a_thing)))):
+                                               or (nxt and nxt.text[:1].isupper() and not numbers_a_thing and not ruler)))):
+                if name and not ruler:
+                    self._warn(text, m, m.group(0), "initial or a ruler's number after a name, kept as an initial; check it")
                 return m.group(0)  # "V. Havel", "Washington DC.", "Příloha C.", "Velikost L.", or no noun to agree with
             head = prev
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags,
@@ -972,9 +983,18 @@ class TextNormalizer:
               and case == GEN):
             # "díl V. knihy": "díl páté knihy" (of the fifth book), or "díl pátý knihy" (volume five of the book)
             self._warn(text, m, words, f"numeral after {prev.text!r} may number it instead; check it")
+        elif name and not ruler:
+            self._warn(text, m, words, "initial or a ruler's number after a name, read as the number; check it")
         if head.start < m.start() and self._ends_sentence(text, m.start(), end, tags, roman=True):
             words += "."  # after "Karel IV." the period may end the sentence; before a noun it cannot
         return words
+
+    def _after_title(self, name: _Word, tags: _Tags) -> bool:
+        """Whether a ruler's title comes before a name, past its other names: "císař Karel", "papeže Jana Pavla"."""
+        i = bisect.bisect_left(tags.starts, name.start) - 1
+        while i >= 0 and tags.words[i].upos == "PROPN" and not RULER_TITLES[self.language].fullmatch(tags.words[i].text.lower()):
+            i -= 1
+        return i >= 0 and RULER_TITLES[self.language].fullmatch(tags.words[i].text.lower()) is not None
 
     def _date(self, day: int, month: int, year: Optional[str]) -> str:
         words = [self._ordinal(day, GEN, "masculine", "inanimate"), MONTHS_GENITIVE[self.language][month - 1]]
