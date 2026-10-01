@@ -558,6 +558,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhl rychlosti sto dvacet kilometrů za hodinu. "
                                                  "Teplota dosáhla během dne třiceti stupňů Celsia. "
                                                  "Teplota dosáhla třicet celých pět desetin stupně Celsia."),
+    "genitive-verb-time-after-its-object": ("cs", None, "Dosáhl cíle 5 minut před ostatními. "
+                                                        "Zbavil se bolesti 5 hodin po operaci.",
+                                            "Dosáhl cíle pět minut před ostatními. "
+                                            "Zbavil se bolesti pět hodin po operaci."),
     "zero-after-genitive-verb": ("cs", None, "Teplota dosáhla 0 °C. Teplota se dotkla 0 stupňů. Dosáhl 0 bodů.",
                                  "Teplota dosáhla nuly stupňů Celsia. Teplota se dotkla nuly stupňů. Dosáhl nuly bodů."),
     "genitive-verb-number-after-a-measure-and-a": ("cs", None, "Dosáhl 5 km a 10 bodů. Dosáhl 5 km a 6 km.",
@@ -669,6 +673,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "bare-number-after-v": ("cs", "Přišel v 5.", "Přišel v pět.", "time (v pět) or age"),
     "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pěti mužů.", "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
+    "guard-genitive-verb-age-after-its-noun": ("cs", "Dosáhla věku 90 let.", "Dosáhla věku devadesáti let.", "duration"),
     # "vůdce" is a genitive as well, so its nominative tag cannot make the number a conjunct of the subject
     "genitive-verb-conjunct-or-object": ("cs", "Dočkali se vůdce a 5 rytířů.", "Dočkali se vůdce a pěti rytířů.",
                                          "conjunct of a nominative subject"),

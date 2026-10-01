@@ -1572,6 +1572,9 @@ class TextNormalizer:
                  "subject of a plural verb, as people say, or an object put first; check it")
         else:
             case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
+        if (case == GEN and noun.text.lower() in DURATION_GENITIVES and self._after_own_noun(start, tags)
+                and getattr(tags.after(noun.end), "text", "").lower() in ("před", "po")):
+            return ACC  # after the verb's object a time before or after something: "Dosáhl cíle pět minut před ostatními"
         if case == GEN and noun.text.lower() in DURATION_GENITIVES:
             warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                  "time after a genitive verb, read as its object; a duration is the accusative; check it")
