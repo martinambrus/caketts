@@ -363,6 +363,14 @@ def _tagger(language: str):
                            logging_level="WARN")
 
 
+def _string_list(config: dict, key: str) -> List[str]:
+    """book_config[key] as a list of strings; a bare string would be split into its letters, so "a" would be a book."""
+    value = config.get(key) or []
+    if not isinstance(value, (list, tuple)) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"book_config[{key!r}] must be a list of strings, got {value!r}")
+    return list(value)
+
+
 def _abbreviation_key(text: str) -> str:
     return re.sub(rf"\.{_HS}+", ".", re.sub(rf"{_HS}+", " ", text))
 
@@ -650,7 +658,7 @@ class TextNormalizer:
         self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}
         self._items = _items_pattern(self.abbreviations)
         self._items_in_capitals = _items_pattern(self.abbreviations, capitals=True)
-        books = sorted(filter(None, config.get("verse_references") or []), key=len, reverse=True)
+        books = sorted(filter(None, _string_list(config, "verse_references")), key=len, reverse=True)
         numbered = [book for book in books if re.search(r"\d", book)]
         if numbered:
             raise ValueError(f"book_config['verse_references'] has {numbered}, whose digits would stay as written; "
@@ -669,7 +677,8 @@ class TextNormalizer:
                                    rf"(?P<verse>\d+)(?>(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?"
                                    rf"(?P<more>(?:\.\d+(?:{_HS}*[–—-]{_HS}*\d+)?)*))(?!\d|[,.:]\d|[^\W\d_])")
                         if books else None)
-        phrases = sorted((p.translate(_TYPOGRAPHY) for p in config.get("english") or [] if p), key=len, reverse=True)
+        phrases = sorted((p.translate(_TYPOGRAPHY) for p in _string_list(config, "english") if p), key=len,
+                         reverse=True)
         self._english = (re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, phrases)) + r")(?!\w)")
                          if phrases else None)
 

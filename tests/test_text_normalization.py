@@ -887,6 +887,13 @@ def test_numbered_verse_book_raises():  # the digit of "1 Jan" would stay as wri
         TextNormalizer("cs", {"verse_references": ["Jan", "1 Jan"]})
 
 
+@pytest.mark.parametrize("config", [{"verse_references": "Jan"}, {"verse_references": True},
+                                    {"verse_references": ["Jan", 3]}, {"english": "Harry Potter"}])
+def test_book_config_options_must_be_lists_of_strings(config):
+    with pytest.raises(ValueError, match="must be a list of strings"):
+        TextNormalizer("cs", config)
+
+
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
 @pytest.mark.parametrize("language,config,text", [(lang, None, text) for lang, text in TEST2_INPUTS]
                          + [example[:3] for example in EXAMPLES.values()]
