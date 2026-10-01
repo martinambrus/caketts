@@ -1790,11 +1790,18 @@ class TextNormalizer:
             head = tags.after(pos)
             if head is None or head.upos != "PRON":
                 return False
-        i = bisect.bisect_left(tags.starts, head.end)
-        for w in tags.words[i:]:
-            if w.upos in ("VERB", "AUX") and w.feats.get("VerbForm") != "Inf":
+        i, words = bisect.bisect_left(tags.starts, head.end), tags.words
+        while i < len(words):
+            if words[i].upos in ("VERB", "AUX") and words[i].feats.get("VerbForm") != "Inf":
                 return True
-            if w.upos not in ("ADV", "PART", "PRON", "VERB"):
+            if words[i].upos == "ADP" and not tags.capitals:  # past a phrase of the noun: "Kniha o něm vyšla", "Kniha o válce byla úspěšná"
+                noun = tags.head_after(words[i].end) or tags.after(words[i].end)
+                if noun is None or noun.upos not in ("NOUN", "PROPN", "PRON"):
+                    return False
+                i = bisect.bisect_left(tags.starts, noun.end)
+            elif words[i].upos in ("ADV", "PART", "PRON", "VERB"):
+                i += 1
+            else:
                 return False
         return False
 

@@ -587,6 +587,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                "Vyšel díl pátý. Nové vydání uspělo. Vyšel díl desátý. Toto vydání uspělo."),
     "roman-numbers-a-thing-before-pronoun": ("cs", None, "Vyšel díl V. On uspěl. Vyšel díl X. Poté kniha uspěla.",
                                              "Vyšel díl pátý. On uspěl. Vyšel díl desátý. Poté kniha uspěla."),
+    "roman-numbers-a-thing-before-a-phrase": ("cs", None, "Vyšel díl V. Kniha o něm vyšla. Pan V. Kniha o něm vyšla.",
+                                              "Vyšel díl pátý. Kniha o něm vyšla. Pan V. Kniha o něm vyšla."),
     "initial-before-adjective-surname": ("cs", None, "Firma V. Nový vznikla.", "Firma V. Nový vznikla."),
     "initial-after-a-woman": ("cs", None, "Paní V. Ona poté odešla. Vyšla část V. Kniha byla úspěšná.",
                               "Paní V. Ona poté odešla. Vyšla část pátá. Kniha byla úspěšná."),
@@ -623,6 +625,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
+    "count-ends-sentence-before-a-phrase": ("cs", "Bylo jich 5. Kniha o válce vyšla.",
+                                            "Bylo jich pět. Kniha o válce vyšla.", "no governing noun"),
     "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
     "adverb-before-noun": ("cs", "Vrátil 2 zpátky knihovně.", "Vrátil dva zpátky knihovně.",
                            "nominative masculine inanimate"),
