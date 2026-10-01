@@ -1225,7 +1225,7 @@ class TextNormalizer:
                 first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
                 nominative = first is not None and first.feats.get("Case") == "Nom"
                 # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
-                # "a" joining the verb to another predicate ("Petr přijde a dosáhne pěti bodů"); not before "a 5 mužů"
+                # "a" joining it to another predicate; a number before the verb opens a clause: "Pěti chyb si nikdo"
                 subject = shared = False
                 if verb.start < start:
                     words = self._clause_before(verb.start, tags)
@@ -1237,9 +1237,15 @@ class TextNormalizer:
                             w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
                         subject = shared = any(_plain_nominative(w) and _agree(verb, w)
                                                for w in self._clause_before(stop.start, tags))
+                else:
+                    subject = any(_plain_nominative(w) and _agree(verb, w)
+                                  for w in [w for w in self._clause_before(verb.start, tags) if w.start >= noun.end]
+                                  + self._clause_after(verb.end, tags))
+                if subject:
+                    case = GEN
                 # a conjunct of the subject: the verb agrees with it ("Cíle dosáhl Petr a pět mužů") or, plural for
                 # both, has its gender ("dosáhli"); a present verb has none, so its plural tells nothing
-                if nominative and not subject and (_agree(verb, first) or (
+                elif nominative and (_agree(verb, first) or (
                         feats.get("Number") == "Plur" and feats.get("Gender") is not None
                         and all(feats.get(f) == first.feats.get(f) for f in ("Gender", "Animacy")))):
                     case = NOM
@@ -1249,7 +1255,7 @@ class TextNormalizer:
                     # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
                     # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
                     after = verb.start < start and not _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                    case = GEN if subject or after else NOM
+                    case = GEN if after else NOM
                 elif (start < verb.start and feats.get("Number") == "Plur"
                       and noun.feats.get("Gender") in (feats.get("Gender") or "").split(",")
                       and (noun.feats.get("Gender") != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy"))):

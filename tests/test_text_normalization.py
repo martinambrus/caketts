@@ -471,6 +471,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                            "Pět mužů dosáhlo cíle. Vzdal pět bodů."),
     "number-before-colloquial-plural-verb": ("cs", None, "Pak 5 mužů dosáhli cíle. 5 dětí se bály tmy. 5 bodů dosáhl.",
                                              "Pak pět mužů dosáhli cíle. Pět dětí se bály tmy. Pěti bodů dosáhl."),
+    "number-before-its-verb-and-subject": ("cs", None, "5 chyb si nikdo nevšimne. 5 bodů Petr nedosáhne. 5 psů se vojáci "
+                                                       "báli. 5 bodů dosáhne Petr.",
+                                           "Pěti chyb si nikdo nevšimne. Pěti bodů Petr nedosáhne. Pěti psů se vojáci "
+                                           "báli. Pěti bodů dosáhne Petr."),
     "genitive-noun-after-one-to-four": ("cs", None, "Dosáhl 2 bodů, dosáhli 3 bodů a dosáhl 1 bodu. Vypil 2 piva a ve 2 "
                                                     "hodiny odešel.",
                                         "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
