@@ -590,8 +590,7 @@ class TextNormalizer:
             raise ValueError(f"book_config['verse_references'] has {numbered}, whose digits would stay as written; "
                              f"list the name alone ('Jan' for '1 Jan'), and the number before it is read as usual")
         # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29", "Jan 3,16.18": chapter and verse, not a decimal or
-        # a time; the book may be in its language's span: "<en>John</en> 3,16". The atomic group stops a shorter
-        # match that would leave "–18.20" of "Jan 3,16–18.20" unread
+        # a time; the book may be in its span ("<en>John</en> 3,16"); atomic, so "Jan 3,16–18a" is not cut short
         names = '|'.join(map(re.escape, books))
         self._verses = (re.compile(rf"(?<!\w)(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
                                    rf"{_HS}+(?P<chapter>\d+)[,:]"
