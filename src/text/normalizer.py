@@ -1302,12 +1302,20 @@ class TextNormalizer:
     def _clause_verb(pos: int, tags: _Tags) -> Optional[_Word]:
         """The verb nearest to `pos` in its clause, which a comma or a sentence end closes, and before `pos` also
         a conjunction ("Cíle dosáhl a 2. místo obsadil"); an auxiliary ("jsme", "by") is skipped, a copula
-        ("je", "byl") counts. Only the nearest verb governs: in "Dosáhl cíle a obsadil 2. místo" it is "obsadil"."""
+        ("je", "byl") counts. Only the nearest verb governs: in "Dosáhl cíle a obsadil 2. místo" it is "obsadil".
+        A clause with no verb of its own shares the one before its conjunction: "Dosáhl cíle a 2. místa"."""
         i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
-        for step in (-1, 1):
+
+        def closes(j: int) -> bool:  # an ordinal's period is no sentence end: "a 2. místo obsadil"
+            return w[j].text in (",", ".", "!", "?", "…", ";", ":") and not (
+                w[j].text == "." and 0 < j < len(w) - 1 and w[j - 1].end == w[j].start and w[j + 1].text[:1].islower()
+                and (w[j - 1].text.isdigit() or re.fullmatch(_ROMAN, w[j - 1].text)))
+
+        for step, across in ((-1, False), (1, False), (-1, True)):
+            if across and found:
+                break
             j = i - 1 if step < 0 else i
-            while (0 <= j < len(w) and w[j].text not in (",", ".", "!", "?", "…", ";", ":")
-                   and not (step < 0 and w[j].upos == "CCONJ")):
+            while 0 <= j < len(w) and not closes(j) and not (step < 0 and not across and w[j].upos == "CCONJ"):
                 if w[j].upos == "VERB" or (w[j].upos == "AUX" and _affirmative(w[j].text.lower()) in PLACE_FORMS):
                     found.append((abs(j - i), w[j]))
                     break
