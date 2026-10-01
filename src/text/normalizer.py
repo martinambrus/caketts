@@ -535,8 +535,8 @@ class _Word:
 class _Tags:
     """Tagger output with character offsets into the paragraph."""
 
-    def __init__(self, words: List[_Word]):
-        self.words = words
+    def __init__(self, words: List[_Word], capitals: bool = False):
+        self.words, self.capitals = words, capitals
         self.starts = [w.start for w in words]
 
     def before(self, pos: int, skip: Tuple[str, ...] = ()) -> Optional[_Word]:
@@ -660,7 +660,7 @@ class TextNormalizer:
         items = [m for m in items if not any((s < m.end() and m.start() < e)  # a verse may hold its book's span
                                              and not (m.re is self._verses and m.start() <= s and e <= m.end())
                                              for s, e in spans)]
-        tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
+        tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [], _all_capitals(text))
         out, pos, after_label, goes_on = [], 0, -1, -1
         for m in items:
             start, words = self._resolve(m, text, tags, after_label == m.start(), heading)
@@ -1112,7 +1112,10 @@ class TextNormalizer:
         value = _parse(m["ordinalvalue"])[1]  # "1 000. návštěvník"
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
         prev = tags.before(m.start())
-        attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT")  # "Beethovenova 5. Symfonie"
+        # "Beethovenova 5. Symfonie"; in capitals also after a conjunction ("A 2. DÍLY VYŠLY"), but not one between
+        # cardinals ("V LETECH 1914 A 1918. VÁLKA SKONČILA")
+        attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
+            prev.upos == "CCONJ" and tags.capitals and not getattr(tags.before(prev.start), "text", "").isdigit())
         # after a preposition, a capitalised noun in its case is the ordinal's noun even when tagged a name
         # ("V 5. Symfonii"); a nominative one before a verb starts a sentence ("Přišel v 5. Symfonie začala.")
         after_preposition = prev is not None and prev.upos == "ADP" and nxt is not None
@@ -1443,10 +1446,12 @@ class TextNormalizer:
         A clause with no verb of its own shares the one before its conjunction: "Dosáhl cíle a 2. místa"."""
         i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
 
-        def closes(j: int) -> bool:  # an ordinal's period is no sentence end: "a 2. místo obsadil"
+        def closes(j: int) -> bool:  # an ordinal's period is no sentence end: "a 2. místo obsadil", "A 2. DÍLY VYŠLY"
             return w[j].text in (",", ".", "!", "?", "…", ";", ":") and not (
-                w[j].text == "." and 0 < j < len(w) - 1 and w[j - 1].end == w[j].start and w[j + 1].text[:1].islower()
-                and (w[j - 1].text.isdigit() or re.fullmatch(_ROMAN, w[j - 1].text)))
+                w[j].text == "." and 0 < j < len(w) - 1 and w[j - 1].end == w[j].start
+                and (w[j - 1].text.isdigit() or re.fullmatch(_ROMAN, w[j - 1].text))
+                and (w[j + 1].text[:1].islower() or (tags.capitals and j >= 2 and w[j - 2].upos == "CCONJ"
+                                                    and not (j >= 3 and w[j - 3].text.isdigit()))))
 
         for step, across in ((-1, False), (1, False), (-1, True)):
             if across and found:

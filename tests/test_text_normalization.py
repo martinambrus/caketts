@@ -382,6 +382,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Bylo jich jeden. A druhý díl vyšel."),
     "capitals-ordinal-chain": ("cs", None, "ODE DNE 1. AŽ 5. LEDNA A 1. A 2. DÍL. BYLO JICH 5. A PAK ODEŠEL.",
                                "ODE DNE prvního AŽ pátého LEDNA A první A druhý DÍL. BYLO JICH pět. A PAK ODEŠEL."),
+    # in capitals an ordinal after "A" leads its noun, as a lowercase "a" shows in mixed text; after a cardinal it
+    # ends the list and the sentence
+    "capitals-ordinal-after-conjunction": ("cs", None, "BYLO JICH 1. A 2. DÍL VYŠEL. VYŠEL 2. DÍL A 3. DÍL VYŠEL "
+                                                       "POZDĚJI. BOJOVALI V LETECH 1914 A 1918. VÁLKA SKONČILA.",
+                                           "BYLO JICH první A druhý DÍL VYŠEL. VYŠEL druhý DÍL A třetí DÍL VYŠEL "
+                                           "POZDĚJI. BOJOVALI V LETECH tisíc devět set čtrnáct A tisíc devět set osmnáct. "
+                                           "VÁLKA SKONČILA."),
     "ordinal-range-with-az": ("cs", None, "Od 1. až 5. ledna. Přečti 2. až 4. kapitolu. XIX. až XX. století bylo bohaté.",
                               "Od prvního až pátého ledna. Přečti druhou až čtvrtou kapitolu. Devatenácté až dvacáté "
                               "století bylo bohaté."),
@@ -596,6 +603,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
+    "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
+                                                           "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
     # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")
     "bare-number-after-v": ("cs", "Přišel v 5.", "Přišel v pět.", "time (v pět) or age"),
     "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pěti mužů.", "plural verb"),
