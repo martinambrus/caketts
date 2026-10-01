@@ -525,6 +525,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "fronted-amounts-after-an-approximator": ("cs", None, "S 2 kg a asi 3 kg pracoval. S 5 lidmi a asi 3 psy přišel.",
                                               "Se dvěma kilogramy a asi třemi kilogramy pracoval. S pěti lidmi a asi "
                                               "třemi psy přišel."),
+    "infinitive-opens-no-clause": ("cs", None, "Nemohl s 2 kg a asi 3 kg pracovat. Chtěl s 5 lidmi a asi 3 psy odejít.",
+                                   "Nemohl se dvěma kilogramy a asi třemi kilogramy pracovat. Chtěl s pěti lidmi a asi "
+                                   "třemi psy odejít."),
     "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
                                                  "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
     "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),

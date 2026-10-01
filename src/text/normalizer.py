@@ -1783,7 +1783,8 @@ class TextNormalizer:
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
         """Whether the noun phrase after `pos` is followed by a verb, as the subject of a new sentence;
-        adverbs, particles and clitics may come between: "Malé děti se potom vrátily"; or a pronoun: "On uspěl"."""
+        adverbs, particles and clitics may come between: "Malé děti se potom vrátily"; or a pronoun: "On uspěl".
+        An infinitive takes no subject, so it is passed over: "Nemohl s 2 kg a asi 3 kg pracovat"."""
         head = tags.head_after(pos)
         if head is None:
             head = tags.after(pos)
@@ -1791,9 +1792,9 @@ class TextNormalizer:
                 return False
         i = bisect.bisect_left(tags.starts, head.end)
         for w in tags.words[i:]:
-            if w.upos in ("VERB", "AUX"):
+            if w.upos in ("VERB", "AUX") and w.feats.get("VerbForm") != "Inf":
                 return True
-            if w.upos not in ("ADV", "PART", "PRON"):
+            if w.upos not in ("ADV", "PART", "PRON", "VERB"):
                 return False
         return False
 
