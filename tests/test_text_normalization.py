@@ -693,6 +693,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                 "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     "guard-genitive-verb-age-after-its-noun": ("cs", "Dosáhla věku 90 let.", "Dosáhla věku devadesáti let.", "duration"),
+    "genitive-verb-age-after-its-noun-before-po": ("cs", "Dosáhl věku 90 let po operaci.",
+                                                   "Dosáhl věku devadesáti let po operaci.", "duration"),
     # "vůdce" is a genitive as well, so its nominative tag cannot make the number a conjunct of the subject
     "genitive-verb-conjunct-or-object": ("cs", "Dočkali se vůdce a 5 rytířů.", "Dočkali se vůdce a pěti rytířů.",
                                          "conjunct of a nominative subject"),

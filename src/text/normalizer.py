@@ -203,6 +203,9 @@ TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
 TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
 # a time after a genitive verb is its object ("Dožil se devadesáti let") or a duration ("Bál se pět minut")
 DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků"})
+# nouns a measure describes, so a time after them is no duration: "Dosáhl věku devadesáti let po operaci"
+MEASURE_GENITIVES = frozenset({"věku", "stáří", "doby", "délky", "trvání", "lhůty", "výšky", "hloubky", "šířky",
+                               "vzdálenosti", "rychlosti", "hodnoty", "teploty", "hmotnosti", "váhy", "ceny", "úrovně"})
 # genitives of time, which are no object: "Pěti vítězství dosáhla minulého roku"
 TIME_GENITIVES = frozenset({"dne", "dnu", "roku", "týdne", "měsíce", "večera", "rána", "dopoledne", "odpoledne", "léta",
                             "jara", "podzimu", "zimy", "noci", "času", "víkendu", "chvíle", "doby"})
@@ -1595,6 +1598,7 @@ class TextNormalizer:
         else:
             case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
         if (case == GEN and noun.text.lower() in DURATION_GENITIVES and self._after_own_noun(start, tags)
+                and getattr(tags.before(start, skip=("ADV", "PART")), "text", "").lower() not in MEASURE_GENITIVES
                 and getattr(tags.after(noun.end), "text", "").lower() in ("před", "po")):
             return ACC  # after the verb's object a time before or after something: "Dosáhl cíle pět minut před ostatními"
         if case == GEN and noun.text.lower() in DURATION_GENITIVES:
