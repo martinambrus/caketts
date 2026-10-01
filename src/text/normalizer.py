@@ -1178,6 +1178,8 @@ class TextNormalizer:
             if (self.language == "sk" and noun_case == GEN and noun.text.lower().endswith("ov")
                     and self._count_form(value) != "gen_pl"):
                 case = GEN
+            elif noun_case == GEN and 0 < abs(value) < 5 and "," not in text[start:end]:
+                case = GEN  # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:

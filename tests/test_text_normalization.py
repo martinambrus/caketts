@@ -432,6 +432,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "threshold-list-after-motion": ("cs", None, "Teploty klesly pod 5 °C, 3 °C a 1 °C. Pak klesly pod 3,2,1 °C.",
                                     "Teploty klesly pod pět stupňů Celsia, tři stupně Celsia a jeden stupeň Celsia. "
                                     "Pak klesly pod tři, dva, jeden stupeň Celsia."),
+    "genitive-noun-after-one-to-four": ("cs", None, "Dosáhl 2 bodů, dosáhli 3 bodů a dosáhl 1 bodu. Vypil 2 piva a ve 2 "
+                                                    "hodiny odešel.",
+                                        "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
+                                        "hodiny odešel."),
+    "sk-genitive-noun-after-one-to-four": ("sk", None, "Bál sa 2 žien.", "Bál sa dvoch žien."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
