@@ -434,6 +434,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                     "Pak klesly pod tři, dva, jeden stupeň Celsia."),
     "genitive-verb-across-conjunction": ("cs", None, "Dosáhl cíle a 2. místa. Bál se tmy a 2. dílu.",
                                          "Dosáhl cíle a druhého místa. Bál se tmy a druhého dílu."),
+    "genitive-verb-before-five-and-more": ("cs", None, "Dosáhl 5 bodů a zúčastnilo se 50 lidí. Chce dosáhnout 5 bodů. "
+                                                       "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
+                                           "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
+                                           "Pět mužů dosáhlo cíle. Vzdal pět bodů."),
     "genitive-noun-after-one-to-four": ("cs", None, "Dosáhl 2 bodů, dosáhli 3 bodů a dosáhl 1 bodu. Vypil 2 piva a ve 2 "
                                                     "hodiny odešel.",
                                         "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
@@ -514,6 +518,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
                                    "Ujel jedna celá dvě stě třicet čtyři tisícin kilometru až dvě celé pět desetin kilometru.",
                                    "not thousands"),
+    "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pět bodů.", "subject or object"),
+    "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
     "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),

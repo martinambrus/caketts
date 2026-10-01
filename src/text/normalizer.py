@@ -193,6 +193,8 @@ SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medz
 # the tagger cannot. Verbs are matched by the start of the word form, as the tagger gives no lemma.
 TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
 TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
+# a time after a genitive verb is its object ("Dožil se devadesáti let") or a duration ("Bál se pět minut")
+DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků"})
 DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
                    "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
                    "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
@@ -1180,6 +1182,21 @@ class TextNormalizer:
                 case = GEN
             elif noun_case == GEN and 0 < abs(value) < 5 and "," not in text[start:end]:
                 case = GEN  # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"
+            elif noun_case == GEN and abs(value) >= 5 and self.language == "cs" and self._verb_case(start, prep, tags) == GEN:
+                # from 5 the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter singular
+                # verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
+                verb = self._clause_verb(start, tags).feats
+                if verb.get("VerbForm") == "Inf" or verb.get("Person") in ("1", "2"):
+                    case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
+                elif verb.get("Gender") is None:
+                    case = NOM
+                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
+                               "subject or object of a present genitive verb, read as the subject; check it")
+                else:
+                    case = NOM if (verb.get("Gender"), verb.get("Number")) == ("Neut", "Sing") else GEN
+                if case == GEN and noun.text.lower() in DURATION_GENITIVES:
+                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                               "time after a genitive verb, read as its object; a duration is the accusative; check it")
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:
