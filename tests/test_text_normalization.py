@@ -486,6 +486,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                           "Báli se otce a 5 mužů.",
                                               "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
                                               "Báli se otce a pěti mužů."),
+    "genitive-verb-object-put-first": ("cs", None, "Cíle dosáhl vůdce a 5 mužů. Cíle dosáhli 5 procent studentů.",
+                                       "Cíle dosáhl vůdce a pět mužů. Cíle dosáhli pět procent studentů."),
     "genitive-verb-before-five-and-more": ("cs", None, "Dosáhl 5 bodů a zúčastnilo se 50 lidí. Chce dosáhnout 5 bodů. "
                                                        "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
                                            "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
@@ -677,7 +679,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                            "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
     # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")
     "bare-number-after-v": ("cs", "Přišel v 5.", "Přišel v pět.", "time (v pět) or age"),
-    "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pěti mužů.", "plural verb"),
+    "guard-genitive-verb-children-of-a-masculine-verb": ("cs", "Děti se báli 5 psů.", "Děti se báli pěti psů.",
+                                                         "plural verb"),
+    "guard-genitive-verb-coordinated-subject": ("cs", "Petr a Eva se báli 5 psů.", "Petr a Eva se báli pěti psů.",
+                                                "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     "guard-genitive-verb-age-after-its-noun": ("cs", "Dosáhla věku 90 let.", "Dosáhla věku devadesáti let.", "duration"),
     # "vůdce" is a genitive as well, so its nominative tag cannot make the number a conjunct of the subject
@@ -722,6 +727,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "genitive-verb-first-person-auxiliary": ("cs", "Báli jsme se 5 psů.", "Báli jsme se pěti psů."),
     "genitive-verb-present-tense-subject-to": ("cs", "Týká se to 5 lidí.", "Týká se to pěti lidí."),
     "guard-genitive-verb-to-after-a-question-word": ("cs", "Čeho se to bálo 5 psů?", "Čeho se to bálo pět psů?"),
+    "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pět mužů."),
     "genitive-verb-unit-subject": ("cs", "Voleb se zúčastnilo 60 % voličů.",
                                    "Voleb se zúčastnilo šedesát procent voličů."),
     "genitive-verb-unit-range-after-its-subject": ("cs", "Teplota dosáhne 30–35 °C.",

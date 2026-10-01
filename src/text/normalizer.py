@@ -503,10 +503,12 @@ def _canonical(symbol: str, keys) -> str:
     return symbol if symbol in keys else next((k for k in keys if k.lower() == symbol.lower()), symbol)
 
 
-def _agree(a: "_Word", b: "_Word") -> bool:
+def _agree(a: "_Word", b: "_Word", values: bool = False) -> bool:
     """The same number, gender and animacy where both words have one: "dosáhli" agrees with "muži", not "cíle";
-    a present verb has no gender ("dosáhnou")."""
-    return all(None in (a.feats.get(f), b.feats.get(f)) or a.feats.get(f) == b.feats.get(f)
+    a present verb has no gender ("dosáhnou"). With `values` one shared value of a multi-valued tag is enough:
+    "dosáhla" (Fem,Neut and Plur,Sing) agrees with "družstva"."""
+    return all(None in (a.feats.get(f), b.feats.get(f))
+               or (set(a.feats[f].split(",")) & set(b.feats[f].split(",")) if values else a.feats[f] == b.feats[f])
                for f in ("Number", "Gender", "Animacy"))
 
 
@@ -1530,10 +1532,14 @@ class TextNormalizer:
                       and first.text.lower() not in UNIT_WORDS[self.language])
         # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
         # "a" joining it to another predicate; a number before the verb opens a clause: "Pěti chyb si nikdo"
-        subject = shared = False
+        subject = shared = fronted = False
         if verb.start < start:
             words = self._clause_before(verb.start, tags)
             stop = tags.before(words[-1].start if words else verb.start)
+            # an object put first, which CAC tags nominative ("Cíle"), where a Czech past verb shows it is no subject
+            fronted = (self.language == "cs" and (stop is None or stop.upos != "CCONJ") and feats.get("Gender") is not None
+                       and any(w.upos == "NOUN" and w.feats.get("Case") == "Nom" and not _agree(verb, w, True)
+                               and w.text.lower() not in TIME_NOUNS | NEUTER_PLURALS[self.language] for w in words))
             subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
                 w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
                 + self._clause_after(noun.end, tags))
@@ -1562,14 +1568,17 @@ class TextNormalizer:
         # "-la" (Fem,Neut and Plur,Sing) agrees as a neuter plural with a number before it when its object follows:
         # "Pět procent voličů se zúčastnila voleb", but "Pěti vítězství dosáhla (minulého roku)": a feminine subject
         after = tags.head_after(verb.end)
-        la = (feats.get("Number") == "Plur,Sing" and start < verb.start and after is not None
-              and after.feats.get("Case") == "Gen" and after.text.lower() not in TIME_GENITIVES)
+        la = feats.get("Number") == "Plur,Sing" and (fronted or (
+            start < verb.start and after is not None and after.feats.get("Case") == "Gen"
+            and after.text.lower() not in TIME_GENITIVES))
         colloquial = any((feats.get("Number") == "Plur" or (la and h.feats.get("Gender") == "Neut"))
                          and h.feats.get("Gender") in (feats.get("Gender") or "").split(",")
                          and (h.feats.get("Gender") != "Masc" or h.feats.get("Animacy") == feats.get("Animacy"))
                          for h in heads if h is noun or h.feats.get("Number") == "Plur")
         if subject:
             case = GEN
+        elif fronted and (first is not None or colloquial):
+            case = NOM  # "Cíle dosáhl vůdce a pět mužů", "Cíle dosáhli pět mužů"
         elif nominative and _plain_nominative(first):
             case = NOM  # "a" joins like cases: "Cíle dosáhla Eva a pět žen"; "vůdce" may be a genitive too
         elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
