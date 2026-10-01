@@ -183,6 +183,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "dot-times-sharing-hour-word": ("cs", None, "Schůzky jsou v 8.30 a 9.30 hod.", "Schůzky jsou v osm třicet a devět třicet."),
     "hour-abbreviation-h": ("cs", None, "Otevřeno 14:30 h a 14.30 h.", "Otevřeno čtrnáct třicet a čtrnáct třicet."),
     "mixed-time-range-with-hour-word": ("cs", None, "Otevřeno 8.30–9:30 hod.", "Otevřeno osm třicet až devět třicet."),
+    "dot-time-before-az-do": ("cs", None, "Od 8.30 až do 9.30 hod.", "Od osmi třiceti až do devíti třiceti."),
     "sk-times-sharing-preposition": ("sk", None, "Stretnutia sú o 8.30 a 9.30 hod.",
                                      "Stretnutia sú o ôsmej tridsať a deviatej tridsať."),
     "seconds-hours-pieces": ("cs", None, "Trvalo to 5 s. Balení má 5 ks, let trval 3 h, mám 5 s sebou.",
