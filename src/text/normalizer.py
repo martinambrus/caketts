@@ -1536,10 +1536,15 @@ class TextNormalizer:
         if verb.start < start:
             words = self._clause_before(verb.start, tags)
             stop = tags.before(words[-1].start if words else verb.start)
-            # an object put first, which CAC tags nominative ("Cíle"), where a Czech past verb shows it is no subject
-            fronted = (self.language == "cs" and (stop is None or stop.upos != "CCONJ") and feats.get("Gender") is not None
-                       and any(w.upos == "NOUN" and w.feats.get("Case") == "Nom" and not _agree(verb, w, True)
-                               and w.text.lower() not in TIME_NOUNS | NEUTER_PLURALS[self.language] for w in words))
+            # an object put first: a genitive ("Úspěchu"), or to CAC a nominative ("Cíle") that a Czech past verb
+            # shows is no subject (a Slovak "-li" shows no gender)
+            fronted = (stop is None or stop.upos != "CCONJ") and any(w.upos == "NOUN" and (
+                (w.feats.get("Case") == "Nom" and self.language == "cs" and feats.get("Gender") is not None
+                 and not _agree(verb, w, True) and w.text.lower() not in TIME_NOUNS | NEUTER_PLURALS[self.language])
+                or (w.feats.get("Case") == "Gen" and w.text.lower() not in TIME_GENITIVES
+                    and w.text.lower() not in MONTHS_GENITIVE[self.language]
+                    and getattr(tags.before(w.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
+                    not in ("ADP", "NOUN", "PROPN", "NUM"))) for w in words)
             subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
                 w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
                 + self._clause_after(noun.end, tags))
@@ -1577,7 +1582,7 @@ class TextNormalizer:
                          for h in heads if h is noun or h.feats.get("Number") == "Plur")
         if subject:
             case = GEN
-        elif fronted and (first is not None or colloquial):
+        elif fronted and (first is not None or colloquial or feats.get("Gender") is None):
             case = NOM  # "Cíle dosáhl vůdce a pět mužů", "Cíle dosáhli pět mužů"
         elif nominative and _plain_nominative(first):
             case = NOM  # "a" joins like cases: "Cíle dosáhla Eva a pět žen"; "vůdce" may be a genitive too

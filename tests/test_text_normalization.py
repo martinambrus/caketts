@@ -488,6 +488,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                               "Báli se otce a pěti mužů."),
     "genitive-verb-object-put-first": ("cs", None, "Cíle dosáhl vůdce a 5 mužů. Cíle dosáhli 5 procent studentů.",
                                        "Cíle dosáhl vůdce a pět mužů. Cíle dosáhli pět procent studentů."),
+    "genitive-verb-genitive-object-put-first": ("cs", None, "Úspěchu dosáhl vůdce a 5 mužů. "
+                                                            "Voleb se zúčastnili 60 procent voličů.",
+                                                "Úspěchu dosáhl vůdce a pět mužů. "
+                                                "Voleb se zúčastnili šedesát procent voličů."),
     "genitive-verb-before-five-and-more": ("cs", None, "Dosáhl 5 bodů a zúčastnilo se 50 lidí. Chce dosáhnout 5 bodů. "
                                                        "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
                                            "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
@@ -661,12 +665,16 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                               "Inflace dosahuje pěti procent.", "read as the object"),
     "guard-genitive-verb-present-tense-after-a-night": ("cs", "Tu noc se bojí 5 dětí.", "Tu noc se bojí pěti dětí.",
                                                         "read as the object"),
+    "guard-genitive-verb-present-tense-after-a-time": ("cs", "Příštího roku dosáhne 5 bodů.",
+                                                       "Příštího roku dosáhne pěti bodů.", "read as the object"),
     # the subject of "přijde" is shared by "dosáhne", unless "a" opens a clause whose subject is the number
     "genitive-verb-present-tense-shared-subject": ("cs", "Petr přijde a dosáhne 5 bodů.", "Petr přijde a dosáhne pěti bodů.",
                                                    "shared across"),
     # a number before its verb opens a clause of its own, so "Petr" is not its verb's subject
     "genitive-verb-present-tense-number-first": ("cs", "Petr přišel a 5 mužů dosáhne cíle.",
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
+    "genitive-verb-present-tense-object-put-first": ("cs", "Úspěchu dosáhne 5 studentů.",
+                                                     "Úspěchu dosáhne pět studentů.", "read as the subject"),
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
     "genitive-verb-number-before-a-neuter-plural-verb": ("cs", "5 procent voličů se zúčastnila voleb.",
