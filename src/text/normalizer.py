@@ -189,11 +189,11 @@ LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative pl
 # whatever case the tagger gives the preposition.
 TIME_PREPOSITIONS = {"cs": {"v": ACC, "ve": ACC}, "sk": {"o": LOC}}
 DAY_TIMES = ("ráno", "dopoledne", "odpoledne", "večer")  # "ve dvě večer": a clock time, not the noun counted
-# a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
-# cardinal ("za dve pätnásť")
 # verbs of placing, after which a number that ends the sentence is a rank: "Skončil 2." -> "druhý"
 RANK_VERBS = {"cs": ("skončil", "doběhl", "dojel", "doplaval", "umístil", "byl"),
               "sk": ("skončil", "dobeh", "doplával", "umiestnil", "bol")}
+# a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
+# cardinal ("za dve pätnásť")
 SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medzi", "k", "ku", "na"})
 
 # Czech prepositions with the accusative of direction and the instrumental of place. A masculine plural in -y
@@ -282,7 +282,7 @@ NUMBERED_BOOKS = {
            **dict.fromkeys(("krn", "kroník"), ("feminine", 2)), **dict.fromkeys(("mak", "machabejcov"), ("feminine", 2))},
 }
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
-ROMAN_LABEL_NOUNS ={"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
+ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
 # a ruler's title in a singular case: after one, a single I, V or X after the name is the ruler's number ("císař Karel V.")
 RULER_TITLES = {"cs": re.compile(r"(?:král|císař|papež|car|kurfiřt|sultán)(?:e|i|ovi|em)?|kníže(?:te|ti|tem)?|vévod(?:a|y|ovi|u|ou)"
@@ -1014,10 +1014,10 @@ class TextNormalizer:
                         None)  # past an adverb: "Vyšel díl V. Poté kniha uspěla."
             subject = tags.head_after(lead.start) if lead is not None and lead.upos in ("NOUN", "ADJ", "DET") else lead
             # a thing by its tag or as a known label: CAC gives feminine nouns no animacy, so "Paní V." has none
-            numbers_a_thing = label or (prev is not None and prev.upos == "NOUN"
-                               and (prev.feats.get("Animacy") == "Inan" or prev.text.lower() in ROMAN_LABEL_NOUNS[self.language])
-                               and subject is not None and subject.upos in ("NOUN", "PRON")
-                               and self._verb_follows(lead.start, tags))
+            numbers_a_thing = label or (
+                prev is not None and prev.upos == "NOUN"
+                and (prev.feats.get("Animacy") == "Inan" or prev.text.lower() in ROMAN_LABEL_NOUNS[self.language])
+                and subject is not None and subject.upos in ("NOUN", "PRON") and self._verb_follows(lead.start, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
                     or (len(numeral) == 1 and (numeral not in "IVX"
                                                or (nxt and nxt.text[:1].isupper() and not numbers_a_thing and not ruler)))):
@@ -1219,7 +1219,7 @@ class TextNormalizer:
         until = self._until(prev, tags.head_after(m.end()), tags)  # "BOJOVAL AŽ 3. DEN PADL"
         # "Beethovenova 5. Symfonie"; in capitals also after a conjunction ("A 2. DÍLY VYŠLY"), but not one between
         # cardinals ("V LETECH 1914 A 1918. VÁLKA SKONČILA")
-        attributive =until or prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
+        attributive = until or prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
             prev.upos == "CCONJ" and tags.capitals and not getattr(tags.before(prev.start), "text", "").isdigit())
         # after a preposition, a capitalised noun in its case is the ordinal's noun even when tagged a name
         # ("V 5. Symfonii"); a nominative one before a verb starts a sentence ("Přišel v 5. Symfonie začala.")
