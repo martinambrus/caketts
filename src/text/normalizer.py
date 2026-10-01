@@ -198,6 +198,10 @@ DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "
 # nouns of time whose nominative is also their accusative of time, so no subject: "Každý rok se akce zúčastní"
 TIME_NOUNS = frozenset({"rok", "den", "týden", "měsíc", "večer", "čas", "víkend", "okamžik", "moment", "podzim",
                         "život", "léto", "jaro", "ráno"})
+# words that qualify a number after "a" without opening a clause of their own: "Petr a asi pět mužů", "s 2 kg a ~3 kg"
+APPROXIMATORS = frozenset({"~", "≈", "asi", "přibližně", "zhruba", "skoro", "téměř", "cca", "nejméně", "nejvýše",
+                           "alespoň", "aspoň", "až", "také", "též", "ještě", "jen", "pouze", "približne", "takmer",
+                           "najmenej", "ešte", "tiež", "aj", "len", "iba"})
 DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
                    "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
                    "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
@@ -491,12 +495,13 @@ def _agree(a: "_Word", b: "_Word") -> bool:
 
 def _plain_nominative(w: "_Word") -> bool:
     """A word tagged nominative in a form no genitive singular shares, and no accusative of time ("každý rok", "akce"):
-    a masculine animate ("Petr"; not "soudce"), a feminine in -a, a singular "stroj" or "auto", "on", "kdo"."""
+    a masculine animate ("Petr", "Jiří"; not "soudce"), a feminine in -a, a singular "stroj" or "auto", "on", "kdo"."""
     form, feats = w.text.lower(), w.feats
     singular, gender = feats.get("Number") == "Sing", feats.get("Gender")
     return feats.get("Case") == "Nom" and form.isalpha() and (
         form in ("on", "ono", "oni", "ony", "kdo", "někdo", "nikdo")
-        or (gender == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě", "í")))
+        or (gender == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě"))
+            and not (form.endswith("í") and feats.get("Number") == "Plur"))
         or (gender == "Fem" and singular and form.endswith("a"))
         or (w.upos in ("NOUN", "PROPN") and singular and form not in TIME_NOUNS
             and ((gender == "Masc" and feats.get("Animacy") == "Inan") or (gender == "Neut" and form.endswith("o")))))
@@ -1222,8 +1227,10 @@ class TextNormalizer:
                 verb = self._clause_verb(start, tags)
                 feats = verb.feats
                 conjunction = tags.before(start)
+                if conjunction is not None and conjunction.text.lower() in APPROXIMATORS:  # "Petr a asi 5 mužů"
+                    conjunction = tags.before(conjunction.start)
                 first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
-                nominative = first is not None and first.feats.get("Case") == "Nom"
+                nominative = first is not None and first.feats.get("Case") == "Nom" and not first.text.isdigit()
                 # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
                 # "a" joining it to another predicate; a number before the verb opens a clause: "Pěti chyb si nikdo"
                 subject = shared = False
@@ -1250,12 +1257,8 @@ class TextNormalizer:
                               and (noun_gender != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy")))
                 if subject:
                     case = GEN
-                # a conjunct of the subject: the verb agrees with it ("Cíle dosáhl Petr a pět mužů") or, plural for
-                # both, has its gender ("dosáhli"); a present verb has none, so its plural tells nothing
-                elif nominative and (_agree(verb, first) or (
-                        feats.get("Number") == "Plur" and feats.get("Gender") is not None
-                        and all(feats.get(f) == first.feats.get(f) for f in ("Gender", "Animacy")))):
-                    case = NOM
+                elif nominative and _plain_nominative(first):
+                    case = NOM  # "a" joins like cases: "Cíle dosáhla Eva a pět žen"; "vůdce" may be a genitive too
                 elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
                     case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
                 elif feats.get("Gender") is None:
@@ -1277,7 +1280,7 @@ class TextNormalizer:
                     self._warn(text, m, self._cardinal(value, case, gender or "masculine", animacy or "inanimate"),
                                "subject or object of a present genitive verb, read as the "
                                + ("subject" if case == NOM else "object") + "; check it")
-                elif case == GEN and nominative and not subject:  # unconfirmed by agreement ("dosáhla": two genders)
+                elif case == GEN and nominative and not subject:  # a nominative in a form a genitive shares
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "conjunct of a nominative subject or the verb's object, read as the object; check it")
                 elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause

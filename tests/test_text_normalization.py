@@ -461,6 +461,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhne pěti bodů právě Petr. Zúčastní se padesát lidí z Prahy."),
     "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
                                                     "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
+    "genitive-verb-plain-subject-conjunct": ("cs", None, "Cíle dosáhla Eva a 5 žen. Cíle dosáhl Jiří a 5 mužů. "
+                                                         "Cíle dosáhl Petr a asi 5 mužů.",
+                                             "Cíle dosáhla Eva a pět žen. Cíle dosáhl Jiří a pět mužů. "
+                                             "Cíle dosáhl Petr a asi pět mužů."),
     "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
                                                           "Báli se otce a 5 mužů.",
                                               "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
@@ -572,7 +576,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-present-tense-concerning": ("cs", "Týká se 50 lidí.", "Týká se padesáti lidí.", "read as the object"),
     "genitive-verb-present-tense-taking-part": ("cs", "Zúčastní se 50 lidí.", "Zúčastní se padesát lidí.", "read as the subject"),
     "genitive-verb-present-tense-time": ("cs", "Bojí se 5 minut.", "Bojí se pěti minut.", "duration"),
-    "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pět bodů.",
+    "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pěti bodů.",
                                                       "subject or object"),
     # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
     "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
@@ -587,8 +591,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
     "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pěti mužů.", "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
-    # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
-    "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
+    # "vůdce" is a genitive as well, so its nominative tag cannot make the number a conjunct of the subject
+    "genitive-verb-conjunct-or-object": ("cs", "Dočkali se vůdce a 5 rytířů.", "Dočkali se vůdce a pěti rytířů.",
                                          "conjunct of a nominative subject"),
     # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
     "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
