@@ -713,7 +713,8 @@ class TextNormalizer:
             for w in token.words:
                 feats = dict(f.split("=", 1) for f in (w.feats or "").split("|") if f)
                 feats.update(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
-                upos = w.upos if any(ch.isalnum() for ch in w.text) else "PUNCT"  # CAC tags "–" as a noun at times
+                # CAC tags "–" as a noun at times; "~" and "≈" read "přibližně", so a preposition reaches past them
+                upos = "ADV" if texts[i] in ("~", "≈") else (w.upos if any(ch.isalnum() for ch in w.text) else "PUNCT")
                 words.append(_Word(t.start(), t.end(), texts[i] if i in lowered else w.text, upos, feats))
         return words
 
