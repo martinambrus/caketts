@@ -635,11 +635,12 @@ class TextNormalizer:
                                              and not (m.re is self._verses and m.start() <= s and e <= m.end())
                                              for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
-        out, pos, after_label = [], 0, -1
+        out, pos, after_label, goes_on = [], 0, -1, -1
         for m in items:
             start, words = self._resolve(m, text, tags, after_label == m.start(), heading)
             source_case = m.lastgroup == "abbreviation" and m.group(0)[0].isalpha()
-            if start == m.start() and not source_case and _starts_sentence("".join(out) + text[pos:start]):
+            if (start == m.start() and not source_case and start != goes_on
+                    and _starts_sentence("".join(out) + text[pos:start])):
                 words = words[:1].upper() + words[1:]  # "5 lidí přišlo." -> "Pět lidí přišlo."
             if text[m.end():m.end() + 1].isalnum() and not words[-1:].isspace():
                 words += " "  # "§5", "č.5", "5.díl"
@@ -649,6 +650,9 @@ class TextNormalizer:
                 words = words[1:]  # "3x4", "Cca5": both replacements brought a space
             out += [text[pos:start], words]
             pos = m.end()
+            if (m.lastgroup == "abbreviation" and words == m.group(0) and words.endswith(".") and tags.words
+                    and not self._ends_sentence(text, m.start(), m.end(), tags) and not self._verb_before(m.start(), tags, False)):
+                goes_on = _SPACES.match(text, pos).end()  # "Turnaj ATP. 500 začal": a kept acronym's period, no verb yet
             if m.group(0) == "#" or (m.lastgroup == "abbreviation" and _key_of(m) in LABEL_ABBREVIATIONS):
                 after_label = _SPACES.match(text, pos).end()  # a label follows: "č. 5", "§ 7", "#1"
         out.append(text[pos:])
