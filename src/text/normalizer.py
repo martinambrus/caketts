@@ -810,7 +810,8 @@ class TextNormalizer:
             else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
                 gender = (SCALE_GENDERS[self.language][m["commascale"].lower()] if m["commascale"]
                           else NOUNS[self.language][self._unit(m["commaunit"])[0]][0])  # "1,2,3 tis. Kč": tisíc's
-                case = self._governing_case(start, tags) or NOM
+                case = self._governing_case(start, tags) or self._unit_verb_case(
+                    parts[-1], m["commascale"] or m["commaunit"], start, end, text, tags, log=False) or NOM
                 if (m["commascale"] or "").lower() == "tis" and self.language == "sk":  # "dvetisíc": one word each
                     head = [self._measure(part, m["commascale"], start, tags, text, end, comma=False) for part in parts[:-1]]
                 else:
@@ -1007,7 +1008,8 @@ class TextNormalizer:
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
-                case = NOM if decimal else self._governing_case(start, tags) or NOM
+                case = NOM if decimal else (self._governing_case(start, tags) or self._unit_verb_case(
+                    high_amount, scale or unit, start, end, text, tags, log=False) or NOM)
                 words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
             if decimal:
@@ -1024,7 +1026,7 @@ class TextNormalizer:
                  whole: bool = False, scale_unit: Optional[str] = None, comma: bool = True) -> str:
         """comma: log a "2,000" read as a decimal (a range checks both ends itself)."""
         value, integer, fraction = _parse(amount)
-        case = self._governing_case(start, tags)
+        case = self._governing_case(start, tags) or self._unit_verb_case(amount, unit, start, end, text, tags)
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1188,12 +1190,14 @@ class TextNormalizer:
         own = noun = tags.head_after(end)
         if noun is None:
             od = getattr(self._preposition(start, tags), "text", "").lower() in ("od", "ode")  # also "od asi 1 do 2 h"
-            link = rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)[-−–+]?{_UNSIGNED}"
+            link = rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)(?P<later>[-−–+]?{_UNSIGNED})"
             unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
-            later_unit = re.match(rf"(?:{link})+{_HS}*({unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
+            later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
             if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
-                unit_gender = NOUNS[self.language][self._unit(later_unit[1])[0]][0]
-                unit_case = self._governing_case(start, tags)
+                unit_gender = NOUNS[self.language][self._unit(later_unit["unit"])[0]][0]
+                unit_case = self._governing_case(start, tags) or self._unit_verb_case(
+                    later_unit["later"], later_unit["unit"], end + later_unit.start("later"),
+                    end + later_unit.end("unit"), text, tags, log=False)
                 words = self._cardinal(value, NOM, unit_gender, "inanimate")
                 if unit_case is None and (words != self._cardinal(value, ACC, unit_gender, "inanimate")
                                           or (self.language == "cs" and self._verb_case(start, None, tags) == GEN)):
@@ -1553,6 +1557,41 @@ class TextNormalizer:
             warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                  "object, or the subject of a plural verb, as people say; check it")
         return case
+
+    def _unit_verb_case(self, amount: str, unit: str, start: int, end: int, text: str, tags: _Tags,
+                        log: bool = True) -> Optional[str]:
+        """After a Czech genitive verb an amount with a unit is its subject or object as a counted noun is."""
+        value, integer, fraction = _parse(amount)
+        unit = unit.rstrip(".")
+        scale = unit.lower() in SCALES
+        name = None if scale else self._unit(unit)[0]
+        before = tags.before(start, skip=("ADV", "PART"))
+        own = (before is not None and before.upos == "NOUN" and before.feats.get("Case") == "Gen"
+               and getattr(tags.before(before.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
+               not in ("ADP", "NOUN", "PROPN"))  # "Dosáhl rychlosti 120 km/h": the amount describes the noun
+        if (self.language != "cs" or value == 0 or own
+                or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS["cs"]))
+                or self._verb_case(start, self._preposition(start, tags), tags) != GEN):
+            return None
+        count = (integer or int(fraction.ljust(2, "0"))) if fraction else value
+        gender = SCALE_GENDERS["cs"][unit.lower()] if scale else NOUNS["cs"][name][0]
+        verb = self._clause_verb(start, tags)
+        if (1 < integer < 5 and gender == "neuter" and "Neut" in (verb.feats.get("Gender") or "")
+                and "Plur" in (verb.feats.get("Number") or "")
+                and not any(_plain_nominative(w) for w in self._clause_before(verb.start, tags))):
+            # an "-la" verb is also a neuter plural: "Voleb se zúčastnila dvě procenta voličů"
+            taking_part = _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+            case = NOM if start < verb.start or taking_part else GEN
+            if log:
+                self._warn(text, (start, end), self._cardinal(count, case, "neuter", "inanimate"),
+                           "subject or object of a verb that may be neuter plural, read as the "
+                           + ("subject" if case == NOM else "object") + "; check it")
+            return case
+        noun = tags.head_after(end)  # "60 % voličů" decides as "60 voličů"
+        if noun is None or noun.feats.get("Case") != "Gen":
+            noun = _Word(start, end, unit.lower() if scale else NOUNS["cs"][name][1][7], "NOUN",
+                         {"Gender": {v: k for k, v in _UD_GENDERS.items()}[gender], "Animacy": "Inan"})
+        return self._genitive_verb_case(count, start, noun, text, (start, end) if log else None, tags)
 
     def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:

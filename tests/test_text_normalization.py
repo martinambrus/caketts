@@ -540,6 +540,19 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                           "Cíle dosáhne 2. sdružení.",
                                           "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí. "
                                           "Cíle dosáhne druhé sdružení."),
+    "genitive-verb-measures": ("cs", None, "Teplota dosáhla 30 °C. Dosáhl 5 Kč. Cena dosáhla 4,50 €. "
+                                           "Cena dosáhla 0,50 €. Cena dosáhla 100 Kč/kg.",
+                               "Teplota dosáhla třiceti stupňů Celsia. Dosáhl pěti korun. Cena dosáhla čtyř eur "
+                               "padesáti centů. Cena dosáhla padesáti centů. Cena dosáhla sta korun za kilogram."),
+    "genitive-verb-measure-ranges-and-lists": ("cs", None, "Cena dosáhla $5–10. Zbavil se 1,2,3 kg. Dosáhl 5 tis. Kč.",
+                                               "Cena dosáhla pěti až deseti dolarů. "
+                                               "Zbavil se jednoho, dvou, tří kilogramů. Dosáhl pěti tisíc korun."),
+    "genitive-verb-measure-after-its-own-noun": ("cs", None, "Dosáhl rychlosti 120 km/h. "
+                                                             "Teplota dosáhla během dne 30 °C. "
+                                                             "Teplota dosáhla 30,5 °C.",
+                                                 "Dosáhl rychlosti sto dvacet kilometrů za hodinu. "
+                                                 "Teplota dosáhla během dne třiceti stupňů Celsia. "
+                                                 "Teplota dosáhla třicet celých pět desetin stupně Celsia."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
     "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
                                                 "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
@@ -634,6 +647,15 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # "vůdce" is a genitive as well, so its nominative tag cannot make the number a conjunct of the subject
     "genitive-verb-conjunct-or-object": ("cs", "Dočkali se vůdce a 5 rytířů.", "Dočkali se vůdce a pěti rytířů.",
                                          "conjunct of a nominative subject"),
+    "genitive-verb-shared-unit-time": ("cs", "Týká se 2 nebo 3 h.", "Týká se dvou nebo tří hodin.",
+                                       "a duration is the accusative"),
+    "genitive-verb-neuter-plural-unit-subject": ("cs", "Voleb se zúčastnila 2 % voličů.",
+                                                 "Voleb se zúčastnila dvě procenta voličů.",
+                                                 "may be neuter plural, read as the subject"),
+    "genitive-verb-neuter-plural-unit-object": ("cs", "Inflace dosáhla 3 %.", "Inflace dosáhla tří procent.",
+                                                "may be neuter plural, read as the object"),
+    "genitive-verb-unit-of-a-plural-verb": ("cs", "5 % studentů dosáhli cíle.", "Pět procent studentů dosáhli cíle.",
+                                            "subject of a plural verb, as people say"),
     # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
     "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
@@ -648,6 +670,13 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
     "label-across-a-line": ("cs", "Viz č.\n5 a str.\n7.", "Viz číslo\npět a strana\nsedm."),
     "genitive-verb-first-person-auxiliary": ("cs", "Báli jsme se 5 psů.", "Báli jsme se pěti psů."),
+    "genitive-verb-unit-subject": ("cs", "Voleb se zúčastnilo 60 % voličů.",
+                                   "Voleb se zúčastnilo šedesát procent voličů."),
+    "genitive-verb-unit-range-after-its-subject": ("cs", "Teplota dosáhne 30–35 °C.",
+                                                   "Teplota dosáhne třiceti až třiceti pěti stupňů Celsia."),
+    "genitive-verb-unit-first-person": ("cs", "Dosáhli jsme 30 °C.", "Dosáhli jsme třiceti stupňů Celsia."),
+    "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
+    "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
                                          "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
