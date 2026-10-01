@@ -1028,11 +1028,11 @@ class TextNormalizer:
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
-                case = NOM if decimal else (self._governing_case(start, tags) or self._unit_verb_case(
-                    high_amount, scale or unit, start, end, text, tags, log=False) or NOM)
+                case = self._governing_case(start, tags) or self._unit_verb_case(
+                    high_amount, scale or unit, start, end, text, tags, log=False) or NOM
                 words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
-            if decimal:
+            if isinstance(value, str):  # _context counts whole numbers only
                 case, gender, animacy = NOM, "masculine", "inanimate"
             else:
                 case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)

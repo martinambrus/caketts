@@ -99,6 +99,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "dot-time-range": ("cs", None, "Otevřeno 15.30–16.00 hod.", "Otevřeno patnáct třicet až šestnáct hodin."),
     "negative-decimal-range": ("cs", None, "Teplota −1,5–−0,5 °C.",
                                "Teplota mínus jedna celá pět desetin až mínus nula celá pět desetin stupně Celsia."),
+    "integer-end-of-a-decimal-range-takes-its-case": ("cs", None, "Při 30–35,5 °C. Po 1,5–2 hodinách odešel. Při 30,5–35 °C.",
+                                                      "Při třiceti až třicet pět celých pět desetin stupně Celsia. Po jedna "
+                                                      "celá pět desetin až dvou hodinách odešel. Při třicet celých pět "
+                                                      "desetin až třiceti pěti stupních Celsia."),
     "sign-after-opening-quote": ("cs", None, "Řekl: „-5 °C“.", "Řekl: „Mínus pět stupňů Celsia“."),
     "sk-diminutive-animals": ("sk", None, "Prišli 2 ježkovia.", "Prišli dva ježkovia."),
     "spaced-per-unit": ("cs", None, "Stojí to 100 Kč / kg.", "Stojí to sto korun za kilogram."),
