@@ -354,6 +354,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "approximately": ("cs", None, "Je to ~5 km, tedy ≈5 000 m.",
                       "Je to přibližně pět kilometrů, tedy přibližně pět tisíc metrů."),
     "sk-approximately": ("sk", None, "Je to ~5 km.", "Je to približne päť kilometrov."),
+    "approximately-after-preposition": ("cs", None, "Pracoval s ~5 kg a bez ≈5 lidí.",
+                                        "Pracoval s přibližně pěti kilogramy a bez přibližně pěti lidí."),
+    "sk-approximately-after-preposition": ("sk", None, "Pracoval s ~5 kg.", "Pracoval s približne piatimi kilogramami."),
     "approximately-before-currency": ("cs", None, "Stálo to ≈$5, tedy ~ €5 a ≈ -$5.",
                                       "Stálo to přibližně pět dolarů, tedy přibližně pět eur a přibližně mínus pět dolarů."),
     "approximately-between-numbers": ("cs", None, "Platí 3≈4 a 3~4.", "Platí tři přibližně čtyři a tři přibližně čtyři."),
@@ -364,6 +367,23 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                  "Spočítej tři krát čtyři dolary a tři krát plus čtyři dolary."),
     "signed-operand-after-new-operators": ("cs", None, "Spočítej 3*-4, je to ~-5 °C.",
                                            "Spočítej tři krát mínus čtyři, je to přibližně mínus pět stupňů Celsia."),
+    "range-with-az": ("cs", None, "Při 1 až 2 °C voda zamrzne. Stálo to $5 až 10.",
+                      "Při jednom až dvou stupních Celsia voda zamrzne. Stálo to pět až deset dolarů."),
+    "sk-range-with-az": ("sk", None, "Pri 1 až 2 °C voda zamrzne.", "Pri jednom až dvoch stupňoch Celzia voda zamrzne."),
+    "range-with-az-before-sentence-end": ("cs", None, "Počítal s 1 až 2. Potom odešel.",
+                                          "Počítal s jedním až dvěma. Potom odešel."),
+    "capitals-ordinal-after-az": ("cs", None, "ZLEPŠENÍ NASTANE 5 AŽ 6. DEN.", "ZLEPŠENÍ NASTANE pět AŽ šestý DEN."),
+    "ordinal-before-sentence-with-conjunction": ("cs", None, "Bylo jich 1. A 2. díl vyšel.",
+                                                 "Bylo jich jeden. A druhý díl vyšel."),
+    "capitals-ordinal-chain": ("cs", None, "ODE DNE 1. AŽ 5. LEDNA A 1. A 2. DÍL. BYLO JICH 5. A PAK ODEŠEL.",
+                               "ODE DNE prvního AŽ pátého LEDNA A první A druhý DÍL. BYLO JICH pět. A PAK ODEŠEL."),
+    "ordinal-range-with-az": ("cs", None, "Od 1. až 5. ledna. Přečti 2. až 4. kapitolu. XIX. až XX. století bylo bohaté.",
+                              "Od prvního až pátého ledna. Přečti druhou až čtvrtou kapitolu. Devatenácté až dvacáté "
+                              "století bylo bohaté."),
+    "az-before-time-or-word": ("cs", None, "Otevřeno 8 až 9.30 hod. a 8 až 9:30. Opakuj to 2 až 3krát, byl to 2 až 3letý "
+                                           "chlapec a zlepšení nastane 5 až 6. den.",
+                               "Otevřeno osm až devět třicet a osm až devět třicet. Opakuj to dvě až třikrát, byl to dva až "
+                               "tříletý chlapec a zlepšení nastane pět až šestý den."),
     "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
     "comma-list-before-noun": ("cs", None, "Šel s 1,2,3 přáteli.", "Šel s jedním, dvěma, třemi přáteli."),
     "comma-list-with-unit": ("cs", None, "Zvol 1,2,3 kg nebo 1,2,3 Kč, šel s 1,2,3 kg.",
@@ -380,6 +400,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                          "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "
                          "Jan tři, šestnáct. Jan přišel v pět celých pět desetin."),
     "sk-verse-references": ("sk", {"verse_references": ["Ján"]}, "Pozri Ján 3,16.", "Pozri Ján tri, šestnásť."),
+    "verse-references-with-more-verses": ("cs", {"verse_references": ["Jan"]},
+                                          "Viz Jan 3,16.18 a Jan 3,16–18.20. Viz Jan 3,16. 18 lidí přišlo.",
+                                          "Viz Jan tři, šestnáct a osmnáct a Jan tři, šestnáct až osmnáct a dvacet. "
+                                          "Viz Jan tři, šestnáct. Osmnáct lidí přišlo."),
     "verse-reference-with-english-book": ("cs", {"verse_references": ["John"], "english": ["John"]}, "Viz John 3,16.",
                                           "Viz <en>John</en> tři, šestnáct."),
     "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
@@ -420,6 +444,47 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "threshold-list-after-motion": ("cs", None, "Teploty klesly pod 5 °C, 3 °C a 1 °C. Pak klesly pod 3,2,1 °C.",
                                     "Teploty klesly pod pět stupňů Celsia, tři stupně Celsia a jeden stupeň Celsia. "
                                     "Pak klesly pod tři, dva, jeden stupeň Celsia."),
+    "genitive-verb-across-conjunction": ("cs", None, "Dosáhl cíle a 2. místa. Bál se tmy a 2. dílu.",
+                                         "Dosáhl cíle a druhého místa. Bál se tmy a druhého dílu."),
+    "genitive-verb-subject-conjunct": ("cs", None, "Cíle dosáhl Petr a 5 mužů. Dosáhl cíle a 5 bodů.",
+                                       "Cíle dosáhl Petr a pět mužů. Dosáhl cíle a pěti bodů."),
+    "present-genitive-verb-after-its-subject": ("cs", None, "Petr dosáhne 5 bodů. Teplota dosáhne 5 stupňů. "
+                                                            "Hráči dosáhnou 5 bodů.",
+                                                "Petr dosáhne pěti bodů. Teplota dosáhne pěti stupňů. "
+                                                "Hráči dosáhnou pěti bodů."),
+    # a singular inanimate subject, but no accusative of time: "každý rok" and "akce" are no subjects
+    "present-genitive-verb-after-an-inanimate-subject": ("cs", None, "Auto dosáhne 5 metrů. Zákon se týká 50 lidí. "
+                                                                     "Každý rok se akce zúčastní 50 lidí.",
+                                                         "Auto dosáhne pěti metrů. Zákon se týká padesáti lidí. "
+                                                         "Každý rok se akce zúčastní padesát lidí."),
+    "present-genitive-verb-before-its-subject": ("cs", None, "Dosáhne 5 bodů právě Petr. Zúčastní se 50 lidí z Prahy.",
+                                                 "Dosáhne pěti bodů právě Petr. Zúčastní se padesát lidí z Prahy."),
+    "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
+                                                    "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
+    "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
+                                                          "Báli se otce a 5 mužů.",
+                                              "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
+                                              "Báli se otce a pěti mužů."),
+    "genitive-verb-before-five-and-more": ("cs", None, "Dosáhl 5 bodů a zúčastnilo se 50 lidí. Chce dosáhnout 5 bodů. "
+                                                       "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
+                                           "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
+                                           "Pět mužů dosáhlo cíle. Vzdal pět bodů."),
+    "number-before-colloquial-plural-verb": ("cs", None, "Pak 5 mužů dosáhli cíle. 5 dětí se bály tmy. 5 bodů dosáhl.",
+                                             "Pak pět mužů dosáhli cíle. Pět dětí se bály tmy. Pěti bodů dosáhl."),
+    "genitive-noun-after-one-to-four": ("cs", None, "Dosáhl 2 bodů, dosáhli 3 bodů a dosáhl 1 bodu. Vypil 2 piva a ve 2 "
+                                                    "hodiny odešel.",
+                                        "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
+                                        "hodiny odešel."),
+    # a noun shared from a later number is genitive by that number's own right after 5, and "piva" is tagged
+    # a genitive singular
+    "one-to-four-sharing-a-later-noun": ("cs", None, "Vypil 1 a 2 piva. Vypil 2 nebo 5 piv. Dosáhl 2 a 3 bodů. "
+                                                     "Bál se 2 nebo 5 psů.",
+                                         "Vypil jedno a dvě piva. Vypil dvě nebo pět piv. Dosáhl dvou a tří bodů. "
+                                         "Bál se dvou nebo pěti psů."),
+    # CAC tags "hodiny" a genitive plural here, a form no genitive plural has
+    "one-to-four-before-a-mistagged-genitive": ("cs", None, "Hrál si s dětmi a skoro 2 hodiny tam zůstal. Bál se 2 žen.",
+                                                "Hrál si s dětmi a skoro dvě hodiny tam zůstal. Bál se dvou žen."),
+    "sk-genitive-noun-after-one-to-four": ("sk", None, "Bál sa 2 žien.", "Bál sa dvoch žien."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
@@ -459,7 +524,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                              "Maximálně mínus pět kilogramů, maximálně pět dolarů."),
     "capital-acronym-before-approximate-amount": ("cs", None, "MAX. ≈5 KG, MAX. ±2 KG.",
                                                   "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy."),
-    "capital-acronym-before-number-kept": ("cs", None, "TURNAJ ATP. 500 ZAČAL.", "TURNAJ ATP. Pět set ZAČAL."),  # the tour
+    "capital-acronym-before-number-kept": ("cs", None, "TURNAJ ATP. 500 ZAČAL.", "TURNAJ ATP. pět set ZAČAL."),  # the tour
+    "acronym-period-before-number": ("cs", None, "Turnaj ATP. 500 začal. Hrál na turnajích ATP. 500 lidí přišlo.",
+                                     "Turnaj ATP. pět set začal. Hrál na turnajích ATP. Pět set lidí přišlo."),
+    "acronym-period-before-number-across-a-line": ("cs", None, "Turnaj ATP.\n500 začal.", "Turnaj ATP.\npět set začal."),
     "capital-acronym-before-spaced-prefix": ("cs", None, "MAX. ≈ 5 KG, MAX. ± 2 KG, MAX. $ 5.",
                                              "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy, "
                                              "maximálně pět dolarů."),
@@ -495,8 +563,26 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
                                    "Ujel jedna celá dvě stě třicet čtyři tisícin kilometru až dvě celé pět desetin kilometru.",
                                    "not thousands"),
-    # a verb shared across "a" is not applied (see the example above); the tagger's plural is logged
-    "genitive-verb-before-conjunction": ("cs", "Dosáhl cíle a 2. místa.", "Dosáhl cíle a druhá místa.", "plural noun"),
+    "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pět bodů.", "subject or object"),
+    "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pět bodů.",
+                                                      "subject or object"),
+    # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
+    "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
+                                                          "Každý rok se akce zúčastní padesát lidí.", "subject or object"),
+    # the subject of "přijde" is shared by "dosáhne", unless "a" opens a clause whose subject is the number
+    "genitive-verb-present-tense-shared-subject": ("cs", "Petr přijde a dosáhne 5 bodů.", "Petr přijde a dosáhne pěti bodů.",
+                                                   "shared across"),
+    # a number before its verb opens a clause of its own, so "Petr" is not its verb's subject
+    "genitive-verb-present-tense-number-first": ("cs", "Petr přišel a 5 mužů dosáhne cíle.",
+                                                 "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
+    # a plural verb that agrees with the number is how people speak; a fronted object fits too
+    "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
+    "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
+    # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
+    "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
+                                         "conjunct of a nominative subject"),
+    # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
+    "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
     "wait-on-one-form-noun": ("cs", "Čekal na 2. náměstí.", "Čekal na druhé náměstí.", "locative"),
     "going-behind-or-after": ("cs", "Šel za 2 stromy a tam se zastavil.", "Šel za dvěma stromy a tam se zastavil.",
@@ -507,6 +593,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
+    "label-across-a-line": ("cs", "Viz č.\n5 a str.\n7.", "Viz číslo\npět a strana\nsedm."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
@@ -567,8 +654,8 @@ def test_dates_need_no_tagger(monkeypatch):
             == "Dne patnáctého ledna dva tisíce dvacet čtyři a prvního ledna.")
 
 
-def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16.18": read and logged as without the option
-    for text in ("Viz Jan 3,16a.", "Viz Jan 3,16.18."):
+def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16–18a": read and logged as without the option
+    for text in ("Viz Jan 3,16a.", "Viz Jan 3,16–18a."):
         assert TextNormalizer("cs", {"verse_references": ["Jan"]}).normalize(text) == TextNormalizer("cs").normalize(text)
 
 
