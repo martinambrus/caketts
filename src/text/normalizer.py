@@ -1211,11 +1211,13 @@ class TextNormalizer:
                 tagged_case = GEN  # "o 5 minút": a genitive plural tagged with the preposition's case
             approximator = tags.before(start)
             if (approximator is not None and approximator.text.lower() in APPROXIMATORS and tagged_case != NOM
-                    and noun.feats.get("Number") == "Plur" and not self._verb_follows(end, tags)):
-                # "s 5 lidmi a ~3 psy": past "~" CAC loses the case that "a" shares with the earlier noun
+                    and noun.feats.get("Number") == "Plur"):
+                # "s 5 lidmi a ~3 psy": past "~" CAC loses the case that "a" shares with the earlier noun; but after
+                # a clause's verb, a verb after the amount opens a new clause ("a skoro 2 hodiny tam zůstal")
                 link = tags.before(approximator.start)
                 earlier = tags.before(link.start) if link is not None and link.upos == "CCONJ" else None
-                if earlier is not None and earlier.upos == "NOUN":
+                if (earlier is not None and earlier.upos == "NOUN"
+                        and not (self._verb_follows(end, tags) and self._verb_before(earlier.start, tags, True))):
                     shared_case = _UD_CASES.get(earlier.feats.get("Case"))
                     if shared_case in PLURAL_ENDINGS and noun.text.lower().endswith(PLURAL_ENDINGS[shared_case]):
                         tagged_case = shared_case
@@ -1556,8 +1558,9 @@ class TextNormalizer:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
         "od 2:00–3:00", "s 2 kg a 3 kg"."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
-        if i >= 0 and w[i].text.lower() in APPROXIMATORS and i + 1 < len(w) and self._verb_follows(w[i + 1].end, tags):
-            return None  # "s 2 kg a asi 3 kg zůstaly": the amount opens a clause of its own
+        # "Pracoval s 2 kg a asi 3 kg zůstaly": a verb after the amount, in a clause with its verb, opens a new one
+        opens = (i >= 0 and w[i].text.lower() in APPROXIMATORS and i + 1 < len(w)
+                 and self._verb_follows(w[i + 1].end, tags))
         while i >= 0 and w[i].text.lower() in APPROXIMATORS:  # "s 2 kg a ~3 kg"
             i -= 1
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
@@ -1566,7 +1569,7 @@ class TextNormalizer:
         while i >= 0:
             text = w[i].text
             if w[i].upos == "ADP" and not (i > 0 and w[i - 1].text == "/"):  # the "s" of "m/s" is no preposition
-                return w[i]
+                return None if opens and self._verb_before(w[i].start, tags, True) else w[i]
             if text in (".", "!", "?", "…") and not (text == "." and 0 < i < len(w) - 1 and (
                     (w[i - 1].text.isdigit() and w[i + 1].text.isdigit() and w[i + 1].start == w[i].end)  # "8.30"
                     or ((re.fullmatch(_HOUR_WORD, w[i - 1].text.lower()) or w[i - 1].text.lower() in SCALES)

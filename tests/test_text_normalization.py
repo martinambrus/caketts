@@ -513,6 +513,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                   "Mezi jednou a dvěma hodinami."),
     "amount-after-approximator-opening-a-clause": ("cs", None, "Experimentoval s 2 kg a asi 3 kg zůstaly.",
                                                    "Experimentoval se dvěma kilogramy a asi tři kilogramy zůstaly."),
+    # a phrase put before its verb keeps the shared preposition: that verb is the clause's own, not a new clause's
+    "fronted-amounts-after-an-approximator": ("cs", None, "S 2 kg a asi 3 kg pracoval. S 5 lidmi a asi 3 psy přišel.",
+                                              "Se dvěma kilogramy a asi třemi kilogramy pracoval. S pěti lidmi a asi "
+                                              "třemi psy přišel."),
     "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
                                                  "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
     "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),
