@@ -528,6 +528,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "infinitive-opens-no-clause": ("cs", None, "Nemohl s 2 kg a asi 3 kg pracovat. Chtěl s 5 lidmi a asi 3 psy odejít.",
                                    "Nemohl se dvěma kilogramy a asi třemi kilogramy pracovat. Chtěl s pěti lidmi a asi "
                                    "třemi psy odejít."),
+    "auxiliary-is-not-the-clause-verb": ("cs", None, "Včera jsem s 2 kg a asi 3 kg pracoval. Ráno jsme s 5 lidmi a asi 3 psy "
+                                                     "odešli. Pracovat s 2 kg a asi 3 kg je těžké.",
+                                         "Včera jsem se dvěma kilogramy a asi třemi kilogramy pracoval. Ráno jsme s pěti "
+                                         "lidmi a asi třemi psy odešli. Pracovat se dvěma kilogramy a asi třemi kilogramy "
+                                         "je těžké."),
     "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
                                                  "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
     "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),

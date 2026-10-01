@@ -1245,7 +1245,7 @@ class TextNormalizer:
                 link = tags.before(approximator.start)
                 earlier = tags.before(link.start) if link is not None and link.upos == "CCONJ" else None
                 if (earlier is not None and earlier.upos == "NOUN"
-                        and not (self._verb_follows(end, tags) and self._verb_before(earlier.start, tags, True))):
+                        and not (self._verb_follows(end, tags) and self._predicate_before(earlier.start, tags))):
                     shared_case = _UD_CASES.get(earlier.feats.get("Case"))
                     if shared_case in PLURAL_ENDINGS and noun.text.lower().endswith(PLURAL_ENDINGS[shared_case]):
                         tagged_case = shared_case
@@ -1695,7 +1695,7 @@ class TextNormalizer:
         while i >= 0:
             text = w[i].text
             if w[i].upos == "ADP" and not (i > 0 and w[i - 1].text == "/"):  # the "s" of "m/s" is no preposition
-                return None if opens and self._verb_before(w[i].start, tags, True) else w[i]
+                return None if opens and self._predicate_before(w[i].start, tags) else w[i]
             if text in (".", "!", "?", "…") and not (text == "." and 0 < i < len(w) - 1 and (
                     (w[i - 1].text.isdigit() and w[i + 1].text.isdigit() and w[i + 1].start == w[i].end)  # "8.30"
                     or ((re.fullmatch(_HOUR_WORD, w[i - 1].text.lower()) or w[i - 1].text.lower() in SCALES)
@@ -1779,6 +1779,14 @@ class TextNormalizer:
             else:
                 stretch = []
         return False
+
+    @staticmethod
+    def _predicate_before(pos: int, tags: _Tags) -> bool:
+        """Whether the clause before `pos` has its verb: a finite verb or a copula, not an infinitive or an auxiliary
+        that waits for its participle: "Včera jsem s 2 kg a asi 3 kg pracoval"."""
+        return any((w.upos == "VERB" and w.feats.get("VerbForm") != "Inf")
+                   or (w.upos == "AUX" and _affirmative(w.text.lower()) in PLACE_FORMS)
+                   for w in TextNormalizer._clause_before(pos, tags))
 
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
