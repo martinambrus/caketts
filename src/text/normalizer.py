@@ -1195,15 +1195,20 @@ class TextNormalizer:
             elif noun_case == GEN and abs(value) >= 5 and self.language == "cs" and self._verb_case(start, prep, tags) == GEN:
                 # from 5 the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter singular
                 # verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
-                verb = self._clause_verb(start, tags).feats
-                if verb.get("VerbForm") == "Inf" or verb.get("Person") in ("1", "2"):
+                verb = self._clause_verb(start, tags)
+                feats = verb.feats
+                conjunction = tags.before(start)
+                first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
+                if first is not None and first.feats.get("Case") == "Nom" and _agree(verb, first):
+                    case = NOM  # a conjunct of the subject: "Cíle dosáhl Petr a pět mužů"
+                elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
                     case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
-                elif verb.get("Gender") is None:
+                elif feats.get("Gender") is None:
                     case = NOM
                     self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
                                "subject or object of a present genitive verb, read as the subject; check it")
                 else:
-                    case = NOM if (verb.get("Gender"), verb.get("Number")) == ("Neut", "Sing") else GEN
+                    case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
                 if case == GEN and noun.text.lower() in DURATION_GENITIVES:
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "time after a genitive verb, read as its object; a duration is the accusative; check it")
