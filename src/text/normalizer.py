@@ -126,6 +126,8 @@ UNITS = {  # symbol -> noun in NOUNS
            "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolár", "USD": "dolár", "£": "libra"},
 }
+UNIT_WORDS = {language: {part.lower() for key in units for part in re.findall(r"[^\W\d_]+", key)}
+              for language, units in UNITS.items()}
 UNIT_SUFFIXES = {"cs": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celsia"},
                  "sk": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celzia"}}
 UNIT_ADJECTIVES = {"cs": {"²": "čtvereční", "³": "krychlový"}, "sk": {"²": "štvorcový", "³": "kubický"}}
@@ -1496,7 +1498,8 @@ class TextNormalizer:
         if conjunction is not None and conjunction.text.lower() in APPROXIMATORS:  # "Petr a asi 5 mužů"
             conjunction = tags.before(conjunction.start)
         first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
-        nominative = first is not None and first.feats.get("Case") == "Nom" and not first.text.isdigit()
+        nominative = (first is not None and first.feats.get("Case") == "Nom" and first.text.isalpha()
+                      and first.text.lower() not in UNIT_WORDS[self.language])
         # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
         # "a" joining it to another predicate; a number before the verb opens a clause: "Pěti chyb si nikdo"
         subject = shared = False
@@ -1615,7 +1618,6 @@ class TextNormalizer:
             i -= 1
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
-        unit_words = {part.lower() for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
         while i >= 0:
             text = w[i].text
             if w[i].upos == "ADP" and not (i > 0 and w[i - 1].text == "/"):  # the "s" of "m/s" is no preposition
@@ -1626,7 +1628,8 @@ class TextNormalizer:
                         and not w[i + 1].text[:1].isupper()))):  # "hod.–3:00", but "s 2 kg. A 3 kg"
                 return None
             if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
-                    or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in unit_words or text.lower() in SCALES):
+                    or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in UNIT_WORDS[self.language]
+                    or text.lower() in SCALES):
                 return None
             i -= 1
         return None
