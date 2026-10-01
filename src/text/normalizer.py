@@ -1269,72 +1269,7 @@ class TextNormalizer:
             elif noun_case == GEN and abs(value) >= 5 and self.language == "cs" and self._verb_case(start, prep, tags) == GEN:
                 # from 5 the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter singular
                 # verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
-                verb = self._clause_verb(start, tags)
-                feats = verb.feats
-                conjunction = tags.before(start)
-                if conjunction is not None and conjunction.text.lower() in APPROXIMATORS:  # "Petr a asi 5 mužů"
-                    conjunction = tags.before(conjunction.start)
-                first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
-                nominative = first is not None and first.feats.get("Case") == "Nom" and not first.text.isdigit()
-                # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
-                # "a" joining it to another predicate; a number before the verb opens a clause: "Pěti chyb si nikdo"
-                subject = shared = False
-                if verb.start < start:
-                    words = self._clause_before(verb.start, tags)
-                    stop = tags.before(words[-1].start if words else verb.start)
-                    subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
-                        w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
-                        + self._clause_after(noun.end, tags))
-                    if not subject and stop is not None and stop.upos == "CCONJ" and all(
-                            w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
-                        subject = shared = any(_plain_nominative(w) and _agree(verb, w)
-                                               for w in self._clause_before(stop.start, tags))
-                else:
-                    subject = any(_plain_nominative(w) and _agree(verb, w)
-                                  for w in [w for w in self._clause_before(verb.start, tags) if w.start >= noun.end]
-                                  + self._clause_after(verb.end, tags))
-                # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject
-                clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
-                subject = subject or any(w.upos == "AUX" and w.feats.get("Person") in ("1", "2") for w in clause)
-                # the verb agrees with the number in the plural, as people say: "Pět mužů dosáhli cíle"
-                noun_gender = noun.feats.get("Gender")
-                colloquial = (feats.get("Number") == "Plur" and noun_gender in (feats.get("Gender") or "").split(",")
-                              and (noun_gender != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy")))
-                if subject:
-                    case = GEN
-                elif nominative and _plain_nominative(first):
-                    case = NOM  # "a" joins like cases: "Cíle dosáhla Eva a pět žen"; "vůdce" may be a genitive too
-                elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
-                    case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
-                elif feats.get("Gender") is None:
-                    # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
-                    # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
-                    taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                                   and noun.feats.get("VerbForm") != "Vnoun")  # an event: "padesáti jednání"
-                    case = GEN if verb.start < start and not taking_part else NOM
-                elif colloquial and start < verb.start:
-                    case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
-                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
-                               "subject of a plural verb, as people say, or an object put first; check it")
-                else:
-                    case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
-                if case == GEN and noun.text.lower() in DURATION_GENITIVES:
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "time after a genitive verb, read as its object; a duration is the accusative; check it")
-                elif (feats.get("Gender") is None and feats.get("VerbForm") != "Inf"
-                      and feats.get("Person") not in ("1", "2") and (case == NOM or not subject)):
-                    self._warn(text, m, self._cardinal(value, case, gender or "masculine", animacy or "inanimate"),
-                               "subject or object of a present genitive verb, read as the "
-                               + ("subject" if case == NOM else "object") + "; check it")
-                elif case == GEN and nominative and not subject:  # a nominative in a form a genitive shares
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "conjunct of a nominative subject or the verb's object, read as the object; check it")
-                elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "object of a subject shared across \"a\", or a new clause's subject; check it")
-                elif case == GEN and colloquial and not subject:  # "Cíle dosáhli pět mužů" is how people say it too
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "object, or the subject of a plural verb, as people say; check it")
+                case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:
@@ -1542,6 +1477,82 @@ class TextNormalizer:
         if prep.text.lower() in LOCATIVE_PREPOSITIONS[self.language]:
             return case in (ACC, LOC)  # the tagger gives v, na, o, po either case
         return case is not None and case == _UD_CASES.get(prep.feats.get("Case"))
+
+    def _genitive_verb_case(self, value: int, start: int, noun: _Word, text: str, where, tags: _Tags) -> str:
+        """Subject (NOM) or object (GEN) of a Czech genitive verb for a number counting `noun`; where=None logs nothing."""
+        gender, animacy = self._gender(noun)
+
+        def warn(reading: str, reason: str) -> None:
+            if where is not None:
+                self._warn(text, where, reading, reason)
+
+        verb = self._clause_verb(start, tags)
+        feats = verb.feats
+        conjunction = tags.before(start)
+        if conjunction is not None and conjunction.text.lower() in APPROXIMATORS:  # "Petr a asi 5 mužů"
+            conjunction = tags.before(conjunction.start)
+        first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
+        nominative = first is not None and first.feats.get("Case") == "Nom" and not first.text.isdigit()
+        # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
+        # "a" joining it to another predicate; a number before the verb opens a clause: "Pěti chyb si nikdo"
+        subject = shared = False
+        if verb.start < start:
+            words = self._clause_before(verb.start, tags)
+            stop = tags.before(words[-1].start if words else verb.start)
+            subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
+                w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
+                + self._clause_after(noun.end, tags))
+            if not subject and stop is not None and stop.upos == "CCONJ" and all(
+                    w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
+                subject = shared = any(_plain_nominative(w) and _agree(verb, w)
+                                       for w in self._clause_before(stop.start, tags))
+        else:
+            subject = any(_plain_nominative(w) and _agree(verb, w)
+                          for w in [w for w in self._clause_before(verb.start, tags) if w.start >= noun.end]
+                          + self._clause_after(verb.end, tags))
+        # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject
+        clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
+        subject = subject or any(w.upos == "AUX" and w.feats.get("Person") in ("1", "2") for w in clause)
+        # the verb agrees with the number in the plural, as people say: "Pět mužů dosáhli cíle"
+        noun_gender = noun.feats.get("Gender")
+        colloquial = (feats.get("Number") == "Plur" and noun_gender in (feats.get("Gender") or "").split(",")
+                      and (noun_gender != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy")))
+        if subject:
+            case = GEN
+        elif nominative and _plain_nominative(first):
+            case = NOM  # "a" joins like cases: "Cíle dosáhla Eva a pět žen"; "vůdce" may be a genitive too
+        elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
+            case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
+        elif feats.get("Gender") is None:
+            # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
+            # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
+            taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                           and noun.feats.get("VerbForm") != "Vnoun")  # an event: "padesáti jednání"
+            case = GEN if verb.start < start and not taking_part else NOM
+        elif colloquial and start < verb.start:
+            case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
+            warn(self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
+                 "subject of a plural verb, as people say, or an object put first; check it")
+        else:
+            case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
+        if case == GEN and noun.text.lower() in DURATION_GENITIVES:
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "time after a genitive verb, read as its object; a duration is the accusative; check it")
+        elif (feats.get("Gender") is None and feats.get("VerbForm") != "Inf"
+              and feats.get("Person") not in ("1", "2") and (case == NOM or not subject)):
+            warn(self._cardinal(value, case, gender or "masculine", animacy or "inanimate"),
+                 "subject or object of a present genitive verb, read as the "
+                 + ("subject" if case == NOM else "object") + "; check it")
+        elif case == GEN and nominative and not subject:  # a nominative in a form a genitive shares
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "conjunct of a nominative subject or the verb's object, read as the object; check it")
+        elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "object of a subject shared across \"a\", or a new clause's subject; check it")
+        elif case == GEN and colloquial and not subject:  # "Cíle dosáhli pět mužů" is how people say it too
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "object, or the subject of a plural verb, as people say; check it")
+        return case
 
     def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
