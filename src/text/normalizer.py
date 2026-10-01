@@ -203,6 +203,9 @@ TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
 TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
 # a time after a genitive verb is its object ("Dožil se devadesáti let") or a duration ("Bál se pět minut")
 DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků"})
+# genitives of time, which are no object: "Pěti vítězství dosáhla minulého roku"
+TIME_GENITIVES = frozenset({"dne", "dnu", "roku", "týdne", "měsíce", "večera", "rána", "dopoledne", "odpoledne", "léta",
+                            "jara", "podzimu", "zimy", "noci", "času", "víkendu", "chvíle", "doby"})
 # events, which one takes part in, after a number: "Zúčastní se pěti závodů"
 EVENT_GENITIVES = frozenset({"akcí", "bitev", "debat", "diskusí", "etap", "festivalů", "her", "koncertů", "konferencí",
                              "kongresů", "kol", "kurzů", "mistrovství", "olympiád", "porad", "přednášek", "schůzí",
@@ -1554,7 +1557,13 @@ class TextNormalizer:
                                      and not taking_part and not any(p < w.start for p in pronouns)) for w in clause)
         # the verb agrees with the number in the plural, as people say: "Pět mužů dosáhli cíle"
         noun_gender = noun.feats.get("Gender")
-        colloquial = (feats.get("Number") == "Plur" and noun_gender in (feats.get("Gender") or "").split(",")
+        # "-la" (Fem,Neut and Plur,Sing) agrees as a neuter plural with a number before it when its object follows:
+        # "Pět procent voličů se zúčastnila voleb", but "Pěti vítězství dosáhla (minulého roku)": a feminine subject
+        after = tags.head_after(verb.end)
+        plural = feats.get("Number") == "Plur" or (
+            feats.get("Number") == "Plur,Sing" and noun_gender == "Neut" and start < verb.start and after is not None
+            and after.feats.get("Case") == "Gen" and after.text.lower() not in TIME_GENITIVES)
+        colloquial = (plural and noun_gender in (feats.get("Gender") or "").split(",")
                       and (noun_gender != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy")))
         if subject:
             case = GEN
