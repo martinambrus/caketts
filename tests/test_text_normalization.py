@@ -468,6 +468,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                     "hodiny odešel.",
                                         "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
                                         "hodiny odešel."),
+    # a noun shared from a later number is genitive by that number's own right after 5, and "piva" is tagged
+    # a genitive singular
+    "one-to-four-sharing-a-later-noun": ("cs", None, "Vypil 1 a 2 piva. Vypil 2 nebo 5 piv. Dosáhl 2 a 3 bodů. "
+                                                     "Bál se 2 nebo 5 psů.",
+                                         "Vypil jedno a dvě piva. Vypil dvě nebo pět piv. Dosáhl dvou a tří bodů. "
+                                         "Bál se dvou nebo pěti psů."),
     "sk-genitive-noun-after-one-to-four": ("sk", None, "Bál sa 2 žien.", "Bál sa dvoch žien."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),

@@ -1164,7 +1164,8 @@ class TextNormalizer:
                 or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(f"[~≈]{_OPERAND}", after)):
             return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
         prep_case = self._preposition_case(start, tags)
-        noun = tags.head_after(end) or self._shared_count_head(end, tags)
+        own = tags.head_after(end)
+        noun = own or self._shared_count_head(end, tags)
         case = gender = animacy = tagged_case = noun_case = None
         if noun is not None:
             gender, animacy = self._gender(noun)
@@ -1203,7 +1204,8 @@ class TextNormalizer:
             if (self.language == "sk" and noun_case == GEN and noun.text.lower().endswith("ov")
                     and self._count_form(value) != "gen_pl"):
                 case = GEN
-            elif noun_case == GEN and 0 < abs(value) < 5 and "," not in text[start:end]:
+            elif (noun_case == GEN and 0 < abs(value) < 5 and "," not in text[start:end]
+                  and (noun is own or self._governed(noun, start, prep, tags))):
                 case = GEN  # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"
             elif noun_case == GEN and abs(value) >= 5 and self.language == "cs" and self._verb_case(start, prep, tags) == GEN:
                 # from 5 the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter singular
@@ -1288,6 +1290,15 @@ class TextNormalizer:
                 and (w[i + 1].text.isdigit() or re.fullmatch(_ROMAN, w[i + 1].text)) and w[i + 2].text == "."):
             return tags.head_after(w[i + 2].end) or self._shared_head(w[i + 2].end, tags)  # "2., 3. a 4. díl"
         return None
+
+    def _governed(self, noun: _Word, pos: int, prep: Optional[_Word], tags: _Tags) -> bool:
+        """Whether the genitive of a later number's noun, which the number at `pos` shares, is governed: after 2–4
+        it is ("Dosáhl 2 a 3 bodů"), after 5 only a genitive verb tells ("Bál se 2 nebo 5 psů", not "2 nebo 5 piv")."""
+        later = next((w for w in reversed(tags.words[:bisect.bisect_left(tags.starts, noun.start)])
+                      if w.text.replace(" ", "").isdigit()), None)
+        count = int(later.text.replace(" ", "")) if later is not None else 0
+        return noun.feats.get("Number") == "Plur" and (
+            1 < count < 5 or (self.language == "cs" and self._verb_case(pos, prep, tags) == GEN))
 
     def _shared_count_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži"."""
