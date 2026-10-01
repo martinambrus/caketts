@@ -520,6 +520,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capital-acronym-before-number-kept": ("cs", None, "TURNAJ ATP. 500 ZAČAL.", "TURNAJ ATP. pět set ZAČAL."),  # the tour
     "acronym-period-before-number": ("cs", None, "Turnaj ATP. 500 začal. Hrál na turnajích ATP. 500 lidí přišlo.",
                                      "Turnaj ATP. pět set začal. Hrál na turnajích ATP. Pět set lidí přišlo."),
+    "acronym-period-before-number-across-a-line": ("cs", None, "Turnaj ATP.\n500 začal.", "Turnaj ATP.\npět set začal."),
     "capital-acronym-before-spaced-prefix": ("cs", None, "MAX. ≈ 5 KG, MAX. ± 2 KG, MAX. $ 5.",
                                              "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy, "
                                              "maximálně pět dolarů."),
@@ -585,6 +586,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
+    "label-across-a-line": ("cs", "Viz č.\n5 a str.\n7.", "Viz číslo\npět a strana\nsedm."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
