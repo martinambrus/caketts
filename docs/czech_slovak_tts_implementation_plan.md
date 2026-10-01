@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**880 tests:** 102 for the TTS components, 104 for num2words, 670 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**972 tests:** 102 for the TTS components, 104 for num2words, 762 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -322,16 +322,25 @@ Handle:
     Decimals are read in the nominative; a single comma group of three digits ("2,000") is read as
     a decimal comma and LOGGED, and "1,2,3" is a list. Where Czech forms coincide the verb decides:
     "Stál mezi dvěma stromy" but "Postavil se mezi dva stromy", "Dosáhli jsme dvacátého prvního
-    století", "Vzpomínal na dvacáté století"; after a genitive verb a number of five and more is its
+    století", "Vzpomínal na dvacáté století"; after a genitive verb a number of five and more, or zero
+    ("Dosáhl nuly bodů"; an "-la" verb with no subject in sight may agree with "nula", LOGGED), is its
     object unless the verb is neuter singular, or plural and agreeing with a number before it (LOGGED:
-    "Pět mužů dosáhli cíle"), or the number is coordinated with a nominative subject
-    ("Dosáhl pěti bodů", but "Zúčastnilo se padesát lidí", "Cíle dosáhli Petr a pět mužů"; a present
-    verb shows no gender, so the number is its object only when a nominative subject precedes ("Petr
-    dosáhne pěti bodů"; LOGGED when the subject is shared across "a": "Petr přijde a dosáhne pěti
-    bodů") and is LOGGED otherwise, as is a nominative the verb's agreement does not confirm), and 1 to 4 before a genitive noun take its case ("Dosáhl dvou bodů"). Text in capitals is tagged lowercased, as the tagger
+    "Pět mužů dosáhli cíle"), or the number follows "a" and a nominative that no genitive shares
+    ("Dosáhl pěti bodů", but "Zúčastnilo se padesát lidí", "Cíle dosáhla Eva a pět žen"); a subject in
+    the verb's clause makes the number its object ("Petr dosáhne pěti bodů", "Pěti chyb si nikdo
+    nevšimne"); with none, a present verb's number is its subject before it and its object after it,
+    save after "zúčastnit se", all LOGGED, as are a plural verb agreeing with the number after it, a
+    nominative in a form a genitive shares and a subject shared across "a"; 1 to 4 before a genitive
+    noun take its case ("Dosáhl dvou bodů"); and an amount with a unit decides as its noun would
+    ("Teplota dosáhla třiceti stupňů", "Voleb se zúčastnilo šedesát procent voličů") unless it
+    describes the verb's own noun ("Dosáhl rychlosti sto dvacet kilometrů za hodinu"). After "v" a
+    bare number of 0 to 24 is a clock time ("v pět", LOGGED; "ve dvě ráno" not), and a number with
+    no noun takes the gender of the unit after a later one, also past "asi" ("jedna nebo asi dvě hodiny",
+    "od jedné do dvou korun"). Text in capitals is tagged lowercased, as the tagger
     reads capitals as caseless names; there a period before a verb ends the sentence only when its
     clause already has a verb ("KAREL IV. ZALOŽIL" goes on, "BYL TAM ATD. ODEŠEL" ends), and a
-    conjunction after a name goes on ("KAREL IV. A VÁCLAV IV.").
+    conjunction after a name goes on ("KAREL IV. A VÁCLAV IV."), as does an ordinal after a
+    conjunction ("BYLO JICH 1. A 2. DÍL VYŠEL").
  2. Dates ("1. ledna 2024" -> "Prvního ledna dva tisíce dvacet čtyři"), times read digitally
     ("ve čtrnáct třicet", Slovak "o štrnástej tridsať"), currency ("sto korun", "čtyři eura
     padesát centů"), units that agree with their number ("5 km" -> "pět kilometrů", "80 m²" ->
@@ -467,7 +476,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 670 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 762 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -830,6 +839,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "approximately-after-preposition": ("cs", None, "Pracoval s ~5 kg a bez ≈5 lidí.",
                                         "Pracoval s přibližně pěti kilogramy a bez přibližně pěti lidí."),
     "sk-approximately-after-preposition": ("sk", None, "Pracoval s ~5 kg.", "Pracoval s približne piatimi kilogramami."),
+    # after "a" and an approximator the amount shares the case of the one before; "pak" opens a clause of its own
+    "approximately-after-conjunction": ("cs", None, "Šel s 5 lidmi a ~3 psy. Pracoval s 2 kg a asi 3 kg. "
+                                                    "Přišel s 5 přáteli a pak 3 psi utekli.",
+                                        "Šel s pěti lidmi a přibližně třemi psy. Pracoval se dvěma kilogramy a asi třemi "
+                                        "kilogramy. Přišel s pěti přáteli a pak tři psi utekli."),
     "approximately-before-currency": ("cs", None, "Stálo to ≈$5, tedy ~ €5 a ≈ -$5.",
                                       "Stálo to přibližně pět dolarů, tedy přibližně pět eur a přibližně mínus pět dolarů."),
     "approximately-between-numbers": ("cs", None, "Platí 3≈4 a 3~4.", "Platí tři přibližně čtyři a tři přibližně čtyři."),
@@ -850,6 +864,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Bylo jich jeden. A druhý díl vyšel."),
     "capitals-ordinal-chain": ("cs", None, "ODE DNE 1. AŽ 5. LEDNA A 1. A 2. DÍL. BYLO JICH 5. A PAK ODEŠEL.",
                                "ODE DNE prvního AŽ pátého LEDNA A první A druhý DÍL. BYLO JICH pět. A PAK ODEŠEL."),
+    # in capitals an ordinal after "A" leads its noun, as a lowercase "a" shows in mixed text; after a cardinal it
+    # ends the list and the sentence
+    "capitals-ordinal-after-conjunction": ("cs", None, "BYLO JICH 1. A 2. DÍL VYŠEL. VYŠEL 2. DÍL A 3. DÍL VYŠEL "
+                                                       "POZDĚJI. BOJOVALI V LETECH 1914 A 1918. VÁLKA SKONČILA.",
+                                           "BYLO JICH první A druhý DÍL VYŠEL. VYŠEL druhý DÍL A třetí DÍL VYŠEL "
+                                           "POZDĚJI. BOJOVALI V LETECH tisíc devět set čtrnáct A tisíc devět set osmnáct. "
+                                           "VÁLKA SKONČILA."),
     "ordinal-range-with-az": ("cs", None, "Od 1. až 5. ledna. Přečti 2. až 4. kapitolu. XIX. až XX. století bylo bohaté.",
                               "Od prvního až pátého ledna. Přečti druhou až čtvrtou kapitolu. Devatenácté až dvacáté "
                               "století bylo bohaté."),
@@ -934,6 +955,15 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhne pěti bodů právě Petr. Zúčastní se padesát lidí z Prahy."),
     "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
                                                     "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
+    # CAC tags a neuter in -í after 5 nominative singular, but it can only be a genitive plural there
+    "one-form-neuter-after-five": ("cs", None, "Dosáhl 5 vítězství. Bál se 5 rozhodnutí. Má 5 stavení.",
+                                   "Dosáhl pěti vítězství. Bál se pěti rozhodnutí. Má pět stavení."),
+    "asking-verbs-take-the-genitive": ("cs", None, "Ptal se 5 mužů. Chtěl se zeptat 5 lidí. Ptal se na 2. kapitolu.",
+                                       "Ptal se pěti mužů. Chtěl se zeptat pěti lidí. Ptal se na druhou kapitolu."),
+    "genitive-verb-plain-subject-conjunct": ("cs", None, "Cíle dosáhla Eva a 5 žen. Cíle dosáhl Jiří a 5 mužů. "
+                                                         "Cíle dosáhl Petr a asi 5 mužů.",
+                                             "Cíle dosáhla Eva a pět žen. Cíle dosáhl Jiří a pět mužů. "
+                                             "Cíle dosáhl Petr a asi pět mužů."),
     "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
                                                           "Báli se otce a 5 mužů.",
                                               "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
@@ -944,6 +974,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                            "Pět mužů dosáhlo cíle. Vzdal pět bodů."),
     "number-before-colloquial-plural-verb": ("cs", None, "Pak 5 mužů dosáhli cíle. 5 dětí se bály tmy. 5 bodů dosáhl.",
                                              "Pak pět mužů dosáhli cíle. Pět dětí se bály tmy. Pěti bodů dosáhl."),
+    "number-before-its-verb-and-subject": ("cs", None, "5 chyb si nikdo nevšimne. 5 bodů Petr nedosáhne. 5 psů se vojáci "
+                                                       "báli. 5 bodů dosáhne Petr.",
+                                           "Pěti chyb si nikdo nevšimne. Pěti bodů Petr nedosáhne. Pěti psů se vojáci "
+                                           "báli. Pěti bodů dosáhne Petr."),
     "genitive-noun-after-one-to-four": ("cs", None, "Dosáhl 2 bodů, dosáhli 3 bodů a dosáhl 1 bodu. Vypil 2 piva a ve 2 "
                                                     "hodiny odešel.",
                                         "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
@@ -955,6 +989,23 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                          "Vypil jedno a dvě piva. Vypil dvě nebo pět piv. Dosáhl dvou a tří bodů. "
                                          "Bál se dvou nebo pěti psů."),
     # CAC tags "hodiny" a genitive plural here, a form no genitive plural has
+    # a number with no noun takes the gender of the unit after a later one
+    "unit-shared-across-a-link": ("cs", None, "Mělo to 1 nebo 2 %. Od 1 do 2 h. Bylo od 1 do 2 hodin. Mezi 1 a 2 h.",
+                                  "Mělo to jedno nebo dvě procenta. Od jedné do dvou hodin. Bylo od jedné do dvou hodin. "
+                                  "Mezi jednou a dvěma hodinami."),
+    "noun-shared-past-an-approximator": ("cs", None, "Má 1 nebo asi 2 děti. Od 1 do asi 2 h.",
+                                         "Má jedno nebo asi dvě děti. Od jedné do asi dvou hodin."),
+    "amount-after-approximator-opening-a-clause": ("cs", None, "Experimentoval s 2 kg a asi 3 kg zůstaly.",
+                                                   "Experimentoval se dvěma kilogramy a asi tři kilogramy zůstaly."),
+    # a phrase put before its verb keeps the shared preposition: that verb is the clause's own, not a new clause's
+    "fronted-amounts-after-an-approximator": ("cs", None, "S 2 kg a asi 3 kg pracoval. S 5 lidmi a asi 3 psy přišel.",
+                                              "Se dvěma kilogramy a asi třemi kilogramy pracoval. S pěti lidmi a asi "
+                                              "třemi psy přišel."),
+    "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
+                                                 "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
+    "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),
+    "one-sharing-a-neuter-plural": ("cs", None, "Má 1 nebo 2 děti. Měl 1 nebo 2 oči zavřené.",
+                                    "Má jedno nebo dvě děti. Měl jedno nebo dvě oči zavřené."),
     "one-to-four-before-a-mistagged-genitive": ("cs", None, "Hrál si s dětmi a skoro 2 hodiny tam zůstal. Bál se 2 žen.",
                                                 "Hrál si s dětmi a skoro dvě hodiny tam zůstal. Bál se dvou žen."),
     "sk-genitive-noun-after-one-to-four": ("sk", None, "Bál sa 2 žien.", "Bál sa dvoch žien."),
@@ -973,6 +1024,24 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                           "Cíle dosáhne 2. sdružení.",
                                           "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí. "
                                           "Cíle dosáhne druhé sdružení."),
+    "genitive-verb-measures": ("cs", None, "Teplota dosáhla 30 °C. Dosáhl 5 Kč. Cena dosáhla 4,50 €. "
+                                           "Cena dosáhla 0,50 €. Cena dosáhla 100 Kč/kg.",
+                               "Teplota dosáhla třiceti stupňů Celsia. Dosáhl pěti korun. Cena dosáhla čtyř eur "
+                               "padesáti centů. Cena dosáhla padesáti centů. Cena dosáhla sta korun za kilogram."),
+    "genitive-verb-measure-ranges-and-lists": ("cs", None, "Cena dosáhla $5–10. Zbavil se 1,2,3 kg. Dosáhl 5 tis. Kč.",
+                                               "Cena dosáhla pěti až deseti dolarů. "
+                                               "Zbavil se jednoho, dvou, tří kilogramů. Dosáhl pěti tisíc korun."),
+    "genitive-verb-measure-after-its-own-noun": ("cs", None, "Dosáhl rychlosti 120 km/h. "
+                                                             "Teplota dosáhla během dne 30 °C. "
+                                                             "Teplota dosáhla 30,5 °C.",
+                                                 "Dosáhl rychlosti sto dvacet kilometrů za hodinu. "
+                                                 "Teplota dosáhla během dne třiceti stupňů Celsia. "
+                                                 "Teplota dosáhla třicet celých pět desetin stupně Celsia."),
+    "zero-after-genitive-verb": ("cs", None, "Teplota dosáhla 0 °C. Teplota se dotkla 0 stupňů. Dosáhl 0 bodů.",
+                                 "Teplota dosáhla nuly stupňů Celsia. Teplota se dotkla nuly stupňů. Dosáhl nuly bodů."),
+    "genitive-verb-number-after-a-measure-and-a": ("cs", None, "Dosáhl 5 km a 10 bodů. Dosáhl 5 km a 6 km.",
+                                                   "Dosáhl pěti kilometrů a deseti bodů. "
+                                                   "Dosáhl pěti kilometrů a šesti kilometrů."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
     "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
                                                 "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
@@ -1036,8 +1105,15 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "decimal-comma-at-both-ends": ("cs", "Ujel 1,234 km–2,500 km.",
                                    "Ujel jedna celá dvě stě třicet čtyři tisícin kilometru až dvě celé pět desetin kilometru.",
                                    "not thousands"),
-    "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pět bodů.", "subject or object"),
-    "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pět bodů.",
+    # with no subject, a number after a present genitive verb is its object, but after "zúčastnit se" its subject
+    "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pěti bodů.", "read as the object"),
+    "genitive-verb-present-tense-concerning": ("cs", "Týká se 50 lidí.", "Týká se padesáti lidí.", "read as the object"),
+    "genitive-verb-present-tense-taking-part": ("cs", "Zúčastní se 50 lidí.", "Zúčastní se padesát lidí.", "read as the subject"),
+    # a verbal noun names an event, which is what one takes part in
+    "genitive-verb-present-tense-taking-part-in-events": ("cs", "Zúčastní se 50 jednání.", "Zúčastní se padesáti jednání.",
+                                                          "read as the object"),
+    "genitive-verb-present-tense-time": ("cs", "Bojí se 5 minut.", "Bojí se pěti minut.", "duration"),
+    "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pěti bodů.",
                                                       "subject or object"),
     # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
     "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
@@ -1050,10 +1126,35 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
+    "unit-shared-without-a-preposition": ("cs", "Trvá to 1 nebo 2 h.", "Trvá to jedna nebo dvě hodiny.", "no preposition"),
+    "unit-shared-past-an-approximator": ("cs", "Trvá to 1 nebo asi 2 h.", "Trvá to jedna nebo asi dvě hodiny.",
+                                         "no preposition"),
+    "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
+                                                           "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
+    # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")
+    "bare-number-after-v": ("cs", "Přišel v 5.", "Přišel v pět.", "time (v pět) or age"),
+    "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pěti mužů.", "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
-    # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
-    "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
+    # "vůdce" is a genitive as well, so its nominative tag cannot make the number a conjunct of the subject
+    "genitive-verb-conjunct-or-object": ("cs", "Dočkali se vůdce a 5 rytířů.", "Dočkali se vůdce a pěti rytířů.",
                                          "conjunct of a nominative subject"),
+    "genitive-verb-shared-unit-time": ("cs", "Týká se 2 nebo 3 h.", "Týká se dvou nebo tří hodin.",
+                                       "a duration is the accusative"),
+    "genitive-verb-two-ended-range": ("cs", "Dosáhne 30 °C–35 °C.",
+                                      "Dosáhne třiceti stupňů Celsia až třiceti pěti stupňů Celsia.", "read as the object"),
+    "genitive-verb-scale-amount": ("cs", "Dosáhne $1 mil.", "Dosáhne milionu dolarů.", "as 'milionu'"),
+    "zero-after-an-la-verb": ("cs", "Dosáhla 0 bodů.", "Dosáhla nuly bodů.", "may agree with zero, read as the object"),
+    "zero-subject-of-an-la-verb": ("cs", "Zúčastnila se 0 lidí.", "Zúčastnila se nula lidí.",
+                                   "may agree with zero, read as the subject"),
+    "genitive-verb-cents-range": ("cs", "Dosáhne 1,50–2,50 €.",
+                                  "Dosáhne jednoho eura padesáti centů až dvou eur padesáti centů.", "read as the object"),
+    "genitive-verb-neuter-plural-unit-subject": ("cs", "Voleb se zúčastnila 2 % voličů.",
+                                                 "Voleb se zúčastnila dvě procenta voličů.",
+                                                 "may be neuter plural, read as the subject"),
+    "genitive-verb-neuter-plural-unit-object": ("cs", "Inflace dosáhla 3 %.", "Inflace dosáhla tří procent.",
+                                                "may be neuter plural, read as the object"),
+    "genitive-verb-unit-of-a-plural-verb": ("cs", "5 % studentů dosáhli cíle.", "Pět procent studentů dosáhli cíle.",
+                                            "subject of a plural verb, as people say"),
     # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
     "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
@@ -1067,6 +1168,19 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
     "label-across-a-line": ("cs", "Viz č.\n5 a str.\n7.", "Viz číslo\npět a strana\nsedm."),
+    "genitive-verb-first-person-auxiliary": ("cs", "Báli jsme se 5 psů.", "Báli jsme se pěti psů."),
+    "genitive-verb-unit-subject": ("cs", "Voleb se zúčastnilo 60 % voličů.",
+                                   "Voleb se zúčastnilo šedesát procent voličů."),
+    "genitive-verb-unit-range-after-its-subject": ("cs", "Teplota dosáhne 30–35 °C.",
+                                                   "Teplota dosáhne třiceti až třiceti pěti stupňů Celsia."),
+    "genitive-verb-unit-first-person": ("cs", "Dosáhli jsme 30 °C.", "Dosáhli jsme třiceti stupňů Celsia."),
+    "genitive-verb-percent-and-percent": ("cs", "Dosáhl 5 % a 10 %.", "Dosáhl pěti procent a deseti procent."),
+    "zero-subject-of-genitive-verb": ("cs", "Zúčastnilo se 0 lidí.", "Zúčastnilo se nula lidí."),
+    "genitive-verb-neuter-unit-after-a-first-person-la": ("cs", "Dosáhla jsem 3 %.", "Dosáhla jsem tří procent."),
+    "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
+    "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
+    "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
+                                         "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
@@ -4013,7 +4127,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 879 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 971 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
