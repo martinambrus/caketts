@@ -264,7 +264,6 @@ NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "c
 LIST_END_ABBREVIATIONS = {"atd.", "apod.", "aj.", "atp.", "atď.", "a pod.", "a i."}
 # keys whose capital form is an acronym, a name or initials: "TURNAJ ATP.", "TJ SOKOL", "voliči ODS."
 CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j.", "tj.", "vr."})
-# nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
 # numbered Bible books as cited ("1 Jan", "2 Sam"): the gender of the noun they stand for (list, kniha), the highest number
 NUMBERED_BOOKS = {
     "cs": {**dict.fromkeys(("jan", "j", "jn"), ("masculine", 3)), **dict.fromkeys(("petr", "pt"), ("masculine", 2)),
@@ -281,7 +280,8 @@ NUMBERED_BOOKS = {
            **dict.fromkeys(("sam", "samuelova"), ("feminine", 2)), **dict.fromkeys(("kr", "kráľov"), ("feminine", 2)),
            **dict.fromkeys(("krn", "kroník"), ("feminine", 2)), **dict.fromkeys(("mak", "machabejcov"), ("feminine", 2))},
 }
-ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
+# nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
+ROMAN_LABEL_NOUNS ={"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
 # a ruler's title in a singular case: after one, a single I, V or X after the name is the ruler's number ("císař Karel V.")
 RULER_TITLES = {"cs": re.compile(r"(?:král|císař|papež|car|kurfiřt|sultán)(?:e|i|ovi|em)?|kníže(?:te|ti|tem)?|vévod(?:a|y|ovi|u|ou)"
@@ -663,7 +663,8 @@ class TextNormalizer:
             if book.lower() in NUMBERED_BOOKS[language]:
                 tops.setdefault(NUMBERED_BOOKS[language][book.lower()][1], []).append(re.escape(book))
         part = "|".join(rf"[1-{top}](?=\.?{_HS}*(?:{'|'.join(found)})(?!\w))" for top, found in tops.items()) or "(?!)"
-        self._verses = (re.compile(rf"(?<!\w)(?:(?P<part>{part})\.?{_HS}*)?(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
+        self._verses = (re.compile(rf"(?<!\w)(?:(?P<part>{part})\.?{_HS}*)?"
+                                   rf"(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
                                    rf"{_HS}+(?P<chapter>\d+)[,:]"
                                    rf"(?P<verse>\d+)(?>(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?"
                                    rf"(?P<more>(?:\.\d+(?:{_HS}*[–—-]{_HS}*\d+)?)*))(?!\d|[,.:]\d|[^\W\d_])")
@@ -1093,8 +1094,8 @@ class TextNormalizer:
         """comma: log a "2,000" read as a decimal (a range checks both ends itself); verb_log: log a genitive
         verb's doubt (a range logs it at its upper end only)."""
         value, integer, fraction = _parse(amount)
-        case = self._governing_case(start, tags, amount, unit) or self._unit_verb_case(amount, unit, start, end, text, tags,
-                                                                         log=verb_log)
+        case = self._governing_case(start, tags, amount, unit) or self._unit_verb_case(
+            amount, unit, start, end, text, tags, log=verb_log)
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1187,10 +1188,10 @@ class TextNormalizer:
         value = _parse(m["ordinalvalue"])[1]  # "1 000. návštěvník"
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
         prev = tags.before(m.start())
+        until = self._until(prev, tags.head_after(m.end()), tags)  # "BOJOVAL AŽ 3. DEN PADL"
         # "Beethovenova 5. Symfonie"; in capitals also after a conjunction ("A 2. DÍLY VYŠLY"), but not one between
         # cardinals ("V LETECH 1914 A 1918. VÁLKA SKONČILA")
-        until = self._until(prev, tags.head_after(m.end()), tags)  # "BOJOVAL AŽ 3. DEN PADL"
-        attributive = until or prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
+        attributive =until or prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
             prev.upos == "CCONJ" and tags.capitals and not getattr(tags.before(prev.start), "text", "").isdigit())
         # after a preposition, a capitalised noun in its case is the ordinal's noun even when tagged a name
         # ("V 5. Symfonii"); a nominative one before a verb starts a sentence ("Přišel v 5. Symfonie začala.")
@@ -1862,7 +1863,7 @@ class TextNormalizer:
         while i < len(words):
             if words[i].upos in ("VERB", "AUX") and words[i].feats.get("VerbForm") != "Inf":
                 return True
-            if words[i].upos == "ADP" and not tags.capitals:  # past a phrase of the noun: "Kniha o něm vyšla", "Kniha o válce byla úspěšná"
+            if words[i].upos == "ADP" and not tags.capitals:  # past a phrase of the noun: "Kniha o něm vyšla"
                 noun = tags.head_after(words[i].end) or tags.after(words[i].end)
                 if noun is None or noun.upos not in ("NOUN", "PROPN", "PRON"):
                     return False
