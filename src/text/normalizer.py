@@ -1556,6 +1556,8 @@ class TextNormalizer:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
         "od 2:00–3:00", "s 2 kg a 3 kg"."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
+        if i >= 0 and w[i].text.lower() in APPROXIMATORS and i + 1 < len(w) and self._verb_follows(w[i + 1].end, tags):
+            return None  # "s 2 kg a asi 3 kg zůstaly": the amount opens a clause of its own
         while i >= 0 and w[i].text.lower() in APPROXIMATORS:  # "s 2 kg a ~3 kg"
             i -= 1
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
