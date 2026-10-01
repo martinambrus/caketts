@@ -561,6 +561,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                         "kilogramy a třemi kilogramy pracoval. Začal se dvěma kilogramy a "
                                                         "třemi kilogramy cvičit. Včera jsem se dvěma kilogramy a třemi "
                                                         "kilogramy pracoval."),
+    "amount-with-a-symbol-or-range-opening-a-clause": ("cs", None, "Pracoval s 2 € a 3 € zůstaly. "
+                                                                   "Pracoval s 1 kg a 2–3 kg zůstaly.",
+                                                       "Pracoval se dvěma eury a tři eura zůstaly. "
+                                                       "Pracoval s jedním kilogramem a dva až tři kilogramy zůstaly."),
+    "amount-with-a-period-opening-no-clause": ("cs", None, "Pracoval s 2 h a 3 h. Zůstaly mu.",
+                                               "Pracoval se dvěma hodinami a třemi hodinami. Zůstaly mu."),
     "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
                                                  "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
     "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),

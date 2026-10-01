@@ -875,7 +875,8 @@ class TextNormalizer:
             else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
                 gender = (SCALE_GENDERS[self.language][m["commascale"].lower()] if m["commascale"]
                           else NOUNS[self.language][self._unit(m["commaunit"])[0]][0])  # "1,2,3 tis. Kč": tisíc's
-                case = self._governing_case(start, tags, parts[-1], m["commascale"] or m["commaunit"]) or self._unit_verb_case(
+                case = self._governing_case(start, tags, parts[-1], m["commascale"] or m["commaunit"],
+                                            end) or self._unit_verb_case(
                     parts[-1], m["commascale"] or m["commaunit"], start, end, text, tags, log=False) or NOM
                 if (m["commascale"] or "").lower() == "tis" and self.language == "sk":  # "dvetisíc": one word each
                     head = [self._measure(part, m["commascale"], start, tags, text, end, comma=False) for part in parts[:-1]]
@@ -1091,7 +1092,7 @@ class TextNormalizer:
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
-                case = self._governing_case(start, tags, high_amount, scale or unit) or self._unit_verb_case(
+                case = self._governing_case(start, tags, high_amount, scale or unit, end) or self._unit_verb_case(
                     high_amount, scale or unit, start, end, text, tags, log=False) or NOM
                 words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
@@ -1111,7 +1112,7 @@ class TextNormalizer:
         """comma: log a "2,000" read as a decimal (a range checks both ends itself); verb_log: log a genitive
         verb's doubt (a range logs it at its upper end only)."""
         value, integer, fraction = _parse(amount)
-        case = self._governing_case(start, tags, amount, unit) or self._unit_verb_case(
+        case = self._governing_case(start, tags, amount, unit, end) or self._unit_verb_case(
             amount, unit, start, end, text, tags, log=verb_log)
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
@@ -1285,7 +1286,8 @@ class TextNormalizer:
             later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
             if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
                 unit_gender = NOUNS[self.language][self._unit(later_unit["unit"])[0]][0]
-                unit_case = self._governing_case(start, tags, later_unit["later"], later_unit["unit"]) or self._unit_verb_case(
+                unit_case = self._governing_case(start, tags, later_unit["later"], later_unit["unit"],
+                                                 end + later_unit.end("unit")) or self._unit_verb_case(
                     later_unit["later"], later_unit["unit"], end + later_unit.start("later"),
                     end + later_unit.end("unit"), text, tags, log=False)
                 words = self._cardinal(value, NOM, unit_gender, "inanimate")
@@ -1746,10 +1748,10 @@ class TextNormalizer:
                 not in ("ADP", "NOUN", "PROPN"))
 
     def _governing_case(self, pos: int, tags: _Tags, amount: Optional[str] = None,
-                        unit: Optional[str] = None) -> Optional[str]:
-        """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
+                        unit: Optional[str] = None, end: Optional[int] = None) -> Optional[str]:
+        """The case a preposition gives an amount at `pos` (ending at `end`), also one shared with an earlier amount:
         "s 2 kg a 3 kg", "s 1 kg a 2–3 kg"."""
-        prep = self._preposition(pos, tags) or self._shared_preposition(pos, tags)
+        prep = self._preposition(pos, tags) or self._shared_preposition(pos, tags, end)
         if prep is None:
             return None
         if (self.language == "cs" and prep.text.lower() in ("pod", "nad")
@@ -1760,12 +1762,14 @@ class TextNormalizer:
             return ACC  # "ve 2 h" is a clock time, as "ve 2 hodiny"
         return _UD_CASES.get(prep.feats.get("Case"))
 
-    def _shared_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
+    def _shared_preposition(self, pos: int, tags: _Tags, end: Optional[int] = None) -> Optional[_Word]:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
-        "od 2:00–3:00", "s 2 kg a 3 kg"."""
+        "od 2:00–3:00", "s 2 kg a 3 kg"; an amount ends at `end`."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
-        # "Pracoval s 2 kg a 3 kg zůstaly": a verb after the amount, in a clause with its verb, opens a new one
-        opens = i + 1 < len(w) and self._verb_follows(w[i + 1].end, tags)
+        # "Pracoval s 2 kg a 3 kg zůstaly", "s 2 € a 3 € zůstaly": a verb after the amount, in a clause with its verb,
+        # opens a new one
+        opens = i + 1 < len(w) and (self._verb_follows(w[i + 1].end, tags) if end is None else
+                                    getattr(tags.before(end), "text", "") != "." and self._verb_next(end, tags))
         while i >= 0 and w[i].text.lower() in APPROXIMATORS - {RANGE_WORD}:  # "s 2 kg a ~3 kg"; "od 8.30 až 9.30"
             i -= 1
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", RANGE_WORD, ",", "–", "—", "-"):
