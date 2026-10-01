@@ -294,10 +294,8 @@ _INCLUSIVE_SUFFIXES = "kyně|yně|čka|čky|ka|ky|ce|a|á|é|y"  # "on/a", "Vá�
 _HOUR_WORD = r"(?:hod(?:\.|in[ay]?|ín)?|h\.?)"  # hod., hodin, hodiny, hodina, h., sk hodín
 _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:do|až|a|nebo|alebo){_HS}+)(?:2[0-4]|[01]?\d)[.:][0-5]\d)*"
              rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
-# a range written with "až" ("1 až 2 °C"), but not before a time ("8 až 9.30 hod.") nor into a word ("2 až 3krát",
-# "2 až 3letý", "5 až 6. den"), which the items for times, compounds and ordinals read
+# a range written with "až" ("1 až 2 °C"), but not before a time ("8 až 9.30 hod."), which the time item reads
 _TIME_AHEAD = rf"(?:2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})[0-5]\d"
-_RANGE_WORD_END = rf"(?![^\W_]|[.,:]\d|\.{_HS}*[^\W\d_])"
 _SPACES = re.compile(f"{_HS}*")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
@@ -344,6 +342,10 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
     per = _PER + (_CAPITAL_PER if capitals else "")
     length = rf"(?i:km|cm|mm){_POWER}|(?i:ml)|m{_POWER}|l|L" + (rf"|(?<={_HS})M{_POWER}|M(?:[²³]|[23](?!\d))"
                                                                 if capitals else "")
+    # nor does the upper end after "až" run into a word ("2 až 3krát", "2 až 3letý") or an ordinal's noun ("5 až
+    # 6. den"); a capital after the period starts a sentence ("1 až 2. Potom"), but in capitals it may be "6. DEN"
+    after_period = r"[^\W\d_]" if capitals else "[a-záäčďéěíĺľňóôŕřšťúůýž]"
+    range_end = rf"(?![^\W_]|[.,:]\d|\.{_HS}*{after_period})"
 
     def unit_per(name: str) -> str:  # after a length or volume, "/ s" is a second also before a word: "5 m / s a pak"
         return (rf"(?P<{name}unit>(?P<{name}length>{length})(?![\w²³]|/(?!(?i:s){_NOT_LETTER_AFTER}))|{unit}|{_CURRENCY})"
@@ -365,7 +367,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"(?:{_HS}*(?:(?P<lowscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+{unit_per('lowscale')})?"
         rf"|{unit_per('low')}))?(?:{_HS}*[–—-]{_HS}*|{_HS}+(?P<rangeword>až|AŽ){_HS}+(?!{_TIME_AHEAD}))"
-        rf"(?P<high>[-−–+]?{_UNSIGNED})(?(rangeword){_RANGE_WORD_END})"
+        rf"(?P<high>[-−–+]?{_UNSIGNED})(?(rangeword){range_end})"
         rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+{unit_per('highscale')})?"
         rf"|(?(lowunit){_HS}*{unit_per('high')}"
@@ -378,7 +380,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"(?P<highprice>{_PRICE}){_HS}*/{_HS}*(?P<highmoneyper>{per}){_NOT_LETTER_AFTER}\.?"
         rf"|(?:(?:{_HS}+(?P<lowmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?"
         rf"(?:{_HS}*[–—-]{_HS}*|{_HS}+(?P<moneyword>až|AŽ){_HS}+(?!{_TIME_AHEAD}))"
-        rf"(?P<highsign>[-−–])?(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE})(?(moneyword){_RANGE_WORD_END}))?"  # "-$5–-$10"
+        rf"(?P<highsign>[-−–])?(?:(?P=symbol){_HS}*)?(?P<pricehigh>{_PRICE})(?(moneyword){range_end}))?"  # "-$5–-$10"
         rf"(?(lowmoneyscale){_HS}+(?P<highmoneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"|(?:{_HS}+(?P<moneyscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER})?)"
         rf"(?:{_HS}*/{_HS}*(?P<moneyper>{per}){_NOT_LETTER_AFTER}\.?)?))"
