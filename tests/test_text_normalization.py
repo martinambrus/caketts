@@ -543,6 +543,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "fronted-amounts-after-an-approximator": ("cs", None, "S 2 kg a asi 3 kg pracoval. S 5 lidmi a asi 3 psy přišel.",
                                               "Se dvěma kilogramy a asi třemi kilogramy pracoval. S pěti lidmi a asi "
                                               "třemi psy přišel."),
+    "approximator-inside-a-shared-preposition-chain": ("cs", None, "Pracoval s 2 kg a asi 3 kg a 4 kg.",
+                                                       "Pracoval se dvěma kilogramy a asi třemi kilogramy a čtyřmi "
+                                                       "kilogramy."),
     "infinitive-opens-no-clause": ("cs", None, "Nemohl s 2 kg a asi 3 kg pracovat. Chtěl s 5 lidmi a asi 3 psy odejít.",
                                    "Nemohl se dvěma kilogramy a asi třemi kilogramy pracovat. Chtěl s pěti lidmi a asi "
                                    "třemi psy odejít."),

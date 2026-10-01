@@ -1779,7 +1779,8 @@ class TextNormalizer:
                     or ((re.fullmatch(_HOUR_WORD, w[i - 1].text.lower()) or w[i - 1].text.lower() in SCALES)
                         and not w[i + 1].text[:1].isupper()))):  # "hod.–3:00", but "s 2 kg. A 3 kg"
                 return None
-            if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo", RANGE_WORD)
+            if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
+                    or text.lower() in APPROXIMATORS  # "s 2 kg a asi 3 kg a 4 kg"
                     or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in UNIT_WORDS[self.language]
                     or text.lower() in SCALES):
                 return None
