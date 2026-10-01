@@ -1604,11 +1604,7 @@ class TextNormalizer:
         unit = unit.rstrip(".")
         scale = unit.lower() in SCALES
         name = None if scale else self._unit(unit)[0]
-        before = tags.before(start, skip=("ADV", "PART"))
-        own = (before is not None and before.upos == "NOUN" and before.feats.get("Case") == "Gen"
-               and getattr(tags.before(before.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
-               not in ("ADP", "NOUN", "PROPN"))  # "Dosáhl rychlosti 120 km/h": the amount describes the noun
-        if (self.language != "cs" or own
+        if (self.language != "cs" or self._after_own_noun(start, tags)  # "Dosáhl rychlosti 120 km/h"
                 or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS["cs"]))
                 or self._verb_case(start, self._preposition(start, tags), tags) != GEN):
             return None
@@ -1630,6 +1626,14 @@ class TextNormalizer:
             noun = _Word(start, end, unit.lower() if scale else NOUNS["cs"][name][1][7], "NOUN",
                          {"Gender": {v: k for k, v in _UD_GENDERS.items()}[gender], "Animacy": "Inan"})
         return self._genitive_verb_case(count, start, noun, text, (start, end) if log else None, tags)
+
+    @staticmethod
+    def _after_own_noun(pos: int, tags: _Tags) -> bool:
+        """Whether a genitive noun of the verb's own, no attribute and after no preposition, stands right before `pos`."""
+        before = tags.before(pos, skip=("ADV", "PART"))
+        return (before is not None and before.upos == "NOUN" and before.feats.get("Case") == "Gen"
+                and getattr(tags.before(before.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
+                not in ("ADP", "NOUN", "PROPN"))
 
     def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
