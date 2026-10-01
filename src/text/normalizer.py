@@ -265,6 +265,22 @@ LIST_END_ABBREVIATIONS = {"atd.", "apod.", "aj.", "atp.", "atď.", "a pod.", "a 
 # keys whose capital form is an acronym, a name or initials: "TURNAJ ATP.", "TJ SOKOL", "voliči ODS."
 CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j.", "tj.", "vr."})
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
+# numbered Bible books as cited ("1 Jan", "2 Sam"): the gender of the noun they stand for (list, kniha), the highest number
+NUMBERED_BOOKS = {
+    "cs": {**dict.fromkeys(("jan", "j", "jn"), ("masculine", 3)), **dict.fromkeys(("petr", "pt"), ("masculine", 2)),
+           **dict.fromkeys(("kor", "k", "korintským"), ("masculine", 2)),
+           **dict.fromkeys(("tes", "te", "sol", "tesalonickým", "soluňanům"), ("masculine", 2)),
+           **dict.fromkeys(("tim", "tm", "timoteovi"), ("masculine", 2)),
+           **dict.fromkeys(("mojžíšova", "mojž"), ("feminine", 5)), **dict.fromkeys(("sam", "s", "samuelova"), ("feminine", 2)),
+           **dict.fromkeys(("kr", "král", "královská"), ("feminine", 2)),
+           **dict.fromkeys(("pa", "par", "paralipomenon", "letopisů", "kron"), ("feminine", 2)),
+           **dict.fromkeys(("mak", "makabejská", "makabejských"), ("feminine", 4))},
+    "sk": {**dict.fromkeys(("ján", "jn"), ("masculine", 3)), **dict.fromkeys(("peter", "pt"), ("masculine", 2)),
+           **dict.fromkeys(("kor", "korinťanom"), ("masculine", 2)), **dict.fromkeys(("sol", "solúnčanom"), ("masculine", 2)),
+           **dict.fromkeys(("tim", "timotejovi"), ("masculine", 2)), **dict.fromkeys(("mojžišova", "mojž"), ("feminine", 5)),
+           **dict.fromkeys(("sam", "samuelova"), ("feminine", 2)), **dict.fromkeys(("kr", "kráľov"), ("feminine", 2)),
+           **dict.fromkeys(("krn", "kroník"), ("feminine", 2)), **dict.fromkeys(("mak", "machabejcov"), ("feminine", 2))},
+}
 ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
 # a ruler's title in a singular case: after one, a single I, V or X after the name is the ruler's number ("císař Karel V.")
@@ -638,11 +654,16 @@ class TextNormalizer:
         numbered = [book for book in books if re.search(r"\d", book)]
         if numbered:
             raise ValueError(f"book_config['verse_references'] has {numbered}, whose digits would stay as written; "
-                             f"list the name alone ('Jan' for '1 Jan'), and the number before it is read as usual")
+                             f"list the name alone ('Jan' for '1 Jan'), and the number before it is read as the book's ordinal")
         # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29", "Jan 3,16.18": chapter and verse, not a decimal or
         # a time; the book may be in its span ("<en>John</en> 3,16"); atomic, so "Jan 3,16–18a" is not cut short
         names = '|'.join(map(re.escape, books))
-        self._verses = (re.compile(rf"(?<!\w)(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
+        tops = {}  # "1 Jan", "2. Sam", "1Kor": a numbered book's number, up to its highest
+        for book in books:
+            if book.lower() in NUMBERED_BOOKS[language]:
+                tops.setdefault(NUMBERED_BOOKS[language][book.lower()][1], []).append(re.escape(book))
+        part = "|".join(rf"[1-{top}](?=\.?{_HS}*(?:{'|'.join(found)})(?!\w))" for top, found in tops.items()) or "(?!)"
+        self._verses = (re.compile(rf"(?<!\w)(?:(?P<part>{part})\.?{_HS}*)?(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
                                    rf"{_HS}+(?P<chapter>\d+)[,:]"
                                    rf"(?P<verse>\d+)(?>(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?"
                                    rf"(?P<more>(?:\.\d+(?:{_HS}*[–—-]{_HS}*\d+)?)*))(?!\d|[,.:]\d|[^\W\d_])")
@@ -730,7 +751,11 @@ class TextNormalizer:
         def number(digits: str) -> str:
             return self._cardinal(int(digits), *self._label(int(digits)))
 
-        words = f"{v['book']} {number(v['chapter'])}, {number(v['verse'])}"
+        book = v["book"]
+        if v["part"]:  # "1 Jan", "2 Sam": the first epistle (list), the second book (kniha)
+            gender = NUMBERED_BOOKS[self.language][book.lower()][0]
+            book = f"{self._ordinal(int(v['part']), NOM, gender, 'inanimate')} {book}"
+        words = f"{book} {number(v['chapter'])}, {number(v['verse'])}"
         if v["last"]:
             words += f" {RANGE_WORD} {number(v['last'])}"
         if v["lastverse"]:

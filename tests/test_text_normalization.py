@@ -431,6 +431,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "verse-reference-with-english-book": ("cs", {"verse_references": ["John"], "english": ["John"]}, "Viz John 3,16.",
                                           "Viz <en>John</en> tři, šestnáct."),
     "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
+    "numbered-verse-books": ("cs", {"verse_references": ["Jan", "Kor", "Sam"]}, "Viz 1 Jan 3,16, 2. Kor 5,17 a 2Sam 7,12.",
+                             "Viz první Jan tři, šestnáct, druhý Kor pět, sedmnáct a druhá Sam sedm, dvanáct."),
+    "number-before-a-verse-reference": ("cs", {"verse_references": ["Jan"]}, "Bylo jich 5. Jan 3,16 to říká.",
+                                        "Bylo jich pět. Jan tři, šestnáct to říká."),
     "per-second-before-word": ("cs", None, "Jel 5 m / s a pak šel, tok měl 5 l / s a víc.",
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
     "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
