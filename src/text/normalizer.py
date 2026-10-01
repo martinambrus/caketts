@@ -1241,6 +1241,13 @@ class TextNormalizer:
                     subject = any(_plain_nominative(w) and _agree(verb, w)
                                   for w in [w for w in self._clause_before(verb.start, tags) if w.start >= noun.end]
                                   + self._clause_after(verb.end, tags))
+                # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject
+                clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
+                subject = subject or any(w.upos == "AUX" and w.feats.get("Person") in ("1", "2") for w in clause)
+                # the verb agrees with the number in the plural, as people say: "Pět mužů dosáhli cíle"
+                noun_gender = noun.feats.get("Gender")
+                colloquial = (feats.get("Number") == "Plur" and noun_gender in (feats.get("Gender") or "").split(",")
+                              and (noun_gender != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy")))
                 if subject:
                     case = GEN
                 # a conjunct of the subject: the verb agrees with it ("Cíle dosáhl Petr a pět mužů") or, plural for
@@ -1256,9 +1263,7 @@ class TextNormalizer:
                     # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
                     after = verb.start < start and not _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
                     case = GEN if after else NOM
-                elif (start < verb.start and feats.get("Number") == "Plur"
-                      and noun.feats.get("Gender") in (feats.get("Gender") or "").split(",")
-                      and (noun.feats.get("Gender") != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy"))):
+                elif colloquial and start < verb.start:
                     case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
                     self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
                                "subject of a plural verb, as people say, or an object put first; check it")
@@ -1278,6 +1283,9 @@ class TextNormalizer:
                 elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "object of a subject shared across \"a\", or a new clause's subject; check it")
+                elif case == GEN and colloquial and not subject:  # "Cíle dosáhli pět mužů" is how people say it too
+                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                               "object, or the subject of a plural verb, as people say; check it")
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:
