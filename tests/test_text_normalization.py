@@ -533,6 +533,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                          "Včera jsem se dvěma kilogramy a asi třemi kilogramy pracoval. Ráno jsme s pěti "
                                          "lidmi a asi třemi psy odešli. Pracovat se dvěma kilogramy a asi třemi kilogramy "
                                          "je těžké."),
+    "amount-opening-a-clause-without-an-approximator": ("cs", None, "Pracoval s 2 kg a 3 kg zůstaly. S 2 kg a 3 kg pracoval. "
+                                                                    "Začal s 2 kg a 3 kg cvičit. Včera jsem s 2 kg a 3 kg "
+                                                                    "pracoval.",
+                                                        "Pracoval se dvěma kilogramy a tři kilogramy zůstaly. Se dvěma "
+                                                        "kilogramy a třemi kilogramy pracoval. Začal se dvěma kilogramy a "
+                                                        "třemi kilogramy cvičit. Včera jsem se dvěma kilogramy a třemi "
+                                                        "kilogramy pracoval."),
     "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
                                                  "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
     "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),
