@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**960 tests:** 102 for the TTS components, 104 for num2words, 750 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**972 tests:** 102 for the TTS components, 104 for num2words, 762 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -322,7 +322,8 @@ Handle:
     Decimals are read in the nominative; a single comma group of three digits ("2,000") is read as
     a decimal comma and LOGGED, and "1,2,3" is a list. Where Czech forms coincide the verb decides:
     "Stál mezi dvěma stromy" but "Postavil se mezi dva stromy", "Dosáhli jsme dvacátého prvního
-    století", "Vzpomínal na dvacáté století"; after a genitive verb a number of five and more is its
+    století", "Vzpomínal na dvacáté století"; after a genitive verb a number of five and more, or zero
+    ("Dosáhl nuly bodů"; an "-la" verb with no subject in sight may agree with "nula", LOGGED), is its
     object unless the verb is neuter singular, or plural and agreeing with a number before it (LOGGED:
     "Pět mužů dosáhli cíle"), or the number follows "a" and a nominative that no genitive shares
     ("Dosáhl pěti bodů", but "Zúčastnilo se padesát lidí", "Cíle dosáhla Eva a pět žen"); a subject in
@@ -334,7 +335,8 @@ Handle:
     ("Teplota dosáhla třiceti stupňů", "Voleb se zúčastnilo šedesát procent voličů") unless it
     describes the verb's own noun ("Dosáhl rychlosti sto dvacet kilometrů za hodinu"). After "v" a
     bare number of 0 to 24 is a clock time ("v pět", LOGGED; "ve dvě ráno" not), and a number with
-    no noun takes the gender of the unit after a later one ("jedna nebo dvě hodiny", "od jedné do dvou korun"). Text in capitals is tagged lowercased, as the tagger
+    no noun takes the gender of the unit after a later one, also past "asi" ("jedna nebo asi dvě hodiny",
+    "od jedné do dvou korun"). Text in capitals is tagged lowercased, as the tagger
     reads capitals as caseless names; there a period before a verb ends the sentence only when its
     clause already has a verb ("KAREL IV. ZALOŽIL" goes on, "BYL TAM ATD. ODEŠEL" ends), and a
     conjunction after a name goes on ("KAREL IV. A VÁCLAV IV."), as does an ordinal after a
@@ -474,7 +476,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 750 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 762 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -991,6 +993,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "unit-shared-across-a-link": ("cs", None, "Mělo to 1 nebo 2 %. Od 1 do 2 h. Bylo od 1 do 2 hodin. Mezi 1 a 2 h.",
                                   "Mělo to jedno nebo dvě procenta. Od jedné do dvou hodin. Bylo od jedné do dvou hodin. "
                                   "Mezi jednou a dvěma hodinami."),
+    "noun-shared-past-an-approximator": ("cs", None, "Má 1 nebo asi 2 děti. Od 1 do asi 2 h.",
+                                         "Má jedno nebo asi dvě děti. Od jedné do asi dvou hodin."),
     "amount-after-approximator-opening-a-clause": ("cs", None, "Experimentoval s 2 kg a asi 3 kg zůstaly.",
                                                    "Experimentoval se dvěma kilogramy a asi tři kilogramy zůstaly."),
     # a phrase put before its verb keeps the shared preposition: that verb is the clause's own, not a new clause's
@@ -1033,6 +1037,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhl rychlosti sto dvacet kilometrů za hodinu. "
                                                  "Teplota dosáhla během dne třiceti stupňů Celsia. "
                                                  "Teplota dosáhla třicet celých pět desetin stupně Celsia."),
+    "zero-after-genitive-verb": ("cs", None, "Teplota dosáhla 0 °C. Teplota se dotkla 0 stupňů. Dosáhl 0 bodů.",
+                                 "Teplota dosáhla nuly stupňů Celsia. Teplota se dotkla nuly stupňů. Dosáhl nuly bodů."),
     "genitive-verb-number-after-a-measure-and-a": ("cs", None, "Dosáhl 5 km a 10 bodů. Dosáhl 5 km a 6 km.",
                                                    "Dosáhl pěti kilometrů a deseti bodů. "
                                                    "Dosáhl pěti kilometrů a šesti kilometrů."),
@@ -1121,6 +1127,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
     "unit-shared-without-a-preposition": ("cs", "Trvá to 1 nebo 2 h.", "Trvá to jedna nebo dvě hodiny.", "no preposition"),
+    "unit-shared-past-an-approximator": ("cs", "Trvá to 1 nebo asi 2 h.", "Trvá to jedna nebo asi dvě hodiny.",
+                                         "no preposition"),
     "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
                                                            "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
     # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")
@@ -1135,6 +1143,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-two-ended-range": ("cs", "Dosáhne 30 °C–35 °C.",
                                       "Dosáhne třiceti stupňů Celsia až třiceti pěti stupňů Celsia.", "read as the object"),
     "genitive-verb-scale-amount": ("cs", "Dosáhne $1 mil.", "Dosáhne milionu dolarů.", "as 'milionu'"),
+    "zero-after-an-la-verb": ("cs", "Dosáhla 0 bodů.", "Dosáhla nuly bodů.", "may agree with zero, read as the object"),
+    "zero-subject-of-an-la-verb": ("cs", "Zúčastnila se 0 lidí.", "Zúčastnila se nula lidí.",
+                                   "may agree with zero, read as the subject"),
     "genitive-verb-cents-range": ("cs", "Dosáhne 1,50–2,50 €.",
                                   "Dosáhne jednoho eura padesáti centů až dvou eur padesáti centů.", "read as the object"),
     "genitive-verb-neuter-plural-unit-subject": ("cs", "Voleb se zúčastnila 2 % voličů.",
@@ -1164,6 +1175,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
                                                    "Teplota dosáhne třiceti až třiceti pěti stupňů Celsia."),
     "genitive-verb-unit-first-person": ("cs", "Dosáhli jsme 30 °C.", "Dosáhli jsme třiceti stupňů Celsia."),
     "genitive-verb-percent-and-percent": ("cs", "Dosáhl 5 % a 10 %.", "Dosáhl pěti procent a deseti procent."),
+    "zero-subject-of-genitive-verb": ("cs", "Zúčastnilo se 0 lidí.", "Zúčastnilo se nula lidí."),
     "genitive-verb-neuter-unit-after-a-first-person-la": ("cs", "Dosáhla jsem 3 %.", "Dosáhla jsem tří procent."),
     "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
     "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
@@ -4115,7 +4127,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 959 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 971 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
