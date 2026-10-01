@@ -181,6 +181,7 @@ LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative pl
 # Clock times: Czech "ve čtrnáct třicet" is accusative, Slovak "o štrnástej" locative,
 # whatever case the tagger gives the preposition.
 TIME_PREPOSITIONS = {"cs": {"v": ACC, "ve": ACC}, "sk": {"o": LOC}}
+DAY_TIMES = ("ráno", "dopoledne", "odpoledne", "večer")  # "ve dvě večer": a clock time, not the noun counted
 # a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
 # cardinal ("za dve pätnásť")
 # verbs of placing, after which a number that ends the sentence is a rank: "Skončil 2." -> "druhý"
@@ -1207,6 +1208,13 @@ class TextNormalizer:
             case = GEN  # "bez pěti jablek", "do dvou hodin"
         elif prep_case and self._ends_in_scale_noun(value):
             case = prep_case  # "s tisícem lidí": after tisíc the noun is genitive in every case
+        elif (prep is not None and prep.text.lower() in ("v", "ve") and self.language == "cs" and 0 <= value <= 24
+              and (noun is None or noun.text.lower() in DAY_TIMES) and not re.match(rf"{_HS}+ze?{_HS}", text[end:])):
+            # after "v" a bare number is a clock time ("Přišel v pět", "ve dvě večer"); an age would be "v pěti"
+            if not re.match(rf"{_HS}+(?:{'|'.join(DAY_TIMES)}|v noci){_NOT_LETTER_AFTER}", text[end:]):
+                self._warn(text, m, self._cardinal(value, ACC, "feminine", "inanimate"),
+                           "time (v pět) or age (v pěti), read as a time; check it")
+            return ACC, "feminine", "inanimate"
         elif prep_case:
             # "ve dvě hodiny", "v pět hodin": the tagger often gives v/na/o the locative here
             case = ACC if prep_case == ACC or tagged_case in (NOM, ACC, GEN) else prep_case
