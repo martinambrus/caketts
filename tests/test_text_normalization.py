@@ -646,6 +646,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                          "Vládol Karol štvrtý. Kniha o ňom vyšla."),
     "roman-numeral-before-an-epithet": ("cs", None, "Za Karla IV. Lucemburského vznikla univerzita.",
                                         "Za Karla čtvrtého Lucemburského vznikla univerzita."),
+    "roman-numeral-before-an-agreeing-epithet-tagged-a-name": ("cs", None, "Karel IV. Lucemburský zemřel.",
+                                                               "Karel čtvrtý Lucemburský zemřel."),
     "nearest-verb-governs": ("cs", None, "Dosáhl cíle a obsadil 2. místo, postavil se a zpíval mezi 2 stromy.",
                              "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
     "acronym-starts-sentence-in-mixed-text": ("cs", None, "Byl tam atd. USA zasáhly. Vládl Karel IV. NATO vzniklo později.",
