@@ -511,6 +511,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "unit-shared-across-a-link": ("cs", None, "Mělo to 1 nebo 2 %. Od 1 do 2 h. Bylo od 1 do 2 hodin. Mezi 1 a 2 h.",
                                   "Mělo to jedno nebo dvě procenta. Od jedné do dvou hodin. Bylo od jedné do dvou hodin. "
                                   "Mezi jednou a dvěma hodinami."),
+    "noun-shared-past-an-approximator": ("cs", None, "Má 1 nebo asi 2 děti. Od 1 do asi 2 h.",
+                                         "Má jedno nebo asi dvě děti. Od jedné do asi dvou hodin."),
     "amount-after-approximator-opening-a-clause": ("cs", None, "Experimentoval s 2 kg a asi 3 kg zůstaly.",
                                                    "Experimentoval se dvěma kilogramy a asi tři kilogramy zůstaly."),
     # a phrase put before its verb keeps the shared preposition: that verb is the clause's own, not a new clause's
@@ -641,6 +643,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
     "unit-shared-without-a-preposition": ("cs", "Trvá to 1 nebo 2 h.", "Trvá to jedna nebo dvě hodiny.", "no preposition"),
+    "unit-shared-past-an-approximator": ("cs", "Trvá to 1 nebo asi 2 h.", "Trvá to jedna nebo asi dvě hodiny.",
+                                         "no preposition"),
     "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
                                                            "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
     # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")

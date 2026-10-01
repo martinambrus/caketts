@@ -210,7 +210,8 @@ TIME_NOUNS = frozenset({"rok", "den", "týden", "měsíc", "večer", "čas", "v�
 APPROXIMATORS = frozenset({"~", "≈", "asi", "přibližně", "zhruba", "skoro", "téměř", "cca", "nejméně", "nejvýše",
                            "alespoň", "aspoň", "až", "také", "též", "ještě", "jen", "pouze", "približne", "takmer",
                            "najmenej", "ešte", "tiež", "aj", "len", "iba"})
-DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
+_APPROXIMATOR = "|".join(map(re.escape, sorted(APPROXIMATORS, key=len, reverse=True)))
+DIRECTION_VERBS =("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
                    "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
                    "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
                    "vrátil", "zapadl", "vlezl", "vběhl", "přiš", "přijd", "dal", "dá", "šel", "šla", "šli", "jde",
@@ -1198,7 +1199,8 @@ class TextNormalizer:
         own = noun = tags.head_after(end)
         if noun is None:
             od = getattr(self._preposition(start, tags), "text", "").lower() in ("od", "ode")  # also "od asi 1 do 2 h"
-            link = rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)(?P<later>[-−–+]?{_UNSIGNED})"
+            link = (rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)"
+                    rf"(?:(?i:{_APPROXIMATOR}){_HS}*)?(?P<later>[-−–+]?{_UNSIGNED})")  # "1 nebo asi 2 h"
             unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
             later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
             if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
@@ -1328,10 +1330,11 @@ class TextNormalizer:
         """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži", "od 1 do 2 hodin"."""
         i, w = bisect.bisect_left(tags.starts, pos), tags.words
         od = i > 0 and getattr(tags.before(w[i - 1].start, skip=("ADV", "PART")), "text", "").lower() in ("od", "ode")
-        if (i + 1 < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-")
-                                or (od and w[i].text.lower() == "do"))
-                and w[i + 1].text.replace(" ", "").isdigit()):
-            return tags.head_after(w[i + 1].end) or self._shared_count_head(w[i + 1].end, tags)
+        j = i + 2 if i + 1 < len(w) and w[i + 1].text.lower() in APPROXIMATORS else i + 1  # "1 nebo asi 2 knihy"
+        if (j < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-")
+                            or (od and w[i].text.lower() == "do"))
+                and w[j].text.replace(" ", "").isdigit()):
+            return tags.head_after(w[j].end) or self._shared_count_head(w[j].end, tags)
         return None
 
     @staticmethod
