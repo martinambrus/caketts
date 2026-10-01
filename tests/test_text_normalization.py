@@ -367,6 +367,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "range-with-az": ("cs", None, "Při 1 až 2 °C voda zamrzne. Stálo to $5 až 10.",
                       "Při jednom až dvou stupních Celsia voda zamrzne. Stálo to pět až deset dolarů."),
     "sk-range-with-az": ("sk", None, "Pri 1 až 2 °C voda zamrzne.", "Pri jednom až dvoch stupňoch Celzia voda zamrzne."),
+    "capitals-ordinal-chain": ("cs", None, "ODE DNE 1. AŽ 5. LEDNA A 1. A 2. DÍL. BYLO JICH 5. A PAK ODEŠEL.",
+                               "ODE DNE prvního AŽ pátého LEDNA A první A druhý DÍL. BYLO JICH pět. A PAK ODEŠEL."),
     "ordinal-range-with-az": ("cs", None, "Od 1. až 5. ledna. Přečti 2. až 4. kapitolu. XIX. až XX. století bylo bohaté.",
                               "Od prvního až pátého ledna. Přečti druhou až čtvrtou kapitolu. Devatenácté až dvacáté "
                               "století bylo bohaté."),
