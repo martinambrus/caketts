@@ -1187,7 +1187,7 @@ class TextNormalizer:
         prep_case = self._preposition_case(start, tags)
         own = noun = tags.head_after(end)
         if noun is None:
-            od = getattr(tags.before(start), "text", "").lower() in ("od", "ode")
+            od = getattr(self._preposition(start, tags), "text", "").lower() in ("od", "ode")  # also "od asi 1 do 2 h"
             link = rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)[-−–+]?{_UNSIGNED}"
             unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
             later_unit = re.match(rf"(?:{link})+{_HS}*({unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
@@ -1378,8 +1378,9 @@ class TextNormalizer:
     def _shared_count_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži", "od 1 do 2 hodin"."""
         i, w = bisect.bisect_left(tags.starts, pos), tags.words
+        od = i > 0 and getattr(tags.before(w[i - 1].start, skip=("ADV", "PART")), "text", "").lower() in ("od", "ode")
         if (i + 1 < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-")
-                                or (w[i].text.lower() == "do" and i >= 2 and w[i - 2].text.lower() in ("od", "ode")))
+                                or (od and w[i].text.lower() == "do"))
                 and w[i + 1].text.replace(" ", "").isdigit()):
             return tags.head_after(w[i + 1].end) or self._shared_count_head(w[i + 1].end, tags)
         return None
