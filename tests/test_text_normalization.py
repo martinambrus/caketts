@@ -542,6 +542,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pět bodů.",
                                                       "subject or object"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
+    # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
+    "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
+                                         "conjunct of a nominative subject"),
     # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
     "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),

@@ -1202,9 +1202,10 @@ class TextNormalizer:
                 feats = verb.feats
                 conjunction = tags.before(start)
                 first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
+                nominative = first is not None and first.feats.get("Case") == "Nom"
                 # a conjunct of the subject: the verb agrees with it ("Cíle dosáhl Petr a pět mužů") or, plural for
                 # both, has its gender ("dosáhli"); a present verb has none, so its plural tells nothing
-                if first is not None and first.feats.get("Case") == "Nom" and (_agree(verb, first) or (
+                if nominative and (_agree(verb, first) or (
                         feats.get("Number") == "Plur" and feats.get("Gender") is not None
                         and all(feats.get(f) == first.feats.get(f) for f in ("Gender", "Animacy")))):
                     case = NOM
@@ -1217,6 +1218,9 @@ class TextNormalizer:
                 if case == NOM and feats.get("Gender") is None and feats.get("VerbForm") != "Inf":
                     self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
                                "subject or object of a present genitive verb, read as the subject; check it")
+                elif case == GEN and nominative:  # a nominative agreement could not confirm ("dosáhla": two genders)
+                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                               "conjunct of a nominative subject or the verb's object, read as the object; check it")
                 elif case == GEN and noun.text.lower() in DURATION_GENITIVES:
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "time after a genitive verb, read as its object; a duration is the accusative; check it")
