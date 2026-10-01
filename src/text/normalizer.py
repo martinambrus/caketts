@@ -166,6 +166,11 @@ FEMININE_ENDINGS = [(("a", "á"), ("ý",), "á"), (("é",), ("í",), "é"), (("a
 SK_ANIMAL_PLURALS = frozenset("vlci býci vtáci psi orli sokoli holubi levi tigri sloni barani kocúri "
                               "kohúti capi diviaci jeleni kanci ježkovia zajkovia macíkovia vtáčikovia "
                               "koníkovia psíčkovia kocúrikovia škrečkovia kohútikovia".split())
+# plurals of neuter dítě, oko, ucho that decline as feminines; a 1 sharing them is neuter: "jedno nebo dvě děti"
+NEUTER_PLURALS = {
+    "cs": frozenset("děti dětí dětem dětmi dětech oči očí očím očima očích uši uší uším ušima uších".split()),
+    "sk": frozenset("deti detí deťom deťmi deťoch oči očí očiam očami očiach uši uší ušiam ušami ušiach".split()),
+}
 
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone
@@ -1418,6 +1423,8 @@ class TextNormalizer:
         return case, gender, animacy, plural, doubt
 
     def _gender(self, word: _Word) -> Tuple[Optional[str], Optional[str]]:
+        if word.feats.get("Number") == "Plur" and word.text.lower() in NEUTER_PLURALS[self.language]:
+            return "neuter", "inanimate"
         gender = _UD_GENDERS.get(word.feats.get("Gender", "").split(",")[0])
         if gender is None:
             return None, None

@@ -504,6 +504,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                          "Vypil jedno a dvě piva. Vypil dvě nebo pět piv. Dosáhl dvou a tří bodů. "
                                          "Bál se dvou nebo pěti psů."),
     # CAC tags "hodiny" a genitive plural here, a form no genitive plural has
+    "one-sharing-a-neuter-plural": ("cs", None, "Má 1 nebo 2 děti. Měl 1 nebo 2 oči zavřené.",
+                                    "Má jedno nebo dvě děti. Měl jedno nebo dvě oči zavřené."),
     "one-to-four-before-a-mistagged-genitive": ("cs", None, "Hrál si s dětmi a skoro 2 hodiny tam zůstal. Bál se 2 žen.",
                                                 "Hrál si s dětmi a skoro dvě hodiny tam zůstal. Bál se dvou žen."),
     "sk-genitive-noun-after-one-to-four": ("sk", None, "Bál sa 2 žien.", "Bál sa dvoch žien."),
