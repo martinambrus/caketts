@@ -654,6 +654,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                        "a duration is the accusative"),
     "genitive-verb-two-ended-range": ("cs", "Dosáhne 30 °C–35 °C.",
                                       "Dosáhne třiceti stupňů Celsia až třiceti pěti stupňů Celsia.", "read as the object"),
+    "genitive-verb-scale-amount": ("cs", "Dosáhne $1 mil.", "Dosáhne milionu dolarů.", "as 'milionu'"),
     "genitive-verb-cents-range": ("cs", "Dosáhne 1,50–2,50 €.",
                                   "Dosáhne jednoho eura padesáti centů až dvou eur padesáti centů.", "read as the object"),
     "genitive-verb-neuter-plural-unit-subject": ("cs", "Voleb se zúčastnila 2 % voličů.",

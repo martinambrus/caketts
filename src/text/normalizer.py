@@ -1582,7 +1582,7 @@ class TextNormalizer:
                 or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS["cs"]))
                 or self._verb_case(start, self._preposition(start, tags), tags) != GEN):
             return None
-        count = (integer or int(fraction.ljust(2, "0"))) if fraction else value
+        count = (integer or int(fraction.ljust(2, "0"))) if fraction else value * 10 ** SCALES.get(unit.lower(), 0)
         gender = SCALE_GENDERS["cs"][unit.lower()] if scale else NOUNS["cs"][name][0]
         verb = self._clause_verb(start, tags)
         if (1 < integer < 5 and gender == "neuter" and "Neut" in (verb.feats.get("Gender") or "")
