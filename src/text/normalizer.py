@@ -1212,11 +1212,12 @@ class TextNormalizer:
                     case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
                 elif feats.get("Gender") is None:
                     case = NOM
-                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
-                               "subject or object of a present genitive verb, read as the subject; check it")
                 else:
                     case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
-                if case == GEN and noun.text.lower() in DURATION_GENITIVES:
+                if case == NOM and feats.get("Gender") is None and feats.get("VerbForm") != "Inf":
+                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
+                               "subject or object of a present genitive verb, read as the subject; check it")
+                elif case == GEN and noun.text.lower() in DURATION_GENITIVES:
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "time after a genitive verb, read as its object; a duration is the accusative; check it")
             else:

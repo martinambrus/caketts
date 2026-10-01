@@ -539,6 +539,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                    "Ujel jedna celá dvě stě třicet čtyři tisícin kilometru až dvě celé pět desetin kilometru.",
                                    "not thousands"),
     "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pět bodů.", "subject or object"),
+    "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pět bodů.",
+                                                      "subject or object"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
     "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
