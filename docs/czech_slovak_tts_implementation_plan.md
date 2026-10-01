@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**872 tests:** 102 for the TTS components, 104 for num2words, 662 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**876 tests:** 102 for the TTS components, 104 for num2words, 666 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -467,7 +467,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 662 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 666 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -993,6 +993,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capital-acronym-before-number-kept": ("cs", None, "TURNAJ ATP. 500 ZAČAL.", "TURNAJ ATP. pět set ZAČAL."),  # the tour
     "acronym-period-before-number": ("cs", None, "Turnaj ATP. 500 začal. Hrál na turnajích ATP. 500 lidí přišlo.",
                                      "Turnaj ATP. pět set začal. Hrál na turnajích ATP. Pět set lidí přišlo."),
+    "acronym-period-before-number-across-a-line": ("cs", None, "Turnaj ATP.\n500 začal.", "Turnaj ATP.\npět set začal."),
     "capital-acronym-before-spaced-prefix": ("cs", None, "MAX. ≈ 5 KG, MAX. ± 2 KG, MAX. $ 5.",
                                              "Maximálně přibližně pět kilogramů, maximálně plus minus dva kilogramy, "
                                              "maximálně pět dolarů."),
@@ -1058,6 +1059,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
+    "label-across-a-line": ("cs", "Viz č.\n5 a str.\n7.", "Viz číslo\npět a strana\nsedm."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
@@ -4004,7 +4006,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 871 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 875 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
