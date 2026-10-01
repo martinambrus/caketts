@@ -587,12 +587,14 @@ class TextNormalizer:
         if numbered:
             raise ValueError(f"book_config['verse_references'] has {numbered}, whose digits would stay as written; "
                              f"list the name alone ('Jan' for '1 Jan'), and the number before it is read as usual")
-        # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29": chapter and verse, not a decimal or a time; the
-        # book may be in its language's span: "<en>John</en> 3,16"
+        # "Jan 3,16", "Mt 5,3–12", "Jan 3:16", "Mt 5,3–7,29", "Jan 3,16.18": chapter and verse, not a decimal or
+        # a time; the book may be in its language's span: "<en>John</en> 3,16". The atomic group stops a shorter
+        # match that would leave "–18.20" of "Jan 3,16–18.20" unread
         names = '|'.join(map(re.escape, books))
         self._verses = (re.compile(rf"(?<!\w)(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
                                    rf"{_HS}+(?P<chapter>\d+)[,:]"
-                                   rf"(?P<verse>\d+)(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?(?!\d|[,.:]\d|[^\W\d_])")
+                                   rf"(?P<verse>\d+)(?>(?:{_HS}*[–—-]{_HS}*(?P<last>\d+)(?:,(?P<lastverse>\d+))?)?"
+                                   rf"(?P<more>(?:\.\d+(?:{_HS}*[–—-]{_HS}*\d+)?)*))(?!\d|[,.:]\d|[^\W\d_])")
                         if books else None)
         phrases = sorted((p.translate(_TYPOGRAPHY) for p in config.get("english") or [] if p), key=len, reverse=True)
         self._english = (re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, phrases)) + r")(?!\w)")
@@ -672,8 +674,8 @@ class TextNormalizer:
         return "".join(out) + text[pos:]
 
     def _verse(self, v: re.Match) -> str:
-        """"Jan 3,16" -> "Jan tři, šestnáct", "Mt 5,3–12" -> "Mt pět, tři až dvanáct", for the books of
-        book_config["verse_references"]."""
+        """"Jan 3,16" -> "Jan tři, šestnáct", "Mt 5,3–12" -> "Mt pět, tři až dvanáct", "Jan 3,16.18" -> "Jan
+        tři, šestnáct a osmnáct", for the books of book_config["verse_references"]."""
         def number(digits: str) -> str:
             return self._cardinal(int(digits), *self._label(int(digits)))
 
@@ -682,6 +684,9 @@ class TextNormalizer:
             words += f" {RANGE_WORD} {number(v['last'])}"
         if v["lastverse"]:
             words += f", {number(v['lastverse'])}"
+        more = re.findall(rf"\.(\d+)(?:{_HS}*[–—-]{_HS}*(\d+))?", v["more"])
+        for i, (first, last) in enumerate(more):
+            words += (" a " if i == len(more) - 1 else ", ") + number(first) + (f" {RANGE_WORD} {number(last)}" if last else "")
         return words
 
     def _needs_tags(self, m: re.Match) -> bool:

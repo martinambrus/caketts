@@ -395,6 +395,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                          "Viz Jan tři, šestnáct, Mt pět, tři až dvanáct, Mt pět, tři až sedm, dvacet devět a "
                          "Jan tři, šestnáct. Jan přišel v pět celých pět desetin."),
     "sk-verse-references": ("sk", {"verse_references": ["Ján"]}, "Pozri Ján 3,16.", "Pozri Ján tri, šestnásť."),
+    "verse-references-with-more-verses": ("cs", {"verse_references": ["Jan"]},
+                                          "Viz Jan 3,16.18 a Jan 3,16–18.20. Viz Jan 3,16. 18 lidí přišlo.",
+                                          "Viz Jan tři, šestnáct a osmnáct a Jan tři, šestnáct až osmnáct a dvacet. "
+                                          "Viz Jan tři, šestnáct. Osmnáct lidí přišlo."),
     "verse-reference-with-english-book": ("cs", {"verse_references": ["John"], "english": ["John"]}, "Viz John 3,16.",
                                           "Viz <en>John</en> tři, šestnáct."),
     "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
@@ -597,8 +601,8 @@ def test_dates_need_no_tagger(monkeypatch):
             == "Dne patnáctého ledna dva tisíce dvacet čtyři a prvního ledna.")
 
 
-def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16.18": read and logged as without the option
-    for text in ("Viz Jan 3,16a.", "Viz Jan 3,16.18."):
+def test_verse_references_leave_other_forms_alone():  # "3,16a", "3,16–18a": read and logged as without the option
+    for text in ("Viz Jan 3,16a.", "Viz Jan 3,16–18a."):
         assert TextNormalizer("cs", {"verse_references": ["Jan"]}).normalize(text) == TextNormalizer("cs").normalize(text)
 
 
