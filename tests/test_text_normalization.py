@@ -461,6 +461,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhne pěti bodů právě Petr. Zúčastní se padesát lidí z Prahy."),
     "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
                                                     "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
+    "asking-verbs-take-the-genitive": ("cs", None, "Ptal se 5 mužů. Chtěl se zeptat 5 lidí. Ptal se na 2. kapitolu.",
+                                       "Ptal se pěti mužů. Chtěl se zeptat pěti lidí. Ptal se na druhou kapitolu."),
     "genitive-verb-plain-subject-conjunct": ("cs", None, "Cíle dosáhla Eva a 5 žen. Cíle dosáhl Jiří a 5 mužů. "
                                                          "Cíle dosáhl Petr a asi 5 mužů.",
                                              "Cíle dosáhla Eva a pět žen. Cíle dosáhl Jiří a pět mužů. "
