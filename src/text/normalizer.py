@@ -1202,8 +1202,12 @@ class TextNormalizer:
                 feats = verb.feats
                 conjunction = tags.before(start)
                 first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
-                if first is not None and first.feats.get("Case") == "Nom" and _agree(verb, first):
-                    case = NOM  # a conjunct of the subject: "Cíle dosáhl Petr a pět mužů"
+                # a conjunct of the subject: the verb agrees with it ("Cíle dosáhl Petr a pět mužů") or, plural for
+                # both, has its gender ("dosáhli"); a present verb has none, so its plural tells nothing
+                if first is not None and first.feats.get("Case") == "Nom" and (_agree(verb, first) or (
+                        feats.get("Number") == "Plur" and feats.get("Gender") is not None
+                        and all(feats.get(f) == first.feats.get(f) for f in ("Gender", "Animacy")))):
+                    case = NOM
                 elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
                     case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
                 elif feats.get("Gender") is None:

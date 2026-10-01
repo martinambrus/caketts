@@ -448,6 +448,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                          "Dosáhl cíle a druhého místa. Bál se tmy a druhého dílu."),
     "genitive-verb-subject-conjunct": ("cs", None, "Cíle dosáhl Petr a 5 mužů. Dosáhl cíle a 5 bodů.",
                                        "Cíle dosáhl Petr a pět mužů. Dosáhl cíle a pěti bodů."),
+    "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
+                                                          "Báli se otce a 5 mužů.",
+                                              "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
+                                              "Báli se otce a pěti mužů."),
     "genitive-verb-before-five-and-more": ("cs", None, "Dosáhl 5 bodů a zúčastnilo se 50 lidí. Chce dosáhnout 5 bodů. "
                                                        "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
                                            "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
