@@ -218,7 +218,7 @@ APPROXIMATORS = frozenset({"~", "≈", "asi", "přibližně", "zhruba", "skoro",
                            "alespoň", "aspoň", "až", "také", "též", "ještě", "jen", "pouze", "približne", "takmer",
                            "najmenej", "ešte", "tiež", "aj", "len", "iba"})
 _APPROXIMATOR = "|".join(map(re.escape, sorted(APPROXIMATORS, key=len, reverse=True)))
-DIRECTION_VERBS =("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
+DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
                    "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
                    "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
                    "vrátil", "zapadl", "vlezl", "vběhl", "přiš", "přijd", "dal", "dá", "šel", "šla", "šli", "jde",
