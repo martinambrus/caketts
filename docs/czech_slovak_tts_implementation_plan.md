@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**864 tests:** 102 for the TTS components, 104 for num2words, 654 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**872 tests:** 102 for the TTS components, 104 for num2words, 662 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -323,7 +323,8 @@ Handle:
     a decimal comma and LOGGED, and "1,2,3" is a list. Where Czech forms coincide the verb decides:
     "Stál mezi dvěma stromy" but "Postavil se mezi dva stromy", "Dosáhli jsme dvacátého prvního
     století", "Vzpomínal na dvacáté století"; after a genitive verb a number of five and more is its
-    object unless the verb is neuter singular or the number is coordinated with a nominative subject
+    object unless the verb is neuter singular, or plural and agreeing with a number before it (LOGGED:
+    "Pět mužů dosáhli cíle"), or the number is coordinated with a nominative subject
     ("Dosáhl pěti bodů", but "Zúčastnilo se padesát lidí", "Cíle dosáhli Petr a pět mužů"; a present
     verb shows no gender, so the number is its object only when a nominative subject precedes ("Petr
     dosáhne pěti bodů"; LOGGED when the subject is shared across "a": "Petr přijde a dosáhne pěti
@@ -466,7 +467,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 654 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 662 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -934,10 +935,21 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                        "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
                                            "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
                                            "Pět mužů dosáhlo cíle. Vzdal pět bodů."),
+    "number-before-colloquial-plural-verb": ("cs", None, "Pak 5 mužů dosáhli cíle. 5 dětí se bály tmy. 5 bodů dosáhl.",
+                                             "Pak pět mužů dosáhli cíle. Pět dětí se bály tmy. Pěti bodů dosáhl."),
     "genitive-noun-after-one-to-four": ("cs", None, "Dosáhl 2 bodů, dosáhli 3 bodů a dosáhl 1 bodu. Vypil 2 piva a ve 2 "
                                                     "hodiny odešel.",
                                         "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
                                         "hodiny odešel."),
+    # a noun shared from a later number is genitive by that number's own right after 5, and "piva" is tagged
+    # a genitive singular
+    "one-to-four-sharing-a-later-noun": ("cs", None, "Vypil 1 a 2 piva. Vypil 2 nebo 5 piv. Dosáhl 2 a 3 bodů. "
+                                                     "Bál se 2 nebo 5 psů.",
+                                         "Vypil jedno a dvě piva. Vypil dvě nebo pět piv. Dosáhl dvou a tří bodů. "
+                                         "Bál se dvou nebo pěti psů."),
+    # CAC tags "hodiny" a genitive plural here, a form no genitive plural has
+    "one-to-four-before-a-mistagged-genitive": ("cs", None, "Hrál si s dětmi a skoro 2 hodiny tam zůstal. Bál se 2 žen.",
+                                                "Hrál si s dětmi a skoro dvě hodiny tam zůstal. Bál se dvou žen."),
     "sk-genitive-noun-after-one-to-four": ("sk", None, "Bál sa 2 žien.", "Bál sa dvoch žien."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
@@ -1028,6 +1040,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a number before its verb opens a clause of its own, so "Petr" is not its verb's subject
     "genitive-verb-present-tense-number-first": ("cs", "Petr přišel a 5 mužů dosáhne cíle.",
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
+    # a plural verb that agrees with the number is how people speak; a fronted object fits too
+    "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
     "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
@@ -3990,7 +4004,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 863 tests, ~15 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 871 tests, ~15 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
