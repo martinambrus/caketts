@@ -1547,24 +1547,27 @@ class TextNormalizer:
                           + self._clause_after(verb.end, tags))
         # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject; so is "to" ("Dosáhlo to
         # pěti bodů"), but not of taking part ("Zúčastnilo se to padesát lidí") or after a question word ("Čeho se to")
+        # after "procent" the noun it counts follows: "Pět procent studentů dosáhli cíle", "pěti procent hlasování"
+        counted = tags.head_after(noun.end) if noun.text.lower() in ("procent", "promile", "milionů", "miliard") else None
+        heads = [noun] + ([counted] if counted is not None and counted.feats.get("Case") == "Gen" else [])
         taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                       and noun.feats.get("VerbForm") != "Vnoun"  # an event: "padesáti jednání"
-                       and noun.text.lower() not in EVENT_GENITIVES)
+                       and all(h.feats.get("VerbForm") != "Vnoun"  # an event: "padesáti jednání"
+                               and h.text.lower() not in EVENT_GENITIVES for h in heads))
         clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
         pronouns = [w.start for w in clause if w.upos == "PRON" and w.text.lower() not in ("se", "si")]
         subject = subject or any((w.upos == "AUX" and w.feats.get("Person") in ("1", "2"))
                                  or (w.text.lower() in ("to", "toto", "tohle") and w.feats.get("Case") == "Nom"
                                      and not taking_part and not any(p < w.start for p in pronouns)) for w in clause)
         # the verb agrees with the number in the plural, as people say: "Pět mužů dosáhli cíle"
-        noun_gender = noun.feats.get("Gender")
         # "-la" (Fem,Neut and Plur,Sing) agrees as a neuter plural with a number before it when its object follows:
         # "Pět procent voličů se zúčastnila voleb", but "Pěti vítězství dosáhla (minulého roku)": a feminine subject
         after = tags.head_after(verb.end)
-        plural = feats.get("Number") == "Plur" or (
-            feats.get("Number") == "Plur,Sing" and noun_gender == "Neut" and start < verb.start and after is not None
-            and after.feats.get("Case") == "Gen" and after.text.lower() not in TIME_GENITIVES)
-        colloquial = (plural and noun_gender in (feats.get("Gender") or "").split(",")
-                      and (noun_gender != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy")))
+        la = (feats.get("Number") == "Plur,Sing" and start < verb.start and after is not None
+              and after.feats.get("Case") == "Gen" and after.text.lower() not in TIME_GENITIVES)
+        colloquial = any((feats.get("Number") == "Plur" or (la and h.feats.get("Gender") == "Neut"))
+                         and h.feats.get("Gender") in (feats.get("Gender") or "").split(",")
+                         and (h.feats.get("Gender") != "Masc" or h.feats.get("Animacy") == feats.get("Animacy"))
+                         for h in heads if h is noun or h.feats.get("Number") == "Plur")
         if subject:
             case = GEN
         elif nominative and _plain_nominative(first):
@@ -1633,10 +1636,8 @@ class TextNormalizer:
                            "subject or object of a verb that may be neuter plural, read as the "
                            + ("subject" if case == NOM else "object") + "; check it")
             return case
-        noun = tags.head_after(end)  # "60 % voličů" decides as "60 voličů"
-        if noun is None or noun.feats.get("Case") != "Gen":
-            noun = _Word(start, end, unit.lower() if scale else NOUNS["cs"][name][1][7], "NOUN",
-                         {"Gender": {v: k for k, v in _UD_GENDERS.items()}[gender], "Animacy": "Inan"})
+        noun = _Word(start, end, unit.lower() if scale else NOUNS["cs"][name][1][7], "NOUN",
+                     {"Gender": {v: k for k, v in _UD_GENDERS.items()}[gender], "Animacy": "Inan"})
         return self._genitive_verb_case(count, start, noun, text, (start, end) if log else None, tags)
 
     @staticmethod
