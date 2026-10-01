@@ -636,6 +636,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
     "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
                                                           "Každý rok se akce zúčastní padesát lidí.", "subject or object"),
+    "guard-genitive-verb-present-tense-after-an-e-feminine": ("cs", "Inflace dosahuje 5 procent.",
+                                                              "Inflace dosahuje pěti procent.", "read as the object"),
+    "guard-genitive-verb-present-tense-after-a-night": ("cs", "Tu noc se bojí 5 dětí.", "Tu noc se bojí pěti dětí.",
+                                                        "read as the object"),
     # the subject of "přijde" is shared by "dosáhne", unless "a" opens a clause whose subject is the number
     "genitive-verb-present-tense-shared-subject": ("cs", "Petr přijde a dosáhne 5 bodů.", "Petr přijde a dosáhne pěti bodů.",
                                                    "shared across"),
@@ -696,6 +700,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "zero-subject-of-genitive-verb": ("cs", "Zúčastnilo se 0 lidí.", "Zúčastnilo se nula lidí."),
     "genitive-verb-neuter-unit-after-a-first-person-la": ("cs", "Dosáhla jsem 3 %.", "Dosáhla jsem tří procent."),
     "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
+    "genitive-verb-feminine-subject-in-a-consonant": ("cs", "Nezaměstnanost dosahuje 5 procent. Daň se týká 5 lidí.",
+                                                      "Nezaměstnanost dosahuje pěti procent. Daň se týká pěti lidí."),
     "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
                                          "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),

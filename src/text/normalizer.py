@@ -205,7 +205,7 @@ TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago)
 DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků"})
 # nouns of time whose nominative is also their accusative of time, so no subject: "Každý rok se akce zúčastní"
 TIME_NOUNS = frozenset({"rok", "den", "týden", "měsíc", "večer", "čas", "víkend", "okamžik", "moment", "podzim",
-                        "život", "léto", "jaro", "ráno"})
+                        "život", "léto", "jaro", "ráno", "noc"})
 # words that qualify a number after "a" without opening a clause of their own: "Petr a asi pět mužů", "s 2 kg a ~3 kg"
 APPROXIMATORS = frozenset({"~", "≈", "asi", "přibližně", "zhruba", "skoro", "téměř", "cca", "nejméně", "nejvýše",
                            "alespoň", "aspoň", "až", "také", "též", "ještě", "jen", "pouze", "približne", "takmer",
@@ -505,14 +505,16 @@ def _agree(a: "_Word", b: "_Word") -> bool:
 
 def _plain_nominative(w: "_Word") -> bool:
     """A word tagged nominative in a form no genitive singular shares, and no accusative of time ("každý rok", "akce"):
-    a masculine animate ("Petr", "Jiří"; not "soudce"), a feminine in -a, a singular "stroj" or "auto", "on", "kdo"."""
+    a masculine animate ("Petr", "Jiří"; not "soudce"), a feminine in -a or a consonant ("účast", "píseň"; not "inflace"),
+    a singular "stroj" or "auto", "on", "kdo"."""
     form, feats = w.text.lower(), w.feats
     singular, gender = feats.get("Number") == "Sing", feats.get("Gender")
     return feats.get("Case") == "Nom" and form.isalpha() and (
         form in ("on", "ono", "oni", "ony", "kdo", "někdo", "nikdo")
         or (gender == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě"))
             and not (form.endswith("í") and feats.get("Number") == "Plur"))
-        or (gender == "Fem" and singular and form.endswith("a"))
+        or (gender == "Fem" and singular and (form.endswith("a") or form[-1] not in "aáeéěiíoóuúůyý")
+            and form not in TIME_NOUNS)
         or (w.upos in ("NOUN", "PROPN") and singular and form not in TIME_NOUNS
             and ((gender == "Masc" and feats.get("Animacy") == "Inan") or (gender == "Neut" and form.endswith("o")))))
 
