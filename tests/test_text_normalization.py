@@ -448,6 +448,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                          "Dosáhl cíle a druhého místa. Bál se tmy a druhého dílu."),
     "genitive-verb-subject-conjunct": ("cs", None, "Cíle dosáhl Petr a 5 mužů. Dosáhl cíle a 5 bodů.",
                                        "Cíle dosáhl Petr a pět mužů. Dosáhl cíle a pěti bodů."),
+    "present-genitive-verb-after-its-subject": ("cs", None, "Petr dosáhne 5 bodů. Teplota dosáhne 5 stupňů. "
+                                                            "Hráči dosáhnou 5 bodů.",
+                                                "Petr dosáhne pěti bodů. Teplota dosáhne pěti stupňů. "
+                                                "Hráči dosáhnou pěti bodů."),
     "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
                                                           "Báli se otce a 5 mužů.",
                                               "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
@@ -541,6 +545,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pět bodů.", "subject or object"),
     "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pět bodů.",
                                                       "subject or object"),
+    # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
+    "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
+                                                          "Každý rok se akce zúčastní padesát lidí.", "subject or object"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
     "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",

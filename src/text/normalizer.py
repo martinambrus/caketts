@@ -486,6 +486,16 @@ def _agree(a: "_Word", b: "_Word") -> bool:
                for f in ("Number", "Gender", "Animacy"))
 
 
+def _plain_nominative(w: "_Word") -> bool:
+    """A word tagged nominative in a form no accusative or genitive singular shares, so no object or time ("každý
+    rok", "akce"): a masculine animate ("Petr", "hráči"; not "soudce"), a feminine in -a ("teplota"), "on", "kdo"."""
+    form, feats = w.text.lower(), w.feats
+    return feats.get("Case") == "Nom" and (
+        form in ("on", "ono", "oni", "ony", "kdo", "někdo", "nikdo")
+        or (feats.get("Gender") == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě", "í")))
+        or (feats.get("Gender") == "Fem" and feats.get("Number") == "Sing" and form.endswith("a")))
+
+
 def _affirmative(form: str) -> str:
     """A verb form without its negation, for the tables of verb stems: "nedosáhl" -> "dosáhl"; "nesl" stays."""
     return form[2:] if form.startswith("ne") and len(form) > 4 else form
@@ -1212,7 +1222,9 @@ class TextNormalizer:
                 elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
                     case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
                 elif feats.get("Gender") is None:
-                    case = NOM
+                    # a present verb shows no gender, but a subject before the number does: "Petr dosáhne pěti bodů"
+                    subject = any(_plain_nominative(w) and _agree(verb, w) for w in self._clause_before(start, tags))
+                    case = GEN if subject else NOM
                 else:
                     case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
                 if case == NOM and feats.get("Gender") is None and feats.get("VerbForm") != "Inf":
