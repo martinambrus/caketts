@@ -1205,7 +1205,7 @@ class TextNormalizer:
         w = tags.words
         if i + 3 < len(w) and w[i].upos == "CCONJ" and w[i + 1].upos == "NOUN" and w[i + 1].text.isalpha():
             i += 1
-        if (i + 2 < len(w) and (w[i].upos in ("CCONJ", "ADP", "NOUN") or w[i].text in ("–", "—", "-", ","))
+        if (i + 2 < len(w) and (w[i].upos in ("CCONJ", "ADP", "NOUN") or w[i].text.lower() in ("–", "—", "-", ",", "až"))
                 and (w[i + 1].text.isdigit() or re.fullmatch(_ROMAN, w[i + 1].text)) and w[i + 2].text == "."):
             return tags.head_after(w[i + 2].end) or self._shared_head(w[i + 2].end, tags)  # "2., 3. a 4. díl"
         return None
@@ -1222,7 +1222,7 @@ class TextNormalizer:
     def _chain_start(pos: int, tags: _Tags) -> int:
         """Where "1.–5." or "XIX. a XX." starts, for an ordinal at `pos`: the whole chain has one governor."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
-        while (i >= 2 and (w[i].upos == "CCONJ" or w[i].text in ("–", "—", "-", ",")) and w[i - 1].text == "."
+        while (i >= 2 and (w[i].upos == "CCONJ" or w[i].text.lower() in ("–", "—", "-", ",", "až")) and w[i - 1].text == "."
                and (w[i - 2].text.isdigit() or re.fullmatch(_ROMAN, w[i - 2].text))):
             i -= 3
         return w[i + 1].start if i + 1 < len(w) else pos
