@@ -247,6 +247,7 @@ NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", 
                        "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
                        "naráží", "odkaz", "odkázal")
 NA_PLACE_VERBS = ("čekal", "čeká")  # "čekat na" is also "wait at": "Čekal na 2. náměstí" may be locative
+NA_LOCATIVE_VERBS = ("zálež", "závis")  # "na" and the locative: "Záleží na dvou hodinách"
 
 # preposition -> (vocalised form, starts of the number words that call for it)
 VOCALISATION = {
@@ -1760,6 +1761,10 @@ class TextNormalizer:
         if (self.language == "cs" and prep.text.lower() in TIME_PREPOSITIONS["cs"] and unit
                 and re.fullmatch(_HOUR_WORD, unit.lower()) and _parse(amount)[0] in range(25)):
             return ACC  # "ve 2 h" is a clock time, as "ve 2 hodiny"
+        if (self.language == "cs" and prep.text.lower() == "na" and unit
+                and unit.rstrip(".").lower() in ("h", "hod", "min", "s")):
+            verb = self._clause_verb(pos, tags)  # "na 2 h" is a time span, which CAC tags locative at times
+            return LOC if verb is not None and _affirmative(verb.text.lower()).startswith(NA_LOCATIVE_VERBS) else ACC
         return _UD_CASES.get(prep.feats.get("Case"))
 
     def _shared_preposition(self, pos: int, tags: _Tags, end: Optional[int] = None) -> Optional[_Word]:

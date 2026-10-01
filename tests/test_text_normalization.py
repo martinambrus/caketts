@@ -189,6 +189,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "hour-unit-after-v-in-ranges-and-lists": ("cs", None, "Otevřeno v 9–17 h, přijdu v 1 h nebo v 5 nebo 6 h, po 2 h odejdu.",
                                               "Otevřeno v devět až sedmnáct hodin, přijdu v jednu hodinu nebo v pět nebo "
                                               "šest hodin, po dvou hodinách odejdu."),
+    "time-unit-after-na-is-a-time-span": ("cs", None, "Na 2 h odešel.", "Na dvě hodiny odešel."),
+    "time-unit-after-a-verb-with-na-and-the-locative": ("cs", None, "Záleží na 2 h.", "Záleží na dvou hodinách."),
     "mixed-time-range-with-hour-word": ("cs", None, "Otevřeno 8.30–9:30 hod.", "Otevřeno osm třicet až devět třicet."),
     "dot-time-before-az-do": ("cs", None, "Od 8.30 až do 9.30 hod.", "Od osmi třiceti až do devíti třiceti."),
     "sk-times-sharing-preposition": ("sk", None, "Stretnutia sú o 8.30 a 9.30 hod.",
