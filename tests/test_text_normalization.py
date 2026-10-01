@@ -679,6 +679,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
                                                    "Teplota dosáhne třiceti až třiceti pěti stupňů Celsia."),
     "genitive-verb-unit-first-person": ("cs", "Dosáhli jsme 30 °C.", "Dosáhli jsme třiceti stupňů Celsia."),
     "genitive-verb-percent-and-percent": ("cs", "Dosáhl 5 % a 10 %.", "Dosáhl pěti procent a deseti procent."),
+    "genitive-verb-neuter-unit-after-a-first-person-la": ("cs", "Dosáhla jsem 3 %.", "Dosáhla jsem tří procent."),
     "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
     "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",

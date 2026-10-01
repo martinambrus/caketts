@@ -1581,7 +1581,9 @@ class TextNormalizer:
         verb = self._clause_verb(start, tags)
         if (1 < integer < 5 and gender == "neuter" and "Neut" in (verb.feats.get("Gender") or "")
                 and "Plur" in (verb.feats.get("Number") or "")
-                and not any(_plain_nominative(w) for w in self._clause_before(verb.start, tags))):
+                and not any(_plain_nominative(w) for w in self._clause_before(verb.start, tags))
+                and not any(w.upos == "AUX" and w.feats.get("Person") in ("1", "2")
+                            for w in self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags))):
             # an "-la" verb is also a neuter plural: "Voleb se zúčastnila dvě procenta voličů"
             taking_part = _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
             case = NOM if start < verb.start or taking_part else GEN
