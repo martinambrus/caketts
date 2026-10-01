@@ -1877,7 +1877,13 @@ class TextNormalizer:
             head = tags.after(pos)
             if head is None or head.upos != "PRON":
                 return False
-        i, words = bisect.bisect_left(tags.starts, head.end), tags.words
+        return TextNormalizer._verb_next(head.end, tags)
+
+    @staticmethod
+    def _verb_next(pos: int, tags: _Tags) -> bool:
+        """Whether a verb comes next at `pos`, past adverbs, particles, clitics, pronouns, an infinitive and, in mixed
+        text, a phrase of the noun before it: "Kniha o něm vyšla"."""
+        i, words = bisect.bisect_left(tags.starts, pos), tags.words
         while i < len(words):
             if words[i].upos in ("VERB", "AUX") and words[i].feats.get("VerbForm") != "Inf":
                 return True
