@@ -1219,7 +1219,10 @@ class TextNormalizer:
                     shared_case = _UD_CASES.get(earlier.feats.get("Case"))
                     if shared_case in PLURAL_ENDINGS and noun.text.lower().endswith(PLURAL_ENDINGS[shared_case]):
                         tagged_case = shared_case
-            if self._number_fits(value, noun):
+            if (self.language == "cs" and noun.feats.get("Gender") == "Neut" and noun.text.lower().endswith("í")
+                    and self._count_form(value) == "gen_pl"):
+                tagged_case = noun_case = GEN  # "pět vítězství": one form for most cases, after 5 a genitive plural
+            elif self._number_fits(value, noun):
                 noun_case = tagged_case
         prep = self._preposition(start, tags)
         if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS

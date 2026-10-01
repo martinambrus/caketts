@@ -473,6 +473,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhne pěti bodů právě Petr. Zúčastní se padesát lidí z Prahy."),
     "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
                                                     "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
+    # CAC tags a neuter in -í after 5 nominative singular, but it can only be a genitive plural there
+    "one-form-neuter-after-five": ("cs", None, "Dosáhl 5 vítězství. Bál se 5 rozhodnutí. Má 5 stavení.",
+                                   "Dosáhl pěti vítězství. Bál se pěti rozhodnutí. Má pět stavení."),
     "asking-verbs-take-the-genitive": ("cs", None, "Ptal se 5 mužů. Chtěl se zeptat 5 lidí. Ptal se na 2. kapitolu.",
                                        "Ptal se pěti mužů. Chtěl se zeptat pěti lidí. Ptal se na druhou kapitolu."),
     "genitive-verb-plain-subject-conjunct": ("cs", None, "Cíle dosáhla Eva a 5 žen. Cíle dosáhl Jiří a 5 mužů. "
