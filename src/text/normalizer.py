@@ -1213,9 +1213,21 @@ class TextNormalizer:
                 conjunction = tags.before(start)
                 first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
                 nominative = first is not None and first.feats.get("Case") == "Nom"
+                # a subject in the verb's clause, also before an "a" joining the verb to another predicate ("Petr
+                # přijde a dosáhne pěti bodů"); a number before its verb opens its own clause ("a 5 mužů dosáhne")
+                subject = shared = False
+                if verb.start < start:
+                    words = self._clause_before(verb.start, tags)
+                    stop = tags.before(words[-1].start if words else verb.start)
+                    subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
+                        w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first])
+                    if not subject and stop is not None and stop.upos == "CCONJ" and all(
+                            w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
+                        subject = shared = any(_plain_nominative(w) and _agree(verb, w)
+                                               for w in self._clause_before(stop.start, tags))
                 # a conjunct of the subject: the verb agrees with it ("Cíle dosáhl Petr a pět mužů") or, plural for
                 # both, has its gender ("dosáhli"); a present verb has none, so its plural tells nothing
-                if nominative and (_agree(verb, first) or (
+                if nominative and not subject and (_agree(verb, first) or (
                         feats.get("Number") == "Plur" and feats.get("Gender") is not None
                         and all(feats.get(f) == first.feats.get(f) for f in ("Gender", "Animacy")))):
                     case = NOM
@@ -1223,16 +1235,18 @@ class TextNormalizer:
                     case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
                 elif feats.get("Gender") is None:
                     # a present verb shows no gender, but a subject before the number does: "Petr dosáhne pěti bodů"
-                    subject = any(_plain_nominative(w) and _agree(verb, w) for w in self._clause_before(start, tags))
                     case = GEN if subject else NOM
                 else:
                     case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
                 if case == NOM and feats.get("Gender") is None and feats.get("VerbForm") != "Inf":
                     self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
                                "subject or object of a present genitive verb, read as the subject; check it")
-                elif case == GEN and nominative:  # a nominative agreement could not confirm ("dosáhla": two genders)
+                elif case == GEN and nominative and not subject:  # unconfirmed by agreement ("dosáhla": two genders)
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "conjunct of a nominative subject or the verb's object, read as the object; check it")
+                elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause
+                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                               "object of a subject shared across \"a\", or a new clause's subject; check it")
                 elif case == GEN and noun.text.lower() in DURATION_GENITIVES:
                     self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
                                "time after a genitive verb, read as its object; a duration is the accusative; check it")

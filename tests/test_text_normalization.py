@@ -452,6 +452,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                             "Hráči dosáhnou 5 bodů.",
                                                 "Petr dosáhne pěti bodů. Teplota dosáhne pěti stupňů. "
                                                 "Hráči dosáhnou pěti bodů."),
+    "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
+                                                    "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
     "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
                                                           "Báli se otce a 5 mužů.",
                                               "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
@@ -548,6 +550,12 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
     "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
                                                           "Každý rok se akce zúčastní padesát lidí.", "subject or object"),
+    # the subject of "přijde" is shared by "dosáhne", unless "a" opens a clause whose subject is the number
+    "genitive-verb-present-tense-shared-subject": ("cs", "Petr přijde a dosáhne 5 bodů.", "Petr přijde a dosáhne pěti bodů.",
+                                                   "shared across"),
+    # a number before its verb opens a clause of its own, so "Petr" is not its verb's subject
+    "genitive-verb-present-tense-number-first": ("cs", "Petr přišel a 5 mužů dosáhne cíle.",
+                                                 "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
     "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
