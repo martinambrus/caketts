@@ -1687,9 +1687,9 @@ class TextNormalizer:
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
         # "Pracoval s 2 kg a 3 kg zůstaly": a verb after the amount, in a clause with its verb, opens a new one
         opens = i + 1 < len(w) and self._verb_follows(w[i + 1].end, tags)
-        while i >= 0 and w[i].text.lower() in APPROXIMATORS:  # "s 2 kg a ~3 kg"
+        while i >= 0 and w[i].text.lower() in APPROXIMATORS - {RANGE_WORD}:  # "s 2 kg a ~3 kg"; "od 8.30 až 9.30"
             i -= 1
-        if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
+        if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", RANGE_WORD, ",", "–", "—", "-"):
             return None
         while i >= 0:
             text = w[i].text
@@ -1700,7 +1700,7 @@ class TextNormalizer:
                     or ((re.fullmatch(_HOUR_WORD, w[i - 1].text.lower()) or w[i - 1].text.lower() in SCALES)
                         and not w[i + 1].text[:1].isupper()))):  # "hod.–3:00", but "s 2 kg. A 3 kg"
                 return None
-            if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
+            if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo", RANGE_WORD)
                     or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in UNIT_WORDS[self.language]
                     or text.lower() in SCALES):
                 return None
