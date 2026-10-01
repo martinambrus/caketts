@@ -542,6 +542,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                           "Cíle dosáhne 2. sdružení.",
                                           "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí. "
                                           "Cíle dosáhne druhé sdružení."),
+    "genitive-verb-subject-to": ("cs", None, "Dosáhlo to 5 bodů. Toto dosáhlo 5 bodů.",
+                                 "Dosáhlo to pěti bodů. Toto dosáhlo pěti bodů."),
+    "guard-genitive-verb-to-taking-no-part": ("cs", None, "Zúčastnilo se to 50 lidí.", "Zúčastnilo se to padesát lidí."),
     "genitive-verb-measures": ("cs", None, "Teplota dosáhla 30 °C. Dosáhl 5 Kč. Cena dosáhla 4,50 €. "
                                            "Cena dosáhla 0,50 €. Cena dosáhla 100 Kč/kg.",
                                "Teplota dosáhla třiceti stupňů Celsia. Dosáhl pěti korun. Cena dosáhla čtyř eur "
@@ -630,6 +633,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a verbal noun names an event, which is what one takes part in
     "genitive-verb-present-tense-taking-part-in-events": ("cs", "Zúčastní se 50 jednání.", "Zúčastní se padesáti jednání.",
                                                           "read as the object"),
+    "guard-genitive-verb-present-tense-taking-part-with-to": ("cs", "Zúčastní se to 50 lidí.",
+                                                              "Zúčastní se to padesát lidí.", "read as the subject"),
+    "guard-genitive-verb-present-tense-to-after-a-question-word": ("cs", "Čeho se to bojí 5 psů?",
+                                                                   "Čeho se to bojí pěti psů?", "read as the object"),
     "genitive-verb-present-tense-time": ("cs", "Bojí se 5 minut.", "Bojí se pěti minut.", "duration"),
     "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pěti bodů.",
                                                       "subject or object"),
@@ -691,6 +698,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
     "label-across-a-line": ("cs", "Viz č.\n5 a str.\n7.", "Viz číslo\npět a strana\nsedm."),
     "genitive-verb-first-person-auxiliary": ("cs", "Báli jsme se 5 psů.", "Báli jsme se pěti psů."),
+    "genitive-verb-present-tense-subject-to": ("cs", "Týká se to 5 lidí.", "Týká se to pěti lidí."),
+    "guard-genitive-verb-to-after-a-question-word": ("cs", "Čeho se to bálo 5 psů?", "Čeho se to bálo pět psů?"),
     "genitive-verb-unit-subject": ("cs", "Voleb se zúčastnilo 60 % voličů.",
                                    "Voleb se zúčastnilo šedesát procent voličů."),
     "genitive-verb-unit-range-after-its-subject": ("cs", "Teplota dosáhne 30–35 °C.",

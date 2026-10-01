@@ -1538,9 +1538,15 @@ class TextNormalizer:
             subject = any(_plain_nominative(w) and _agree(verb, w)
                           for w in [w for w in self._clause_before(verb.start, tags) if w.start >= noun.end]
                           + self._clause_after(verb.end, tags))
-        # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject
+        # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject; so is "to" ("Dosáhlo to
+        # pěti bodů"), but not of taking part ("Zúčastnilo se to padesát lidí") or after a question word ("Čeho se to")
+        taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                       and noun.feats.get("VerbForm") != "Vnoun")  # an event: "padesáti jednání"
         clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
-        subject = subject or any(w.upos == "AUX" and w.feats.get("Person") in ("1", "2") for w in clause)
+        pronouns = [w.start for w in clause if w.upos == "PRON" and w.text.lower() not in ("se", "si")]
+        subject = subject or any((w.upos == "AUX" and w.feats.get("Person") in ("1", "2"))
+                                 or (w.text.lower() in ("to", "toto", "tohle") and w.feats.get("Case") == "Nom"
+                                     and not taking_part and not any(p < w.start for p in pronouns)) for w in clause)
         # the verb agrees with the number in the plural, as people say: "Pět mužů dosáhli cíle"
         noun_gender = noun.feats.get("Gender")
         colloquial = (feats.get("Number") == "Plur" and noun_gender in (feats.get("Gender") or "").split(",")
@@ -1554,8 +1560,6 @@ class TextNormalizer:
         elif feats.get("Gender") is None:
             # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
             # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
-            taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                           and noun.feats.get("VerbForm") != "Vnoun")  # an event: "padesáti jednání"
             case = GEN if verb.start < start and not taking_part else NOM
         elif colloquial and start < verb.start:
             case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
