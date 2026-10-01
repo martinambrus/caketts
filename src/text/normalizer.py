@@ -1185,8 +1185,21 @@ class TextNormalizer:
                 or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(f"[~≈]{_OPERAND}", after)):
             return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
         prep_case = self._preposition_case(start, tags)
-        own = tags.head_after(end)
-        noun = own or self._shared_count_head(end, tags)
+        own = noun = tags.head_after(end)
+        if noun is None:
+            od = getattr(tags.before(start), "text", "").lower() in ("od", "ode")
+            link = rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)[-−–+]?{_UNSIGNED}"
+            unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
+            later_unit = re.match(rf"(?:{link})+{_HS}*({unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
+            if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
+                unit_gender = NOUNS[self.language][self._unit(later_unit[1])[0]][0]
+                unit_case = self._governing_case(start, tags)
+                words = self._cardinal(value, NOM, unit_gender, "inanimate")
+                if unit_case is None and (words != self._cardinal(value, ACC, unit_gender, "inanimate")
+                                          or (self.language == "cs" and self._verb_case(start, None, tags) == GEN)):
+                    self._warn(text, m, words, "no preposition; nominative")
+                return unit_case or NOM, unit_gender, "inanimate"
+            noun = self._shared_count_head(end, tags)
         case = gender = animacy = tagged_case = noun_case = None
         if noun is not None:
             gender, animacy = self._gender(noun)
@@ -1359,9 +1372,10 @@ class TextNormalizer:
             1 < count < 5 or (self.language == "cs" and self._verb_case(pos, prep, tags) == GEN))
 
     def _shared_count_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
-        """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži"."""
+        """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži", "od 1 do 2 hodin"."""
         i, w = bisect.bisect_left(tags.starts, pos), tags.words
-        if (i + 1 < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-"))
+        if (i + 1 < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-")
+                                or (w[i].text.lower() == "do" and i >= 2 and w[i - 2].text.lower() in ("od", "ode")))
                 and w[i + 1].text.replace(" ", "").isdigit()):
             return tags.head_after(w[i + 1].end) or self._shared_count_head(w[i + 1].end, tags)
         return None

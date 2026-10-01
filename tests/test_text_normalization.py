@@ -504,6 +504,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                          "Vypil jedno a dvě piva. Vypil dvě nebo pět piv. Dosáhl dvou a tří bodů. "
                                          "Bál se dvou nebo pěti psů."),
     # CAC tags "hodiny" a genitive plural here, a form no genitive plural has
+    # a number with no noun takes the gender of the unit after a later one
+    "unit-shared-across-a-link": ("cs", None, "Mělo to 1 nebo 2 %. Od 1 do 2 h. Bylo od 1 do 2 hodin. Mezi 1 a 2 h.",
+                                  "Mělo to jedno nebo dvě procenta. Od jedné do dvou hodin. Bylo od jedné do dvou hodin. "
+                                  "Mezi jednou a dvěma hodinami."),
+    "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),
     "one-sharing-a-neuter-plural": ("cs", None, "Má 1 nebo 2 děti. Měl 1 nebo 2 oči zavřené.",
                                     "Má jedno nebo dvě děti. Měl jedno nebo dvě oči zavřené."),
     "one-to-four-before-a-mistagged-genitive": ("cs", None, "Hrál si s dětmi a skoro 2 hodiny tam zůstal. Bál se 2 žen.",
@@ -605,6 +610,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
+    "unit-shared-without-a-preposition": ("cs", "Trvá to 1 nebo 2 h.", "Trvá to jedna nebo dvě hodiny.", "no preposition"),
     "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
                                                            "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
     # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")
