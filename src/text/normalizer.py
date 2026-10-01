@@ -1236,6 +1236,12 @@ class TextNormalizer:
                 elif feats.get("Gender") is None:
                     # a present verb shows no gender, but a subject before the number does: "Petr dosáhne pěti bodů"
                     case = GEN if subject else NOM
+                elif (start < verb.start and feats.get("Number") == "Plur"
+                      and noun.feats.get("Gender") in (feats.get("Gender") or "").split(",")
+                      and (noun.feats.get("Gender") != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy"))):
+                    case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
+                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
+                               "subject of a plural verb, as people say, or an object put first; check it")
                 else:
                     case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
                 if case == NOM and feats.get("Gender") is None and feats.get("VerbForm") != "Inf":

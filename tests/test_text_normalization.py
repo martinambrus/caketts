@@ -462,6 +462,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                        "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
                                            "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
                                            "Pět mužů dosáhlo cíle. Vzdal pět bodů."),
+    "number-before-colloquial-plural-verb": ("cs", None, "Pak 5 mužů dosáhli cíle. 5 dětí se bály tmy. 5 bodů dosáhl.",
+                                             "Pak pět mužů dosáhli cíle. Pět dětí se bály tmy. Pěti bodů dosáhl."),
     "genitive-noun-after-one-to-four": ("cs", None, "Dosáhl 2 bodů, dosáhli 3 bodů a dosáhl 1 bodu. Vypil 2 piva a ve 2 "
                                                     "hodiny odešel.",
                                         "Dosáhl dvou bodů, dosáhli tří bodů a dosáhl jednoho bodu. Vypil dvě piva a ve dvě "
@@ -556,6 +558,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     # a number before its verb opens a clause of its own, so "Petr" is not its verb's subject
     "genitive-verb-present-tense-number-first": ("cs", "Petr přišel a 5 mužů dosáhne cíle.",
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
+    # a plural verb that agrees with the number is how people speak; a fronted object fits too
+    "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
     # CAC tags "dosáhla" with two genders and numbers, so agreement cannot confirm "Eva" as a subject conjunct
     "genitive-verb-conjunct-or-object": ("cs", "Cíle dosáhla Eva a 5 žen.", "Cíle dosáhla Eva a pěti žen.",
