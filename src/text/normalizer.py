@@ -1144,7 +1144,8 @@ class TextNormalizer:
         prev = tags.before(m.start())
         # "Beethovenova 5. Symfonie"; in capitals also after a conjunction ("A 2. DÍLY VYŠLY"), but not one between
         # cardinals ("V LETECH 1914 A 1918. VÁLKA SKONČILA")
-        attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
+        until = self._until(prev, tags.head_after(m.end()), tags)  # "BOJOVAL AŽ 3. DEN PADL"
+        attributive = until or prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
             prev.upos == "CCONJ" and tags.capitals and not getattr(tags.before(prev.start), "text", "").isdigit())
         # after a preposition, a capitalised noun in its case is the ordinal's noun even when tagged a name
         # ("V 5. Symfonii"); a nominative one before a verb starts a sentence ("Přišel v 5. Symfonie začala.")
@@ -1172,6 +1173,8 @@ class TextNormalizer:
             self._warn(text, m, words, "no noun to agree with; nominative masculine inanimate")
         elif doubt:
             self._warn(text, m, words, f"{doubt}; check it")
+        elif until and self._verb_follows(m.end(), tags):
+            self._warn(text, m, words, "ordinal after až before a time; a count ending the sentence fits too; check it")
         return words
 
     def _number(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
@@ -1432,6 +1435,14 @@ class TextNormalizer:
         return verb if _affirmative(verb.text.lower()).startswith(RANK_VERBS[self.language]) else None
 
     @staticmethod
+    def _until(prev: Optional[_Word], noun: Optional[_Word], tags: _Tags) -> bool:
+        """In capitals, whether "AŽ" before an ordinal is "(not) until", which leads it: before a time it mostly is
+        ("BOJOVAL AŽ 3. DEN PADL"), though a count may end the sentence ("BYLO JICH AŽ 5. DEN SKONČIL"); never after a
+        cardinal ("1914 AŽ 1918. ROK…")."""
+        return (tags.capitals and prev is not None and prev.text.lower() == "až" and noun is not None
+                and noun.text.lower() in TIME_NOUNS and not getattr(tags.before(prev.start), "text", "").isdigit())
+
+    @staticmethod
     def _clause_verb(pos: int, tags: _Tags) -> Optional[_Word]:
         """The verb nearest to `pos` in its clause, which a comma or a sentence end closes, and before `pos` also
         a conjunction ("Cíle dosáhl a 2. místo obsadil"); an auxiliary ("jsme", "by") is skipped, a copula
@@ -1444,7 +1455,8 @@ class TextNormalizer:
                 w[j].text == "." and 0 < j < len(w) - 1 and w[j - 1].end == w[j].start
                 and (w[j - 1].text.isdigit() or re.fullmatch(_ROMAN, w[j - 1].text))
                 and (w[j + 1].text[:1].islower() or (tags.capitals and j >= 2 and w[j - 2].upos == "CCONJ"
-                                                    and not (j >= 3 and w[j - 3].text.isdigit()))))
+                                                    and not (j >= 3 and w[j - 3].text.isdigit()))
+                     or (j >= 2 and TextNormalizer._until(w[j - 2], tags.head_after(w[j].end), tags))))
 
         for step, across in ((-1, False), (1, False), (-1, True)):
             if across and found:

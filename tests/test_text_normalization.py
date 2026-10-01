@@ -389,6 +389,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "range-with-az-before-sentence-end": ("cs", None, "Počítal s 1 až 2. Potom odešel.",
                                           "Počítal s jedním až dvěma. Potom odešel."),
     "capitals-ordinal-after-az": ("cs", None, "ZLEPŠENÍ NASTANE 5 AŽ 6. DEN.", "ZLEPŠENÍ NASTANE pět AŽ šestý DEN."),
+    "capitals-verb-past-an-ordinal-after-az": ("cs", None, "DOSÁHL AŽ 3. DEN 5 BODŮ.", "DOSÁHL AŽ třetí DEN pěti BODŮ."),
     "ordinal-before-sentence-with-conjunction": ("cs", None, "Bylo jich 1. A 2. díl vyšel.",
                                                  "Bylo jich jeden. A druhý díl vyšel."),
     "capitals-ordinal-chain": ("cs", None, "ODE DNE 1. AŽ 5. LEDNA A 1. A 2. DÍL. BYLO JICH 5. A PAK ODEŠEL.",
@@ -715,6 +716,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                          "no preposition"),
     "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
                                                            "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
+    "capitals-ordinal-after-az-before-a-time": ("cs", "BOJOVAL AŽ 3. DEN PADL.", "BOJOVAL AŽ třetí DEN PADL.",
+                                                "ordinal after až"),
+    "capitals-count-after-az-before-a-noun": ("cs", "PŘIŠLO JICH AŽ 5. MATKA ODEŠLA.", "PŘIŠLO JICH AŽ pět. MATKA ODEŠLA.",
+                                              "no governing noun"),
     # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")
     "bare-number-after-v": ("cs", "Přišel v 5.", "Přišel v pět.", "time (v pět) or age"),
     "guard-genitive-verb-children-of-a-masculine-verb": ("cs", "Děti se báli 5 psů.", "Děti se báli pěti psů.",
@@ -799,6 +804,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
+    "capitals-ordinal-after-az-without-a-verb": ("cs", "ZLEPŠENÍ NASTANE AŽ 3. DEN.", "ZLEPŠENÍ NASTANE AŽ třetí DEN."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
