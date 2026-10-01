@@ -544,10 +544,17 @@ def _agree(a: "_Word", b: "_Word", values: bool = False) -> bool:
                for f in ("Number", "Gender", "Animacy"))
 
 
+def _soft_genitive(w: "_Word") -> bool:
+    """A masculine inanimate singular tagged nominative in a soft consonant and -e or -ě, a form only its genitive has
+    ("Konce se dočká": konec); a loanword's nominative ends otherwise ("Remake", "Google")."""
+    return (w.feats.get("Case") == "Nom" and w.feats.get("Gender") == "Masc" and w.feats.get("Animacy") == "Inan"
+            and w.feats.get("Number") == "Sing" and re.search(r"(?:[cčďjňřšťž]e|[dnt]ě)$", w.text.lower()) is not None)
+
+
 def _plain_nominative(w: "_Word") -> bool:
     """A word tagged nominative in a form no genitive singular shares, and no accusative of time ("každý rok", "akce"):
     a masculine animate ("Petr", "Jiří"; not "soudce"), a feminine in -a or a consonant ("účast", "píseň"; not "inflace"),
-    a singular "stroj" or "auto", "on", "kdo"."""
+    a singular "stroj" or "auto" (not "konce", a genitive the tagger may call a nominative), "on", "kdo"."""
     form, feats = w.text.lower(), w.feats
     singular, gender = feats.get("Number") == "Sing", feats.get("Gender")
     return feats.get("Case") == "Nom" and form.isalpha() and (
@@ -557,7 +564,8 @@ def _plain_nominative(w: "_Word") -> bool:
         or (gender == "Fem" and singular and (form.endswith("a") or form[-1] not in "aáeéěiíoóuúůyý")
             and form not in TIME_NOUNS)
         or (w.upos in ("NOUN", "PROPN") and singular and form not in TIME_NOUNS
-            and ((gender == "Masc" and feats.get("Animacy") == "Inan") or (gender == "Neut" and form.endswith("o")))))
+            and ((gender == "Masc" and feats.get("Animacy") == "Inan" and not _soft_genitive(w))
+                 or (gender == "Neut" and form.endswith("o")))))
 
 
 def _affirmative(form: str) -> str:
@@ -1613,7 +1621,7 @@ class TextNormalizer:
             fronted = (stop is None or stop.upos != "CCONJ") and any(w.upos == "NOUN" and (
                 (w.feats.get("Case") == "Nom" and self.language == "cs" and feats.get("Gender") is not None
                  and not _agree(verb, w, True) and w.text.lower() not in TIME_NOUNS | NEUTER_PLURALS[self.language])
-                or (w.feats.get("Case") == "Gen" and w.text.lower() not in TIME_GENITIVES
+                or ((w.feats.get("Case") == "Gen" or _soft_genitive(w)) and w.text.lower() not in TIME_GENITIVES
                     and w.text.lower() not in MONTHS_GENITIVE[self.language]
                     and getattr(tags.before(w.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
                     not in ("ADP", "NOUN", "PROPN", "NUM"))) for w in words)

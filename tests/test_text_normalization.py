@@ -508,6 +508,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                             "Voleb se zúčastnili 60 procent voličů.",
                                                 "Úspěchu dosáhl vůdce a pět mužů. "
                                                 "Voleb se zúčastnili šedesát procent voličů."),
+    "genitive-verb-soft-genitive-object-put-first": ("cs", None, "Konce se dočkal vůdce a 5 rytířů.",
+                                                     "Konce se dočkal vůdce a pět rytířů."),
     "genitive-verb-before-five-and-more": ("cs", None, "Dosáhl 5 bodů a zúčastnilo se 50 lidí. Chce dosáhnout 5 bodů. "
                                                        "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
                                            "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
@@ -712,6 +714,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
     "genitive-verb-present-tense-object-put-first": ("cs", "Úspěchu dosáhne 5 studentů.",
                                                      "Úspěchu dosáhne pět studentů.", "read as the subject"),
+    "genitive-verb-present-tense-soft-genitive-put-first": ("cs", "Konce se dočká 5 lidí.",
+                                                            "Konce se dočká pět lidí.", "read as the subject"),
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
     "genitive-verb-number-before-a-neuter-plural-verb": ("cs", "5 procent voličů se zúčastnila voleb.",
@@ -807,6 +811,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
     "genitive-verb-feminine-subject-in-a-consonant": ("cs", "Nezaměstnanost dosahuje 5 procent. Daň se týká 5 lidí.",
                                                       "Nezaměstnanost dosahuje pěti procent. Daň se týká pěti lidí."),
+    "guard-genitive-verb-loanword-subject-in-e": ("cs", "Google dosáhne 5 miliard uživatelů.",
+                                                  "Google dosáhne pěti miliard uživatelů."),
     "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
                                          "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),
