@@ -1972,9 +1972,11 @@ class TextNormalizer:
                                                   and not self._verb_before(start, tags, not list_end))):
             return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
+            name = tags.before(start)  # an epithet agrees with the name it follows: not "Karla IV. Země vzkvétala"
             return (word is None or word.upos not in ("PROPN", "ADJ")
                     or (not capitals and len(word.text) > 1 and word.text.isupper())  # "…IV. USA vznikly" is no name
-                    or (word.upos == "ADJ" and self._verb_follows(end, tags)))
+                    or (word.upos == "ADJ" and self._verb_follows(end, tags))
+                    or (word.upos == "PROPN" and name is not None and not _agree(name, word)))
         return True
 
     def _feminine(self, word: str, suffix: str) -> str:
