@@ -195,6 +195,9 @@ TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
 TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
 # a time after a genitive verb is its object ("Dožil se devadesáti let") or a duration ("Bál se pět minut")
 DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků"})
+# nouns of time whose nominative is also their accusative of time, so no subject: "Každý rok se akce zúčastní"
+TIME_NOUNS = frozenset({"rok", "den", "týden", "měsíc", "večer", "čas", "víkend", "okamžik", "moment", "podzim",
+                        "život", "léto", "jaro", "ráno"})
 DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
                    "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
                    "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
@@ -487,13 +490,16 @@ def _agree(a: "_Word", b: "_Word") -> bool:
 
 
 def _plain_nominative(w: "_Word") -> bool:
-    """A word tagged nominative in a form no accusative or genitive singular shares, so no object or time ("každý
-    rok", "akce"): a masculine animate ("Petr", "hráči"; not "soudce"), a feminine in -a ("teplota"), "on", "kdo"."""
+    """A word tagged nominative in a form no genitive singular shares, and no accusative of time ("každý rok", "akce"):
+    a masculine animate ("Petr"; not "soudce"), a feminine in -a, a singular "stroj" or "auto", "on", "kdo"."""
     form, feats = w.text.lower(), w.feats
-    return feats.get("Case") == "Nom" and (
+    singular, gender = feats.get("Number") == "Sing", feats.get("Gender")
+    return feats.get("Case") == "Nom" and form.isalpha() and (
         form in ("on", "ono", "oni", "ony", "kdo", "někdo", "nikdo")
-        or (feats.get("Gender") == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě", "í")))
-        or (feats.get("Gender") == "Fem" and feats.get("Number") == "Sing" and form.endswith("a")))
+        or (gender == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě", "í")))
+        or (gender == "Fem" and singular and form.endswith("a"))
+        or (w.upos in ("NOUN", "PROPN") and singular and form not in TIME_NOUNS
+            and ((gender == "Masc" and feats.get("Animacy") == "Inan") or (gender == "Neut" and form.endswith("o")))))
 
 
 def _affirmative(form: str) -> str:

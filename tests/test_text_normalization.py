@@ -452,6 +452,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                             "Hráči dosáhnou 5 bodů.",
                                                 "Petr dosáhne pěti bodů. Teplota dosáhne pěti stupňů. "
                                                 "Hráči dosáhnou pěti bodů."),
+    # a singular inanimate subject, but no accusative of time: "každý rok" and "akce" are no subjects
+    "present-genitive-verb-after-an-inanimate-subject": ("cs", None, "Auto dosáhne 5 metrů. Zákon se týká 50 lidí. "
+                                                                     "Každý rok se akce zúčastní 50 lidí.",
+                                                         "Auto dosáhne pěti metrů. Zákon se týká padesáti lidí. "
+                                                         "Každý rok se akce zúčastní padesát lidí."),
     "present-genitive-verb-subject-in-its-clause": ("cs", None, "Petr dosáhne vítězství a 5 bodů. Petr dosáhne cíle a 5 bodů.",
                                                     "Petr dosáhne vítězství a pěti bodů. Petr dosáhne cíle a pěti bodů."),
     "genitive-verb-plural-subject-conjunct": ("cs", None, "Cíle dosáhli Petr a 5 mužů. Petr a 5 mužů dosáhli cíle. "
