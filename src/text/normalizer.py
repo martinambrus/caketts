@@ -1205,8 +1205,11 @@ class TextNormalizer:
                     and self._count_form(value) != "gen_pl"):
                 case = GEN
             elif (noun_case == GEN and 0 < abs(value) < 5 and "," not in text[start:end]
-                  and (noun is own or self._governed(noun, start, prep, tags))):
-                case = GEN  # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"
+                  and (noun is own or self._governed(noun, start, prep, tags))
+                  and not (abs(value) > 1 and noun.text.lower().endswith(("a", "á", "e", "ě", "é", "i", "o", "y")))):
+                # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
+                # plural never ends like -a, -e, -i, -o, -y, so "skoro 2 hodiny" tagged genitive is not one
+                case = GEN
             elif noun_case == GEN and abs(value) >= 5 and self.language == "cs" and self._verb_case(start, prep, tags) == GEN:
                 # from 5 the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter singular
                 # verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
