@@ -334,6 +334,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
                                "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
     "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
+    "capitals-label-numbered-before-a-new-sentence": ("cs", None, "VYŠEL DÍL V. KNIHA O NĚM VYŠLA.",
+                                                      "VYŠEL DÍL pátý. KNIHA O NĚM VYŠLA."),
+    "capitals-initial-after-a-label": ("cs", None, "VYŠLA KNIHA V. HAVLA.", "VYŠLA KNIHA V. HAVLA."),
     "capitals-verb-after-a-full-clause": ("cs", None, "BYL TAM ATD. ODEŠEL DOMŮ. VLÁDL KAREL IV. ZALOŽIL UNIVERZITU. "
                                           "ČEKAL 5 MIN. ODEŠEL.",
                                           "BYL TAM a tak dále. ODEŠEL DOMŮ. VLÁDL KAREL čtvrtý. ZALOŽIL UNIVERZITU. "
@@ -630,6 +633,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                              "Vyšel díl pátý. On uspěl. Vyšel díl desátý. Poté kniha uspěla."),
     "roman-numbers-a-thing-before-a-phrase": ("cs", None, "Vyšel díl V. Kniha o něm vyšla. Pan V. Kniha o něm vyšla.",
                                               "Vyšel díl pátý. Kniha o něm vyšla. Pan V. Kniha o něm vyšla."),
+    "label-numbered-before-a-capitalised-noun": ("cs", None, "Kapitola V. Návrat domů.", "Kapitola pátá. Návrat domů."),
     "initial-before-adjective-surname": ("cs", None, "Firma V. Nový vznikla.", "Firma V. Nový vznikla."),
     "initial-after-a-woman": ("cs", None, "Paní V. Ona poté odešla. Vyšla část V. Kniha byla úspěšná.",
                               "Paní V. Ona poté odešla. Vyšla část pátá. Kniha byla úspěšná."),

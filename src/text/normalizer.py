@@ -991,8 +991,17 @@ class TextNormalizer:
         # may be a surname's initial ("Karel V. byl zadržen"), and the reading is logged
         name = prev is not None and prev.upos == "PROPN" and len(numeral) == 1 and numeral in "IVX"
         ruler = name and self._after_title(prev, tags)
+        # a label numbered from behind ("DÍL V.") before a capital stands before a noun that only a genitive could join
+        # to: "VYŠEL DÍL V. KNIHA O NĚM VYŠLA"; "DÍL V. KNIHY" may number either, "století" has one form for most cases,
+        # and an initial comes before a name: "KNIHA V. HAVLA"
+        following = tags.head_after(end)
+        label = (nxt is not None and nxt.text[:1].isupper() and prev is not None
+                 and prev.text.lower() in ROMAN_LABEL_NOUNS[self.language]
+                 and following is not None and following.upos == "NOUN"
+                 and following.feats.get("Case") not in (None, "Gen")
+                 and not (following.feats.get("Gender") == "Neut" and following.text.lower().endswith("í")))
         head = None
-        if prev is None or prev.upos != "PROPN":
+        if (prev is None or prev.upos != "PROPN") and not label:
             # "XXI. století", "XIX.–XX. století", "# V. Kapitola", but "Karel IV. univerzitu" agrees with Karel
             before_noun = nxt is not None and (nxt.text[:1].islower() or heading or (
                 nxt.upos in ("NOUN", "ADJ") and (len(numeral) > 1 or numeral in "IVX")
@@ -1005,7 +1014,7 @@ class TextNormalizer:
                         None)  # past an adverb: "Vyšel díl V. Poté kniha uspěla."
             subject = tags.head_after(lead.start) if lead is not None and lead.upos in ("NOUN", "ADJ", "DET") else lead
             # a thing by its tag or as a known label: CAC gives feminine nouns no animacy, so "Paní V." has none
-            numbers_a_thing = (prev is not None and prev.upos == "NOUN"
+            numbers_a_thing = label or (prev is not None and prev.upos == "NOUN"
                                and (prev.feats.get("Animacy") == "Inan" or prev.text.lower() in ROMAN_LABEL_NOUNS[self.language])
                                and subject is not None and subject.upos in ("NOUN", "PRON")
                                and self._verb_follows(lead.start, tags))
