@@ -1515,11 +1515,13 @@ class TextNormalizer:
 
         verb = self._clause_verb(start, tags)
         feats = verb.feats
+        # after "procent" the noun it counts follows: "Pět procent studentů dosáhli cíle", "pěti procent hlasování"
+        counted = tags.head_after(noun.end) if noun.text.lower() in ("procent", "promile", "milionů", "miliard") else None
+        heads = [noun] + ([counted] if counted is not None and counted.feats.get("Case") == "Gen" else [])
+        taking_part = self._takes_part(verb, heads)
         if (value == 0 and "Fem" in (feats.get("Gender") or "") and "Sing" in (feats.get("Number") or "")
                 and self._no_subject_in_sight(verb, tags)):
             # an "-la" verb also agrees with "nula": "Zúčastnila se nula lidí"; like a present verb
-            taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                           and noun.feats.get("VerbForm") != "Vnoun")
             case = NOM if start < verb.start or taking_part else GEN
             warn(self._cardinal(0, case, "feminine", "inanimate"), "subject or object of a verb that may agree with "
                  "zero, read as the " + ("subject" if case == NOM else "object") + "; check it")
@@ -1558,12 +1560,6 @@ class TextNormalizer:
                           + self._clause_after(verb.end, tags))
         # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject; so is "to" ("Dosáhlo to
         # pěti bodů"), but not of taking part ("Zúčastnilo se to padesát lidí") or after a question word ("Čeho se to")
-        # after "procent" the noun it counts follows: "Pět procent studentů dosáhli cíle", "pěti procent hlasování"
-        counted = tags.head_after(noun.end) if noun.text.lower() in ("procent", "promile", "milionů", "miliard") else None
-        heads = [noun] + ([counted] if counted is not None and counted.feats.get("Case") == "Gen" else [])
-        taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
-                       and all(h.feats.get("VerbForm") != "Vnoun"  # an event: "padesáti jednání"
-                               and h.text.lower() not in EVENT_GENITIVES for h in heads))
         clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
         pronouns = [w.start for w in clause if w.upos == "PRON" and w.text.lower() not in ("se", "si")]
         subject = subject or any((w.upos == "AUX" and w.feats.get("Person") in ("1", "2"))
@@ -1620,6 +1616,13 @@ class TextNormalizer:
                  "object, or the subject of a plural verb, as people say; check it")
         return case
 
+    @staticmethod
+    def _takes_part(verb: _Word, heads: List[_Word]) -> bool:
+        """Whether `verb` is zúčastnit/účastnit se with people, whose number is its subject, not with an event (a verbal
+        noun or EVENT_GENITIVES): "Zúčastní se padesát lidí", but "padesáti jednání", "pěti závodů"."""
+        return (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                and all(h.feats.get("VerbForm") != "Vnoun" and h.text.lower() not in EVENT_GENITIVES for h in heads))
+
     def _no_subject_in_sight(self, verb: _Word, tags: _Tags) -> bool:
         """No plain nominative before `verb` and no first- or second-person auxiliary in its clause."""
         before = self._clause_before(verb.start, tags)
@@ -1643,7 +1646,8 @@ class TextNormalizer:
         if (1 < integer < 5 and gender == "neuter" and "Neut" in (verb.feats.get("Gender") or "")
                 and "Plur" in (verb.feats.get("Number") or "") and self._no_subject_in_sight(verb, tags)):
             # an "-la" verb is also a neuter plural: "Voleb se zúčastnila dvě procenta voličů"
-            taking_part = _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+            counted = tags.head_after(end)  # "Zúčastnila se dvou procent soutěží": an event
+            taking_part = self._takes_part(verb, [counted] if counted and counted.feats.get("Case") == "Gen" else [])
             case = NOM if start < verb.start or taking_part else GEN
             if log:
                 self._warn(text, (start, end), self._cardinal(count, case, "neuter", "inanimate"),
