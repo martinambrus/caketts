@@ -1280,9 +1280,10 @@ class TextNormalizer:
                 # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
                 # plural never ends like -a, -e, -i, -o, -y, so "skoro 2 hodiny" tagged genitive is not one
                 case = GEN
-            elif noun_case == GEN and abs(value) >= 5 and self.language == "cs" and self._verb_case(start, prep, tags) == GEN:
-                # from 5 the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter singular
-                # verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
+            elif (noun_case == GEN and (abs(value) >= 5 or value == 0) and self.language == "cs"
+                  and self._verb_case(start, prep, tags) == GEN):
+                # from 5, and at 0, the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter
+                # singular verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
@@ -1503,6 +1504,15 @@ class TextNormalizer:
 
         verb = self._clause_verb(start, tags)
         feats = verb.feats
+        if (value == 0 and "Fem" in (feats.get("Gender") or "") and "Sing" in (feats.get("Number") or "")
+                and self._no_subject_in_sight(verb, tags)):
+            # an "-la" verb also agrees with "nula": "Zúčastnila se nula lidí"; like a present verb
+            taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                           and noun.feats.get("VerbForm") != "Vnoun")
+            case = NOM if start < verb.start or taking_part else GEN
+            warn(self._cardinal(0, case, "feminine", "inanimate"), "subject or object of a verb that may agree with "
+                 "zero, read as the " + ("subject" if case == NOM else "object") + "; check it")
+            return case
         conjunction = tags.before(start)
         if conjunction is not None and conjunction.text.lower() in APPROXIMATORS:  # "Petr a asi 5 mužů"
             conjunction = tags.before(conjunction.start)
@@ -1570,6 +1580,12 @@ class TextNormalizer:
                  "object, or the subject of a plural verb, as people say; check it")
         return case
 
+    def _no_subject_in_sight(self, verb: _Word, tags: _Tags) -> bool:
+        """No plain nominative before `verb` and no first- or second-person auxiliary in its clause."""
+        before = self._clause_before(verb.start, tags)
+        return not any(_plain_nominative(w) for w in before) and not any(
+            w.upos == "AUX" and w.feats.get("Person") in ("1", "2") for w in before + self._clause_after(verb.end, tags))
+
     def _unit_verb_case(self, amount: str, unit: str, start: int, end: int, text: str, tags: _Tags,
                         log: bool = True) -> Optional[str]:
         """After a Czech genitive verb an amount with a unit is its subject or object as a counted noun is."""
@@ -1581,7 +1597,7 @@ class TextNormalizer:
         own = (before is not None and before.upos == "NOUN" and before.feats.get("Case") == "Gen"
                and getattr(tags.before(before.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
                not in ("ADP", "NOUN", "PROPN"))  # "Dosáhl rychlosti 120 km/h": the amount describes the noun
-        if (self.language != "cs" or value == 0 or own
+        if (self.language != "cs" or own
                 or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS["cs"]))
                 or self._verb_case(start, self._preposition(start, tags), tags) != GEN):
             return None
@@ -1589,10 +1605,7 @@ class TextNormalizer:
         gender = SCALE_GENDERS["cs"][unit.lower()] if scale else NOUNS["cs"][name][0]
         verb = self._clause_verb(start, tags)
         if (1 < integer < 5 and gender == "neuter" and "Neut" in (verb.feats.get("Gender") or "")
-                and "Plur" in (verb.feats.get("Number") or "")
-                and not any(_plain_nominative(w) for w in self._clause_before(verb.start, tags))
-                and not any(w.upos == "AUX" and w.feats.get("Person") in ("1", "2")
-                            for w in self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags))):
+                and "Plur" in (verb.feats.get("Number") or "") and self._no_subject_in_sight(verb, tags)):
             # an "-la" verb is also a neuter plural: "Voleb se zúčastnila dvě procenta voličů"
             taking_part = _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
             case = NOM if start < verb.start or taking_part else GEN

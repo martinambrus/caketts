@@ -555,6 +555,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhl rychlosti sto dvacet kilometrů za hodinu. "
                                                  "Teplota dosáhla během dne třiceti stupňů Celsia. "
                                                  "Teplota dosáhla třicet celých pět desetin stupně Celsia."),
+    "zero-after-genitive-verb": ("cs", None, "Teplota dosáhla 0 °C. Teplota se dotkla 0 stupňů. Dosáhl 0 bodů.",
+                                 "Teplota dosáhla nuly stupňů Celsia. Teplota se dotkla nuly stupňů. Dosáhl nuly bodů."),
     "genitive-verb-number-after-a-measure-and-a": ("cs", None, "Dosáhl 5 km a 10 bodů. Dosáhl 5 km a 6 km.",
                                                    "Dosáhl pěti kilometrů a deseti bodů. "
                                                    "Dosáhl pěti kilometrů a šesti kilometrů."),
@@ -659,6 +661,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-two-ended-range": ("cs", "Dosáhne 30 °C–35 °C.",
                                       "Dosáhne třiceti stupňů Celsia až třiceti pěti stupňů Celsia.", "read as the object"),
     "genitive-verb-scale-amount": ("cs", "Dosáhne $1 mil.", "Dosáhne milionu dolarů.", "as 'milionu'"),
+    "zero-after-an-la-verb": ("cs", "Dosáhla 0 bodů.", "Dosáhla nuly bodů.", "may agree with zero, read as the object"),
+    "zero-subject-of-an-la-verb": ("cs", "Zúčastnila se 0 lidí.", "Zúčastnila se nula lidí.",
+                                   "may agree with zero, read as the subject"),
     "genitive-verb-cents-range": ("cs", "Dosáhne 1,50–2,50 €.",
                                   "Dosáhne jednoho eura padesáti centů až dvou eur padesáti centů.", "read as the object"),
     "genitive-verb-neuter-plural-unit-subject": ("cs", "Voleb se zúčastnila 2 % voličů.",
@@ -688,6 +693,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
                                                    "Teplota dosáhne třiceti až třiceti pěti stupňů Celsia."),
     "genitive-verb-unit-first-person": ("cs", "Dosáhli jsme 30 °C.", "Dosáhli jsme třiceti stupňů Celsia."),
     "genitive-verb-percent-and-percent": ("cs", "Dosáhl 5 % a 10 %.", "Dosáhl pěti procent a deseti procent."),
+    "zero-subject-of-genitive-verb": ("cs", "Zúčastnilo se 0 lidí.", "Zúčastnilo se nula lidí."),
     "genitive-verb-neuter-unit-after-a-first-person-la": ("cs", "Dosáhla jsem 3 %.", "Dosáhla jsem tří procent."),
     "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
     "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
