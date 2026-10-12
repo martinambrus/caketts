@@ -50,6 +50,41 @@ def test_abbreviations(cs, sk):
     assert sk.normalize("atď.") == "a tak ďalej."
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("Ing. Novák přišel.", "Inženýr Novák přišel."),
+    ("Mgr. Svobodová odešla.", "Magistr Svobodová odešla."),
+    ("MUDr. Dvořák léčí.", "Doktor medicíny Dvořák léčí."),
+    ("JUDr. Král radí.", "Doktor práv Král radí."),
+    ("PhDr. Kovář píše.", "Doktor filozofie Kovář píše."),
+    ("RNDr. Marek měří.", "Doktor přírodních věd Marek měří."),
+    ("ThDr. Svoboda káže.", "Doktor teologie Svoboda káže."),
+    ("Doc. Horák učí.", "Docent Horák učí."),
+    ("Prof. Jelínek přednáší.", "Profesor Jelínek přednáší."),
+    # all-caps titles are also expanded
+    ("ING. NOVÁK je tady.", "Inženýr NOVÁK je tady."),
+    # multiple titles in one sentence
+    ("Prof. Jelínek a Ing. Král diskutují.", "Profesor Jelínek a Inženýr Král diskutují."),
+    # title + tzv. (takzvaný)
+    ("MUDr. Dvořák tzv. léčitel.", "Doktor medicíny Dvořák takzvaný léčitel."),
+    # Roman numeral in a name with epithet
+    ("Karel IV. Francouzský zvaný Sličný.", "Karel čtvrtý Francouzský zvaný Sličný."),
+    # acronyms works as well
+    ("MUDr. Dvořák tzv. léčitel.", "Doktor medicíny Dvořák takzvaný léčitel.")
+])
+def test_title_abbreviations_cs(cs, text, expected):
+    assert cs.normalize(text) == expected
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Ing. Novák prišiel.", "Inžinier Novák prišiel."),
+    ("Mgr. Svobodová odišla.", "Magister Svobodová odišla."),
+    ("Doc. Horák učí.", "Docent Horák učí."),
+    ("Prof. Jelínek prednáša.", "Profesor Jelínek prednáša."),
+])
+def test_title_abbreviations_sk(sk, text, expected):
+    assert sk.normalize(text) == expected
+
+
 def test_dashes_and_ellipsis(cs):
     assert cs.normalize("A pak – nic...") == "A pak — nic…"
 
@@ -303,6 +338,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "label-cs": ("cs", None, "Kapitola 1 začíná.", "Kapitola jedna začíná."),
     "same-form-in-every-case": ("cs", None, "Pak začalo XXI. století.", "Pak začalo dvacáté první století."),
     "tagger-gender-fix": ("sk", None, "Potom vyšiel 2. diel.", "Potom vyšiel druhý diel."),
+    "tagger-gender-fix-2": ("cs", None, "Mám 2 šálky a 2 psy.", "Mám dva šálky a dva psy."),
     "ordinal-range": ("cs", None, "Od 1.–5. ledna.", "Od prvního až pátého ledna."),
     "shared-noun": ("cs", None, "Přelom XIX. a XX. století.", "Přelom devatenáctého a dvacátého století."),
     "noun-after-tisíc": ("cs", None, "S 1 000 Kč vyrazil.", "S tisícem korun vyrazil."),

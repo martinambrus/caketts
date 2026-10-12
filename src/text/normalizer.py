@@ -169,7 +169,9 @@ SK_ANIMAL_PLURALS = frozenset("vlci býci vtáci psi orli sokoli holubi levi tig
 
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone
-FEATURE_FIXES = {"cs": {},
+FEATURE_FIXES = {"cs": {"šálky": {"Gender": "Masc", "Animacy": "Inan"},
+                        "šálků": {"Gender": "Masc", "Animacy": "Inan"},
+                        "šálku": {"Gender": "Masc", "Animacy": "Inan"}},
                  "sk": {"diel": {"Gender": "Masc", "Animacy": "Inan", "Number": "Sing", "Case": "Nom"},
                         "diely": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
                         "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"}}}
@@ -230,11 +232,19 @@ VOCALISATION = {
 # abbreviations that introduce what follows, so their period never ends a sentence
 NON_FINAL_ABBREVIATIONS = {"např.", "napr.", "tzn.", "tj.", "t.j.", "resp.", "cca.", "č.", "str.", "r.",
                            "mj.", "popř.", "příp.", "príp.", "zejm.", "vč.", "vr.", "max.", "sv.", "tzv.",
-                           "odst.", "ods.", "písm."}
+                           "odst.", "ods.", "písm.",
+                           # titles always introduce a person's name, never end a sentence
+                           "ing.", "ing. arch.", "mgr.", "mudr.", "judr.", "phdr.", "rndr.", "thdr.",
+                           "paeddr.", "doc.", "prof.", "akad.", "akad. mal.", "akad. soch.", "akad. arch."}
 # abbreviations that close a list, whose commas and "a" join no clauses: "PŘINESL JABLKA, HRUŠKY ATD."
 LIST_END_ABBREVIATIONS = {"atd.", "apod.", "aj.", "atp.", "atď.", "a pod.", "a i."}
 # keys whose capital form is an acronym, a name or initials: "TURNAJ ATP.", "TJ SOKOL", "voliči ODS."
 CAPITAL_ACRONYMS = frozenset({"aj.", "atp.", "max.", "mj.", "n.l.", "ods.", "t.j.", "tj.", "vr."})
+# academic and professional titles — always expanded to spoken form, even in all-caps
+TITLE_ABBREVIATIONS = frozenset({
+    "ing.", "ing. arch.", "mgr.", "mudr.", "judr.", "phdr.", "rndr.", "thdr.",
+    "paeddr.", "doc.", "prof.", "akad.",
+})
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
 ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
@@ -549,6 +559,15 @@ class TextNormalizer:
         "př. n. l.": "před naším letopočtem", "n. l.": "našeho letopočtu", "stol.": "století",
         "sv.": "svatý", "tzv.": "takzvaný", "a/nebo": "a nebo", "§": "paragraf", "odst.": "odstavec",
         "písm.": "písmeno",
+        # academic and professional titles — always expanded, even in all-caps
+        "ing.": "inženýr", "ing. arch.": "inženýr architekt",
+        "mgr.": "magistr",
+        "mudr.": "doktor medicíny", "judr.": "doktor práv",
+        "phdr.": "doktor filozofie", "rndr.": "doktor přírodních věd",
+        "thdr.": "doktor teologie", "paeddr.": "doktor pedagogiky",
+        "doc.": "docent", "prof.": "profesor",
+        "akad.": "akademik", "akad. mal.": "akademik malíř",
+        "akad. soch.": "akademik sochař", "akad. arch.": "akademik architekt",
     }
     ABBREVIATIONS_SK = {
         "napr.": "napríklad", "tzn.": "to znamená", "atď.": "a tak ďalej", "a pod.": "a podobne",
@@ -558,6 +577,11 @@ class TextNormalizer:
         "vr.": "vrátane", "max.": "maximálne", "pred n. l.": "pred naším letopočtom",
         "n. l.": "nášho letopočtu", "stor.": "storočie", "sv.": "svätý", "tzv.": "takzvaný",
         "a/alebo": "a alebo", "§": "paragraf", "ods.": "odsek", "písm.": "písmeno",
+        # academic and professional titles — always expanded, even in all-caps
+        "ing.": "inžinier", "mgr.": "magister",
+        "mudr.": "doktor medicíny", "judr.": "doktor práv",
+        "phdr.": "doktor filozofie", "rndr.": "doktor prírodných vied",
+        "thdr.": "doktor teológie", "doc.": "docent", "prof.": "profesor",
     }
 
     def __init__(self, language: str, book_config: Optional[dict] = None):
@@ -833,7 +857,8 @@ class TextNormalizer:
 
     def _abbreviation(self, m: re.Match, text: str, tags: _Tags) -> str:
         raw, key = m.group(0), _key_of(m)
-        if raw.isupper() and len(key) > 2 and key in CAPITAL_ACRONYMS:
+        # titles are always expanded to spoken form, even in all-caps: "ING. NOVÁK" -> "inženýr Novák"
+        if key not in TITLE_ABBREVIATIONS and raw.isupper() and len(key) > 2 and key in CAPITAL_ACRONYMS:
             after = text[m.end():].lstrip(" \t  ")
             before = text[:m.start()].rstrip(" \t  ")
             # MAX. and ODS. introduce an amount ("MAX. ≈ 5", "ODS. 2"), N. L. follows a year ("300 N. L."); the
