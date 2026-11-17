@@ -1327,7 +1327,7 @@ class TextNormalizer:
                     end + later_unit.end("unit"), text, tags, log=False)
                 words = self._cardinal(value, NOM, unit_gender, "inanimate")
                 if unit_case is None and (words != self._cardinal(value, ACC, unit_gender, "inanimate")
-                                          or (self.language == "cs" and self._verb_case(start, None, tags) == GEN)):
+                                          or self._verb_case(start, None, tags) == GEN):
                     self._warn(text, m, words, "no preposition; nominative")
                 return unit_case or NOM, unit_gender, "inanimate"
             noun = self._shared_count_head(end, tags)
@@ -1722,7 +1722,8 @@ class TextNormalizer:
         verb = self._clause_verb(start, tags)
         feats = verb.feats
         # after "procent" the noun it counts follows: "Pět procent studentů dosáhli cíle", "pěti procent hlasování"
-        counted = tags.head_after(noun.end) if noun.text.lower() in ("procent", "promile", "milionů", "miliard") else None
+        counted = tags.head_after(noun.end) if noun.text.lower() in (
+            "procent", "promile", "milionů", "miliard", "percent", "miliónov", "miliárd") else None
         heads = [noun] + ([counted] if counted is not None and counted.feats.get("Case") == "Gen" else [])
         taking_part = self._takes_part(verb, heads)
         # the other counted nouns of a list it belongs to, which decide with it: "5 mužů, 10 žen a 15 dětí dosáhli cíle"
@@ -1840,20 +1841,21 @@ class TextNormalizer:
 
     def _unit_verb_case(self, amount: str, unit: str, start: int, end: int, text: str, tags: _Tags,
                         log: bool = True) -> Optional[str]:
-        """After a Czech genitive verb an amount with a unit is its subject or object as a counted noun is."""
+        """After a Czech or Slovak genitive verb an amount with a unit is its subject or object, as a noun is."""
         value, integer, fraction = _parse(amount)
         unit = unit.rstrip(".")
         scale = unit.lower() in SCALES
         name = None if scale else self._unit(unit)[0]
         head = self._list_start(start, tags)  # "Dosáhl rychlosti 120, 130 nebo 140 km/h"
-        if (self.language != "cs" or self._after_own_noun(head, tags)  # "Dosáhl rychlosti 120 km/h"
-                or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS["cs"]))
+        if (self._after_own_noun(head, tags)  # "Dosáhl rychlosti 120 km/h"
+                or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS[self.language]))
                 or self._verb_case(start, self._preposition(head, tags), tags) != GEN):
             return None
         count = (integer or int(fraction.ljust(2, "0"))) if fraction else value * 10 ** SCALES.get(unit.lower(), 0)
-        gender = SCALE_GENDERS["cs"][unit.lower()] if scale else NOUNS["cs"][name][0]
+        gender = SCALE_GENDERS[self.language][unit.lower()] if scale else NOUNS[self.language][name][0]
         verb = self._clause_verb(start, tags)
-        if (1 < integer < 5 and gender == "neuter" and "Neut" in (verb.feats.get("Gender") or "")
+        if (1 < integer < 5 and gender == "neuter"
+                and (self.language == "sk" or "Neut" in (verb.feats.get("Gender") or ""))
                 and "Plur" in (verb.feats.get("Number") or "") and self._no_subject_in_sight(verb, tags)):
             # an "-la" verb is also a neuter plural: "Voleb se zúčastnila dvě procenta voličů"
             counted = tags.head_after(end)  # "Zúčastnila se dvou procent soutěží": an event
@@ -1864,7 +1866,7 @@ class TextNormalizer:
                            "subject or object of a verb that may be neuter plural, read as the "
                            + ("subject" if case == NOM else "object") + "; check it")
             return case
-        noun = _Word(start, end, unit.lower() if scale else NOUNS["cs"][name][1][7], "NOUN",
+        noun = _Word(start, end, unit.lower() if scale else NOUNS[self.language][name][1][7], "NOUN",
                      {"Gender": {v: k for k, v in _UD_GENDERS.items()}[gender], "Animacy": "Inan"})
         return self._genitive_verb_case(count, start, noun, text, (start, end) if log else None, tags)
 

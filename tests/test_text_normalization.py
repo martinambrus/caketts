@@ -752,6 +752,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                      "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
     "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
                                            "Je to state\u2011of\u2011the\u2011art.", "Je to <en>state-of-the-art</en>."),
+    "sk-genitive-verb-unit-object": ("sk", None, "Zbavil sa 5 kg. Zbavila sa 3 kg. Chce sa zbaviť 5 kg. "
+                                     "Týka sa to 5 %.",
+                                     "Zbavil sa piatich kilogramov. Zbavila sa troch kilogramov. "
+                                     "Chce sa zbaviť piatich kilogramov. Týka sa to piatich percent."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -886,6 +890,15 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "going-behind-or-after": ("cs", "Šel za 2 stromy a tam se zastavil.", "Šel za dvěma stromy a tam se zastavil.",
                               "place behind"),
     "comma-list-object-or-subject": ("cs", "Viděl 1,2,5 mužů.", "Viděl jeden, dva, pět mužů.", "accusative"),
+    "sk-genitive-verb-shared-unit-time": ("sk", "Týka sa 2 alebo 3 h.", "Týka sa dvoch alebo troch hodín.",
+                                          "a duration is the accusative"),
+    "sk-genitive-verb-unit-time": ("sk", "Bál sa 5 min.", "Bál sa piatich minút.", "a duration is the accusative"),
+    "sk-genitive-verb-neuter-plural-unit-subject": ("sk", "Volieb sa zúčastnili 2 % voličov.",
+                                                    "Volieb sa zúčastnili dve percentá voličov.",
+                                                    "may be neuter plural, read as the subject"),
+    "sk-genitive-verb-unit-of-a-plural-verb-after": ("sk", "Zúčastnili sa 60 % voličov.",
+                                                     "Zúčastnili sa šesťdesiatich percent voličov.",
+                                                     "subject of a plural verb, as people say"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
@@ -949,6 +962,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
     "capitals-ordinal-after-az-without-a-verb": ("cs", "ZLEPŠENÍ NASTANE AŽ 3. DEN.", "ZLEPŠENÍ NASTANE AŽ třetí DEN."),
+    "sk-genitive-verb-unit-subject-of-a-neuter-verb": ("sk", "Zúčastnilo sa 60 % voličov. Zúčastnilo sa 5 % voličov.",
+                                                       "Zúčastnilo sa šesťdesiat percent voličov. "
+                                                       "Zúčastnilo sa päť percent voličov."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
