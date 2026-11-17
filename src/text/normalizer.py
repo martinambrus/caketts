@@ -206,7 +206,8 @@ SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medz
 TWO_CASE_PREPOSITIONS = frozenset({"mezi", "nad", "pod", "před", "za"})
 TIME_PLURALS = frozenset({"roky", "dny", "týdny"})  # "před dvěma roky" (ago), "za dva roky" (in)
 # a time after a genitive verb is its object ("Dožil se devadesáti let") or a duration ("Bál se pět minut")
-DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků"})
+DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "dnů", "týdnů", "měsíců", "let", "roků",
+                                "sekúnd", "minút", "hodín", "dňov", "týždňov", "mesiacov", "rokov"})
 # nouns a measure describes, so a time after them is no duration: "Dosáhl věku devadesáti let po operaci"
 MEASURE_GENITIVES = frozenset({"věku", "stáří", "doby", "délky", "trvání", "lhůty", "výšky", "hloubky", "šířky",
                                "vzdálenosti", "rychlosti", "hodnoty", "teploty", "hmotnosti", "váhy", "ceny", "úrovně"})
@@ -219,7 +220,7 @@ EVENT_GENITIVES = frozenset({"akcí", "bitev", "debat", "diskusí", "etap", "fes
                              "seminářů", "sjezdů", "soutěží", "turnajů", "válek", "voleb", "výstav", "zápasů", "závodů"})
 # nouns of time whose nominative is also their accusative of time, so no subject: "Každý rok se akce zúčastní"
 TIME_NOUNS = frozenset({"rok", "den", "týden", "měsíc", "večer", "čas", "víkend", "okamžik", "moment", "podzim",
-                        "život", "léto", "jaro", "ráno", "noc"})
+                        "život", "léto", "jaro", "ráno", "noc", "deň", "týždeň", "mesiac", "okamih", "leto"})
 # words that qualify a number after "a" without opening a clause of their own: "Petr a asi pět mužů", "s 2 kg a ~3 kg"
 APPROXIMATORS = frozenset({"~", "≈", "asi", "přibližně", "zhruba", "skoro", "téměř", "cca", "nejméně", "nejvýše",
                            "alespoň", "aspoň", "až", "také", "též", "ještě", "jen", "pouze", "približne", "takmer",
@@ -238,14 +239,19 @@ PLACED_PARTICIPLES = ("polož", "vlož", "pověš", "umístěn", "zařazen", "sc
 PLACE_VERBS = ("stál", "stoj", "lež", "seděl", "sedí", "sedě", "vis", "bydl", "žil", "žij", "zůstal", "zůstáv",
                "čekal", "čeká", "nacház", "rostl", "rost", "pracoval", "pracuj", "spal", "spí")
 PLACE_FORMS = frozenset({"je", "jsou", "není", "byl", "byla", "bylo", "byli", "byly", "bude", "budou"})  # not "jel"
-# Czech verbs that take the genitive (a pattern for the start of the form) with the clitic they need:
+# Czech and Slovak verbs that take the genitive (a pattern for the start of the form) with the clitic they need:
 # "Dosáhli jsme XXI. století", "Bál se 2. dílu"; vzdát se, not vzdálit se (vzdálil, vzdaluje)
-GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "se", "dožij": "se", "dočkal": "se",
-                  "dočká": "se", "dočkaj": "se", "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se",
-                  "bál": "se", "bojí": "se", "obával": "se", "obává": "se", "obávaj": "se", "všiml": "si", "všimn": "si",
-                  "všímá": "si", "všímaj": "si", "dotkl": "se", "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se",
-                  "týká": "se", "týkaj": "se", "týkal": "se", "týče": "se",  # "obávají se", "dočkají se", "co se týče"
-                  "(?:ze|vy|o)?pt(?:al|á|aj|ej|at)": "se", "dot(?:áz|áž|az)": "se"}
+GENITIVE_VERBS = {
+    "cs": {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "se", "dožij": "se", "dočkal": "se",
+           "dočká": "se", "dočkaj": "se", "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se",
+           "bál": "se", "bojí": "se", "obával": "se", "obává": "se", "obávaj": "se", "všiml": "si", "všimn": "si",
+           "všímá": "si", "všímaj": "si", "dotkl": "se", "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se",
+           "týká": "se", "týkaj": "se", "týkal": "se", "týče": "se",  # "obávají se", "dočkají se", "co se týče"
+           "(?:ze|vy|o)?pt(?:al|á|aj|ej|at)": "se", "dot(?:áz|áž|az)": "se"},
+    "sk": {"dožil": "sa", "dožij": "sa", "dožív": "sa", "dočkal": "sa", "dočká": "sa", "dočkaj": "sa",
+           "vzd(?:al|aj|á)": "sa", "zúčastn": "sa", "účastn": "sa", "bál": "sa", "bojí": "sa", "boja": "sa",
+           "obával": "sa", "obáva": "sa", "dotkol": "sa", "dotkl": "sa", "dotkn": "sa", "dotýk": "sa",
+           "zbav": "sa", "týka": "sa", "zľak": "sa", "dopust": "sa", "dopúšť": "sa"}}
 # Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
 NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", "čekal", "čeká", "těšil", "těší",
                        "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
@@ -565,7 +571,7 @@ def _plain_nominative(w: "_Word") -> bool:
     form, feats = w.text.lower(), w.feats
     singular, gender = feats.get("Number") == "Sing", feats.get("Gender")
     return feats.get("Case") == "Nom" and form.isalpha() and (
-        form in ("on", "ono", "oni", "ony", "kdo", "někdo", "nikdo")
+        form in ("on", "ono", "oni", "ony", "kdo", "někdo", "nikdo", "kto", "niekto", "nikto")
         or (gender == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě"))
             and not (form.endswith("í") and feats.get("Number") == "Plur"))
         or (gender == "Fem" and singular and (form.endswith("a") or form[-1] not in "aáeéěiíoóuúůyý")
@@ -1401,7 +1407,7 @@ class TextNormalizer:
                 # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
                 # plural never ends like -a, -e, -i, -o, -y, so "skoro 2 hodiny" tagged genitive is not one
                 case = GEN
-            elif (noun_case == GEN and (abs(value) >= 5 or value == 0) and self.language == "cs"
+            elif (noun_case == GEN and (abs(value) >= 5 or value == 0)
                   and self._verb_case(start, prep, tags) == GEN):
                 # from 5, and at 0, the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter
                 # singular verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
@@ -1687,13 +1693,14 @@ class TextNormalizer:
         return INS if word in ("mezi", "před") and noun is not None else None
 
     def _verb_case(self, pos: int, prev: Optional[_Word], tags: _Tags) -> Optional[str]:
-        """The case a Czech verb gives a noun phrase at `pos`: the genitive after "dosáhnout", "bát se";
+        """The case a Czech or Slovak verb gives a noun phrase at `pos`: the genitive after "dosáhnout", "bát se";
         the accusative after "na" with "vzpomínat", "čekat"."""
         verb = self._clause_verb(pos, tags)
         form = _affirmative(verb.text.lower()) if verb is not None else ""
         if prev is not None and prev.upos == "ADP":
             return ACC if prev.text.lower() == "na" and form and form.startswith(NA_ACCUSATIVE_VERBS) else None
-        clitic = next((c for stem, c in GENITIVE_VERBS.items() if re.match(stem, form)), False) if form else False
+        verbs = GENITIVE_VERBS[self.language]
+        clitic = next((c for stem, c in verbs.items() if re.match(stem, form)), False) if form else False
         return GEN if clitic is None or (clitic and self._clitic_of(verb, tags, clitic)) else None
 
     def _agrees_with_preposition(self, prep: _Word, noun: _Word) -> bool:
@@ -1703,11 +1710,13 @@ class TextNormalizer:
         return case is not None and case == _UD_CASES.get(prep.feats.get("Case"))
 
     def _genitive_verb_case(self, value: int, start: int, noun: _Word, text: str, where, tags: _Tags) -> str:
-        """Subject (NOM) or object (GEN) of a Czech genitive verb for a number counting `noun`; where=None logs nothing."""
+        """Subject (NOM) or object (GEN) of a Czech or Slovak genitive verb for a number counting `noun`;
+        where=None logs nothing."""
         gender, animacy = self._gender(noun)
 
         def warn(reading: str, reason: str) -> None:
-            if where is not None:
+            g, a = gender or "masculine", animacy or "inanimate"
+            if where is not None and self._cardinal(value, NOM, g, a) != self._cardinal(value, GEN, g, a):
                 self._warn(text, where, reading, reason)
 
         verb = self._clause_verb(start, tags)
@@ -1750,7 +1759,7 @@ class TextNormalizer:
                 w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
                 + self._clause_after(noun.end, tags))
             if not subject and stop is not None and stop.upos == "CCONJ" and all(
-                    w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
+                    w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si", "sa") for w in words):
                 subject = shared = any(_plain_nominative(w) and _agree(verb, w)
                                        for w in self._clause_before(stop.start, tags))
         else:
@@ -1760,7 +1769,7 @@ class TextNormalizer:
         # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject; so is "to" ("Dosáhlo to
         # pěti bodů"), but not of taking part ("Zúčastnilo se to padesát lidí") or after a question word ("Čeho se to")
         clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
-        pronouns = [w.start for w in clause if w.upos == "PRON" and w.text.lower() not in ("se", "si")]
+        pronouns = [w.start for w in clause if w.upos == "PRON" and w.text.lower() not in ("se", "si", "sa")]
         subject = subject or any((w.upos == "AUX" and w.feats.get("Person") in ("1", "2"))
                                  or (w.text.lower() in ("to", "toto", "tohle") and w.feats.get("Case") == "Nom"
                                      and not taking_part and not any(p < w.start for p in pronouns)) for w in clause)
@@ -1787,7 +1796,7 @@ class TextNormalizer:
             # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
             # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
             case = GEN if verb.start < start and not taking_part else NOM
-        elif colloquial and start < verb.start:
+        elif (colloquial or (self.language == "sk" and feats.get("Number") == "Plur")) and start < verb.start:
             case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
             warn(self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
                  "subject of a plural verb, as people say, or an object put first; check it")
