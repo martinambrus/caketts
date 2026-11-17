@@ -762,6 +762,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-genitive-verb-imperfective-imperative-and-infinitive": (
         "sk", None, "Zúčastňoval sa 5 pretekov. Neboj sa 5 psov. Nemusíš sa báť 5 psov.",
         "Zúčastňoval sa piatich pretekov. Neboj sa piatich psov. Nemusíš sa báť piatich psov."),
+    "na-before-a-level-amount": (
+        "cs", None, "Záleží na 5 %. Inflace zůstala na 5 %. Teplota se drží na 20 °C.",
+        "Záleží na pěti procentech. Inflace zůstala na pěti procentech. Teplota se drží na dvaceti stupních Celsia."),
+    "guard-na-before-a-target-or-a-span": (
+        "cs", None, "Inflace vzrostla na 5 %. Zůstal na 2 h. Na 5 km² žije 100 lidí.",
+        "Inflace vzrostla na pět procent. Zůstal na dvě hodiny. Na pěti kilometrech čtverečních žije sto lidí."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
