@@ -183,7 +183,8 @@ NEUTER_PLURALS = {
 FEATURE_FIXES = {"cs": {},
                  "sk": {"diel": {"Gender": "Masc", "Animacy": "Inan", "Number": "Sing", "Case": "Nom"},
                         "diely": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
-                        "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"}}}
+                        "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"},
+                        "body": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"}}}
 
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}

@@ -965,6 +965,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-genitive-verb-unit-subject-of-a-neuter-verb": ("sk", "Zúčastnilo sa 60 % voličov. Zúčastnilo sa 5 % voličov.",
                                                        "Zúčastnilo sa šesťdesiat percent voličov. "
                                                        "Zúčastnilo sa päť percent voličov."),
+    "sk-tagger-gender-fix-points": ("sk", "Získal 2 body. Dosiahol 2 body. Chýbali mu 2 body.",
+                                    "Získal dva body. Dosiahol dva body. Chýbali mu dva body."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
