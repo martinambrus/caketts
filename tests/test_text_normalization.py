@@ -955,6 +955,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-genitive-verb-unit-of-a-plural-verb-after": ("sk", "Zúčastnili sa 60 % voličov.",
                                                      "Zúčastnili sa šesťdesiatich percent voličov.",
                                                      "subject of a plural verb, as people say"),
+    "sk-afternoon-dash-span": ("sk", "Otvorené 8–17 h.", "Otvorené od ôsmej do sedemnástej.", "hour of the day or a span"),
+    "sk-afternoon-dash-span-after-od": ("sk", "Otvorené od 8–17 h.", "Otvorené od ôsmej do sedemnástej.",
+                                        "hour of the day or a span"),
     "sk-genitive-verb-plural-verb-feminine-subject": ("sk", "Zúčastnili sa 5 žien.", "Zúčastnili sa piatich žien.",
                                                       "subject of a plural verb, as people say"),
     "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
@@ -962,6 +965,11 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
+    "sk-dash-span-of-work": ("sk", "Bolo to 8–17 h práce.", "Bolo to osem až sedemnásť hodín práce."),
+    "duration-verb-with-a-neuter-subject": ("cs", "Jednání trvalo 1 nebo 2 hodiny.",
+                                            "Jednání trvalo jednu nebo dvě hodiny."),
+    "duration-verb-present-with-a-subject": ("cs", "Film trvá 1 nebo 2 hodiny.", "Film trvá jednu nebo dvě hodiny."),
     "na-enough-for-after-zustat-with-a-dative": ("cs", "Zůstalo mu jen na 5 Kč.", "Zůstalo mu jen na pět korun."),
     "sk-genitive-verb-plural-verb-plural-subject": ("sk", "Ženy sa báli 5 psov.", "Ženy sa báli piatich psov."),
     "sk-genitive-verb-plural-imperative": ("sk", "Nebojte sa 5 psov.", "Nebojte sa piatich psov."),
@@ -1055,9 +1063,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-sk-hours-before-an-adjective-and-noun-stay-counts": (
         "sk", "Batéria vydrží do 20 h nepretržitej prevádzky.",
         "Batéria vydrží do dvadsiatich hodín nepretržitej prevádzky."),
-    "guard-sk-dash-range-and-decimal-stay-counts": (
-        "sk", "Otvorené od 8–17 h. Príde od 8,5 do 17 h.",
-        "Otvorené od ôsmich až sedemnástich hodín. Príde od osem celých päť desatín do sedemnástich hodín."),
+    "guard-sk-decimal-span-stays-a-count": (
+        "sk", "Príde od 8,5 do 17 h.", "Príde od osem celých päť desatín do sedemnástich hodín."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

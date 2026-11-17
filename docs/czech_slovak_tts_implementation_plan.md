@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**1310 tests:** 102 for the TTS components, 104 for num2words, 1100 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**1322 tests:** 102 for the TTS components, 104 for num2words, 1112 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -353,7 +353,8 @@ Handle:
  2. Dates ("1. ledna 2024" -> "Prvního ledna dva tisíce dvacet čtyři"), times read digitally
     ("ve čtrnáct třicet", Slovak "o štrnástej tridsať", "o jednej"; a Slovak "N h" after od, do, po,
     pred, okolo, k or medzi is the hour of the day for 13 to 23 and for the "od" of a span that ends
-    at one: "od 8 do 17 h" -> "od ôsmej do sedemnástej", LOGGED), currency ("sto korun", "čtyři eura
+    at one: "od 8 do 17 h" -> "od ôsmej do sedemnástej", LOGGED; so is a dash span after "od" or with
+    no preposition: "8–17 h" -> "od ôsmej do sedemnástej"), currency ("sto korun", "čtyři eura
     padesát centů"), units that agree with their number ("5 km" -> "pět kilometrů", "80 m²" ->
     "osmdesát metrů čtverečních", also after a written scale: "5 milionů €" -> "pět milionů eur"), ranges ("5–10", "5 až 10" -> "pět až deset"), Roman numerals ("Karel
     IV." -> "Karel čtvrtý."), and ordinals that share a noun ("od XIX. do XX. století").
@@ -487,7 +488,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 1100 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 1112 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -1448,6 +1449,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-genitive-verb-unit-of-a-plural-verb-after": ("sk", "Zúčastnili sa 60 % voličov.",
                                                      "Zúčastnili sa šesťdesiatich percent voličov.",
                                                      "subject of a plural verb, as people say"),
+    "sk-afternoon-dash-span": ("sk", "Otvorené 8–17 h.", "Otvorené od ôsmej do sedemnástej.", "hour of the day or a span"),
+    "sk-afternoon-dash-span-after-od": ("sk", "Otvorené od 8–17 h.", "Otvorené od ôsmej do sedemnástej.",
+                                        "hour of the day or a span"),
     "sk-genitive-verb-plural-verb-feminine-subject": ("sk", "Zúčastnili sa 5 žien.", "Zúčastnili sa piatich žien.",
                                                       "subject of a plural verb, as people say"),
     "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
@@ -1455,6 +1459,11 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
+    "sk-dash-span-of-work": ("sk", "Bolo to 8–17 h práce.", "Bolo to osem až sedemnásť hodín práce."),
+    "duration-verb-with-a-neuter-subject": ("cs", "Jednání trvalo 1 nebo 2 hodiny.",
+                                            "Jednání trvalo jednu nebo dvě hodiny."),
+    "duration-verb-present-with-a-subject": ("cs", "Film trvá 1 nebo 2 hodiny.", "Film trvá jednu nebo dvě hodiny."),
     "na-enough-for-after-zustat-with-a-dative": ("cs", "Zůstalo mu jen na 5 Kč.", "Zůstalo mu jen na pět korun."),
     "sk-genitive-verb-plural-verb-plural-subject": ("sk", "Ženy sa báli 5 psov.", "Ženy sa báli piatich psov."),
     "sk-genitive-verb-plural-imperative": ("sk", "Nebojte sa 5 psov.", "Nebojte sa piatich psov."),
@@ -1548,9 +1557,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-sk-hours-before-an-adjective-and-noun-stay-counts": (
         "sk", "Batéria vydrží do 20 h nepretržitej prevádzky.",
         "Batéria vydrží do dvadsiatich hodín nepretržitej prevádzky."),
-    "guard-sk-dash-range-and-decimal-stay-counts": (
-        "sk", "Otvorené od 8–17 h. Príde od 8,5 do 17 h.",
-        "Otvorené od ôsmich až sedemnástich hodín. Príde od osem celých päť desatín do sedemnástich hodín."),
+    "guard-sk-decimal-span-stays-a-count": (
+        "sk", "Príde od 8,5 do 17 h.", "Príde od osem celých päť desatín do sedemnástich hodín."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -4525,7 +4533,7 @@ class TestASRCheck:
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 1309 tests, ~40 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 1321 tests, ~40 s on CPU
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
 ```
 
