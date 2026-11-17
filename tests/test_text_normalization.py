@@ -575,7 +575,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                "Pracoval se dvěma hodinami a třemi hodinami. Zůstaly mu."),
     "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
                                                  "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
-    "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),
+    "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jednu NEBO dvě hodiny."),
     "one-sharing-a-neuter-plural": ("cs", None, "Má 1 nebo 2 děti. Měl 1 nebo 2 oči zavřené.",
                                     "Má jedno nebo dvě děti. Měl jedno nebo dvě oči zavřené."),
     "one-to-four-before-a-mistagged-genitive": ("cs", None, "Hrál si s dětmi a skoro 2 hodiny tam zůstal. Bál se 2 žen.",
@@ -775,6 +775,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "guard-po-until-an-amount": (
         "cs", None, "Voda stoupla až po 5 m. Šel od 2 km po 5 km.",
         "Voda stoupla až po pět metrů. Šel od dvou kilometrů po pět kilometrů."),
+    "guard-time-subject-or-before-its-verb": (
+        "cs", None, "Čekala 1 nebo 2 ženy. 1 h trvá 60 min.",
+        "Čekala jedna nebo dvě ženy. Jedna hodina trvá šedesát minut."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -847,8 +850,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-number-before-a-neuter-plural-verb": ("cs", "5 procent voličů se zúčastnila voleb.",
                                                          "Pět procent voličů se zúčastnila voleb.",
                                                          "subject of a plural verb, as people say"),
-    "unit-shared-without-a-preposition": ("cs", "Trvá to 1 nebo 2 h.", "Trvá to jedna nebo dvě hodiny.", "no preposition"),
-    "unit-shared-past-an-approximator": ("cs", "Trvá to 1 nebo asi 2 h.", "Trvá to jedna nebo asi dvě hodiny.",
+    "unit-shared-without-a-preposition": ("cs", "Zbývá 1 nebo 2 h.", "Zbývá jedna nebo dvě hodiny.", "no preposition"),
+    "unit-shared-past-an-approximator": ("cs", "Zbývá 1 nebo asi 2 h.", "Zbývá jedna nebo asi dvě hodiny.",
                                          "no preposition"),
     "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
                                                            "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
@@ -999,6 +1002,11 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
                                          "Bojoval pět let. Bojovali s pěti nepřáteli."),
     "guard-taking-part-imperfective-number-sharing-a-subject": ("cs", "Zúčastňovalo se 2 nebo 50 lidí.",
                                                                 "Zúčastňovalo se dva nebo padesát lidí."),
+    "time-after-a-verb-of-duration": (
+        "cs", "Trvá 1 nebo 2 hodiny. Čekala 1 nebo 2 hodiny. Trvá to 1 h.",
+        "Trvá jednu nebo dvě hodiny. Čekala jednu nebo dvě hodiny. Trvá to jednu hodinu."),
+    "unit-shared-after-a-verb-of-duration": ("cs", "Trvá to 1 nebo 2 h. Trvá to 1 nebo asi 2 h.",
+                                             "Trvá to jednu nebo dvě hodiny. Trvá to jednu nebo asi dvě hodiny."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

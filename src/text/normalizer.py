@@ -266,6 +266,8 @@ NA_LOCATIVE_VERBS = ("zálež", "závis")  # "na" and the locative: "Záleží n
 NA_LEVEL_VERBS = ("zůst", "drž", "udrž", "setrv", "zastav", "ustál", "stabiliz", "skonč", "konč", "začín", "začal",
                   "začn", "stagn", "zamrz")
 TIME_UNITS = ("h", "hod", "min", "s")
+# verbs of a span (trvat, čekat, spát), after which a time is the accusative: "Trvá to jednu hodinu"
+DURATION_VERBS = ("trv", "potrv", "ček", "počk", "vyčk", "spal", "spí", "spát", "vyspal", "vyspí")
 
 # preposition -> (vocalised form, starts of the number words that call for it)
 VOCALISATION = {
@@ -1444,6 +1446,11 @@ class TextNormalizer:
             return case, "masculine", "inanimate"
         return case, gender, animacy
 
+    def _duration(self, pos: int, tags: _Tags) -> bool:
+        """Whether the verb before `pos` takes a time for its span: "Trvá to 1 h", "Čekala 1 nebo 2 hodiny"."""
+        verb = self._clause_verb(pos, tags)
+        return verb is not None and verb.start < pos and _affirmative(verb.text.lower()).startswith(DURATION_VERBS)
+
     def _object_of_verb(self, noun: _Word, pos: int, tags: _Tags) -> bool:
         """Whether a number counting `noun` at `pos` is its verb's object: the verb has another subject ("to", a plain
         nominative, a first or second person) or a gender the noun lacks ("Spal jednu nebo dvě hodiny"); a copula's
@@ -1455,6 +1462,7 @@ class TextNormalizer:
         clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
         return (feats.get("Person") in ("1", "2")
                 or (feats.get("Gender") is not None and noun.feats.get("Gender") not in feats["Gender"].split(","))
+                or (self._duration(pos, tags) and noun.text.lower().startswith(tuple(DURATION_GENITIVES)))
                 or any((w.text.lower() in ("to", "toto", "tohle") and w.feats.get("Case") == "Nom")
                        or (w.upos == "AUX" and w.feats.get("Person") in ("1", "2"))
                        or (_plain_nominative(w) and _agree(verb, w, True)) for w in clause))
@@ -1855,9 +1863,12 @@ class TextNormalizer:
 
     def _unit_verb_case(self, amount: str, unit: str, start: int, end: int, text: str, tags: _Tags,
                         log: bool = True) -> Optional[str]:
-        """After a Czech or Slovak genitive verb an amount with a unit is its subject or object, as a noun is."""
+        """After a Czech or Slovak genitive verb an amount with a unit is its subject or object, as a noun is; after a
+        Czech verb of duration a time is its span: "Trvá to jednu hodinu"."""
         value, integer, fraction = _parse(amount)
         unit = unit.rstrip(".")
+        if self.language == "cs" and unit.lower() in TIME_UNITS and self._duration(start, tags):
+            return ACC
         scale = unit.lower() in SCALES
         name = None if scale else self._unit(unit)[0]
         head = self._list_start(start, tags)  # "Dosáhl rychlosti 120, 130 nebo 140 km/h"
