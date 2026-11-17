@@ -962,6 +962,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "duration-verb-with-a-neuter-subject": ("cs", "Jednání trvalo 1 nebo 2 hodiny.",
+                                            "Jednání trvalo jednu nebo dvě hodiny."),
+    "duration-verb-present-with-a-subject": ("cs", "Film trvá 1 nebo 2 hodiny.", "Film trvá jednu nebo dvě hodiny."),
     "na-enough-for-after-zustat-with-a-dative": ("cs", "Zůstalo mu jen na 5 Kč.", "Zůstalo mu jen na pět korun."),
     "sk-genitive-verb-plural-verb-plural-subject": ("sk", "Ženy sa báli 5 psov.", "Ženy sa báli piatich psov."),
     "sk-genitive-verb-plural-imperative": ("sk", "Nebojte sa 5 psov.", "Nebojte sa piatich psov."),

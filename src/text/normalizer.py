@@ -1420,10 +1420,13 @@ class TextNormalizer:
                 noun_case = tagged_case  # a 1 shares the case of a later number's plural: "jednoho nebo dvou bodů"
             later = next((w for w in reversed(tags.words[:bisect.bisect_left(tags.starts, noun.start)])
                           if w.text.replace(" ", "").isdigit()), None)
-            if (abs(value) == 1 and noun is not own and noun_case in (NOM, GEN) and noun.feats.get("Number") == "Sing"
+            if (abs(value) == 1 and noun is not own and noun_case in (NOM, GEN)
+                    and (noun.feats.get("Number") == "Sing"
+                         or (self._duration(start, tags) and noun.text.lower().startswith(tuple(DURATION_GENITIVES))))
                     and later is not None and 1 < int(later.text.replace(" ", "")) < 5 and self.language == "cs"):
-                # "Trvalo to 1 nebo 2 hodiny": CAC tags the plural after 2–4 singular, which it never is; it is the
-                # accusative when the verb has another subject or a gender the noun lacks
+                # "Trvalo to 1 nebo 2 hodiny": CAC tags the plural after 2–4 singular, or after a verb of duration
+                # genitive ("Jednání trvalo"); it is the accusative when the verb has another subject or a gender the
+                # noun lacks
                 noun_case = ACC if self._object_of_verb(noun, start, tags) else NOM
         prep = self._preposition(list_start, tags)
         if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS
