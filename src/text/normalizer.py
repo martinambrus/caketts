@@ -1413,12 +1413,14 @@ class TextNormalizer:
 
     def _governed(self, noun: _Word, pos: int, prep: Optional[_Word], tags: _Tags) -> bool:
         """Whether the genitive of a later number's noun, which the number at `pos` shares, is governed: after 2–4
-        it is ("Dosáhl 2 a 3 bodů"), after 5 only a genitive verb tells ("Bál se 2 nebo 5 psů", not "2 nebo 5 piv")."""
+        it is ("Dosáhl 2 a 3 bodů"), after 5 only a genitive verb whose object it is tells ("Bál se 2 nebo 5 psů", not
+        "2 nebo 5 piv" or "Zúčastnilo se 2 nebo 50 lidí")."""
         later = next((w for w in reversed(tags.words[:bisect.bisect_left(tags.starts, noun.start)])
                       if w.text.replace(" ", "").isdigit()), None)
         count = int(later.text.replace(" ", "")) if later is not None else 0
         return noun.feats.get("Number") == "Plur" and (
-            1 < count < 5 or (self.language == "cs" and self._verb_case(pos, prep, tags) == GEN))
+            1 < count < 5 or (self.language == "cs" and self._verb_case(pos, prep, tags) == GEN
+                              and self._genitive_verb_case(count, pos, noun, "", None, tags) == GEN))
 
     def _shared_count_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži", "od 1 do 2 hodin"."""
