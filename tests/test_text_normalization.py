@@ -586,6 +586,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                 "Bál sa piatich psov. Týka sa to piatich ľudí. Báli sme sa dvadsiatich piatich psov. "
                                 "Chce sa zbaviť piatich kíl. Bál sa piatich až šiestich psov. "
                                 "Bál sa piatich psov a dvoch mačiek."),
+    "sk-genitive-verb-neuter-in-i": ("sk", None, "Bál sa 5 stretnutí.", "Bál sa piatich stretnutí."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
@@ -928,6 +929,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-accusative-verbs": ("sk", "Dosiahol 5 bodov. Všimol si 5 chýb.", "Dosiahol päť bodov. Všimol si päť chýb."),
     "sk-genitive-verb-genitive-object-put-first": ("sk", "Úspechu sa dočkal vodca a 5 mužov. Cieľa sa dočkalo 5 ľudí.",
                                                    "Úspechu sa dočkal vodca a päť mužov. Cieľa sa dočkalo päť ľudí."),
+    "sk-neuter-in-i-after-an-accusative-verb": ("sk", "Mal 5 stretnutí. Dosiahol 5 vysvedčení.",
+                                                "Mal päť stretnutí. Dosiahol päť vysvedčení."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
                                          "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),
     "hour-unit-after-v-is-a-clock-time": ("cs", "Přijdu ve 2 h.", "Přijdu ve dvě hodiny."),
