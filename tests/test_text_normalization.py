@@ -768,6 +768,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "guard-na-before-a-target-or-a-span": (
         "cs", None, "Inflace vzrostla na 5 %. Zůstal na 2 h. Na 5 km² žije 100 lidí.",
         "Inflace vzrostla na pět procent. Zůstal na dvě hodiny. Na pěti kilometrech čtverečních žije sto lidí."),
+    "po-before-an-amount-that-is-no-time": (
+        "cs", None, "Po 5 km zastavil. Prodával je po 5 Kč.",
+        "Po pěti kilometrech zastavil. Prodával je po pěti korunách."),
+    "guard-po-before-a-time": ("cs", None, "Přijdu po 2 h.", "Přijdu po dvou hodinách."),
+    "guard-po-until-an-amount": (
+        "cs", None, "Voda stoupla až po 5 m. Šel od 2 km po 5 km.",
+        "Voda stoupla až po pět metrů. Šel od dvou kilometrů po pět kilometrů."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
