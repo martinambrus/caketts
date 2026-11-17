@@ -1367,7 +1367,7 @@ class TextNormalizer:
             if (self.language == "sk" and noun_case == GEN and noun.text.lower().endswith("ov")
                     and self._count_form(value) != "gen_pl"):
                 case = GEN
-            elif (noun_case == GEN and 0 < abs(value) < 5 and "," not in text[start:end]
+            elif (noun_case == GEN and 0 < abs(value) < 5 and (m.lastgroup == "commas" or "," not in text[start:end])
                   and (noun is own or self._governed(noun, start, head_prep, tags))
                   and not (abs(value) > 1 and noun.text.lower().endswith(("a", "á", "e", "ě", "é", "i", "o", "y")))):
                 # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
