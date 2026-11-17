@@ -6,11 +6,7 @@ when revived. New findings are added to one of the two lists as they are verifie
 
 ## Kept
 
-Reading checked on 825ae8d.
-
-| id | input | today | expected |
-|---|---|---|---|
-| N91 | num2words variant values in book_config | not validated (not re-checked) | a bad value raises |
+None open: every kept task is fixed (2026-11-17).
 
 ## Fixed
 
@@ -47,6 +43,7 @@ Preps and misc chain, 4c7d398..7450008.
 | N68 | sk `Prídem o 1:00.` | `o jednej` |
 | N65 | sk `Otvorené od 8 do 17 h.` | `od ôsmej do sedemnástej`, logged (user's rule: an afternoon hour, or the `od` of a span ending at one) |
 | — | `Zůstala mu faktura na 5 Kč.` / `Zůstalo mu jen na 5 Kč.` (regressions of N53a) | accusative again |
+| N91 | `book_config["num2words"]` with a bad value (`"agreemnt"`, `"yes"` for a flag) | ValueError (89f90db) |
 
 ## Parked
 
@@ -82,3 +79,5 @@ Preps and misc chain, 4c7d398..7450008.
   morning/afternoon spans, `Do 14, 15 a 16 h`); sk `o 17 h` (N38); N58 remainders (`Václavu II. Přemyslovci i jeho
   synovi`, `Vzpomínal na Karla IV. Karel IV. byl`, `Ludvík XIV. Slunce vládl`, capitals `VÁCLAVU II.` druzí); `Mluvil
   1 h a čekal 2 h` jedna; sk `Zostala na 5 %` / `Trvalo to 1 h` (N86).
+- Found while writing the docs (2026-11-17): `Jednání trvalo 1 nebo 2 hodiny` / `Film trvá 1 nebo 2 hodiny` jedna (a
+  subject before a verb of duration; a one-line guard broke `Čekala 1 nebo 2 ženy` and missed the targets).
