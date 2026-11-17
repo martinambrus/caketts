@@ -1287,6 +1287,8 @@ class TextNormalizer:
                 or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(f"[~≈]{_OPERAND}", after)):
             return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
         list_start = self._list_start(start, tags)  # "bez 5 nebo 10 lidí": a list has one preposition
+        if list_start < start and self._verb_follows(end, tags) and self._predicate_before(list_start, tags):
+            list_start = start  # "Zůstal bez 5 korun a 10 lidí odešlo": a verb after the number opens a new clause
         prep_case = self._preposition_case(list_start, tags)
         own = noun = tags.head_after(end)
         if noun is None:
@@ -1445,22 +1447,53 @@ class TextNormalizer:
 
     @staticmethod
     def _list_start(pos: int, tags: _Tags) -> int:
-        """Where the list of numbers around the one at `pos` starts: "5, 10 nebo 15 bodů" has one governor. Two numbers
-        with a comma alone are no list: "roku 1990, 5 dní"."""
+        """Where the list around the number at `pos` starts, which has one governor: "5, 10 nebo 15 bodů", "5 bodů, 10
+        bodů nebo 15 bodů", "5 Kč, 10 Kč nebo 15 Kč". Two items with a comma alone are no list: "roku 1990, 5 dní", "5
+        bodů, 10 minut před koncem"; after an item with a noun only such items follow: "5, 10 nebo 15 bodů, 3 jich
+        odešlo"."""
         w, i = tags.words, bisect.bisect_left(tags.starts, pos)
-        if i >= len(w) or not w[i].text.replace(" ", "").isdigit():
+
+        def number(k: int) -> bool:
+            return 0 <= k < len(w) and w[k].text.replace(" ", "").isdigit()
+
+        def phrase(k: int) -> bool:  # a word of an item's noun or unit: "bodů", "nových", "Kč", "%", "°"
+            return 0 <= k < len(w) and not number(k) and (
+                w[k].upos in ("NOUN", "PROPN", "ADJ", "DET", "NUM", "SYM")
+                or w[k].text in ("%", "‰", "€", "$", "£", "°", "/", "²", "³"))
+
+        def link(k: int) -> bool:
+            return 0 <= k < len(w) and (w[k].upos == "CCONJ" or w[k].text == ",")
+
+        if not number(i):
             return pos
+        items = [i]
+        while link(items[0] - 1):  # back over a link and the earlier item's noun to its number
+            k = items[0] - 2
+            while phrase(k) and items[0] - k < 6:
+                k -= 1
+            if not number(k) or (k < items[0] - 2 and not phrase(items[0] + 1)):
+                break
+            items.insert(0, k)
+        while True:  # on over this item's noun and a link to the next number
+            k = items[-1] + 1
+            while phrase(k) and k - items[-1] < 5:
+                k += 1
+            if not (link(k) and number(k + 1)) or (k > items[-1] + 1 and not phrase(k + 2)):
+                break
+            items.append(k + 1)
+        return pos if len(items) == 1 or (len(items) == 2 and w[items[1] - 1].text == ",") else w[items[0]].start
 
-        def linked(link: int, number: int) -> bool:
-            return (0 <= min(link, number) and max(link, number) < len(w) and w[number].text.replace(" ", "").isdigit()
-                    and (w[link].upos == "CCONJ" or w[link].text == ","))
-
-        first = last = i
-        while linked(first - 1, first - 2):
-            first -= 2
-        while linked(last + 1, last + 2):
-            last += 2
-        return pos if first == last or (last - first == 2 and w[first + 1].text == ",") else w[first].start
+    def _list_heads(self, pos: int, tags: _Tags) -> List[_Word]:
+        """The nouns that the other numbers of the list of the number at `pos` count: "5 mužů, 10 žen a 15 dětí"."""
+        first, heads = self._list_start(pos, tags), []
+        for w in tags.words[bisect.bisect_left(tags.starts, first):]:
+            if w.upos in ("VERB", "AUX") or w.text in (".", "!", "?", "…", ";", ":"):
+                break
+            head = tags.head_after(w.end) if w.text.replace(" ", "").isdigit() and w.start != pos else None
+            if (head is not None and head.text.isalpha() and self._list_start(w.start, tags) == first
+                    and head.text.lower() not in UNIT_WORDS[self.language] | SCALES.keys()):
+                heads.append(head)
+        return heads
 
     def _label(self, value: int) -> Tuple[str, str, str]:
         """A number that names rather than counts is nominative; Czech labels and counts with "jedna"."""
@@ -1634,6 +1667,8 @@ class TextNormalizer:
         counted = tags.head_after(noun.end) if noun.text.lower() in ("procent", "promile", "milionů", "miliard") else None
         heads = [noun] + ([counted] if counted is not None and counted.feats.get("Case") == "Gen" else [])
         taking_part = self._takes_part(verb, heads)
+        # the other counted nouns of a list it belongs to, which decide with it: "5 mužů, 10 žen a 15 dětí dosáhli cíle"
+        members = self._list_heads(start, tags)
         if (value == 0 and "Fem" in (feats.get("Gender") or "") and "Sing" in (feats.get("Number") or "")
                 and self._no_subject_in_sight(verb, tags)):
             # an "-la" verb also agrees with "nula": "Zúčastnila se nula lidí"; like a present verb
@@ -1690,12 +1725,12 @@ class TextNormalizer:
         colloquial = any((feats.get("Number") == "Plur" or (la and h.feats.get("Gender") == "Neut"))
                          and h.feats.get("Gender") in (feats.get("Gender") or "").split(",")
                          and (h.feats.get("Gender") != "Masc" or h.feats.get("Animacy") == feats.get("Animacy"))
-                         for h in heads if h is noun or h.feats.get("Number") == "Plur")
+                         for h in heads + members if h is noun or h.feats.get("Number") == "Plur")
         if subject:
             case = GEN
         elif fronted and (first is not None or colloquial or feats.get("Gender") is None):
             case = NOM  # "Cíle dosáhl vůdce a pět mužů", "Cíle dosáhli pět mužů"
-        elif nominative and _plain_nominative(first):
+        elif (nominative and _plain_nominative(first)) or any(_plain_nominative(h) for h in members):
             case = NOM  # "a" joins like cases: "Cíle dosáhla Eva a pět žen"; "vůdce" may be a genitive too
         elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
             case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject

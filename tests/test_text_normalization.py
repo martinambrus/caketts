@@ -648,6 +648,24 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "preposition-of-a-list-of-numbers": (
         "cs", None, "Byl tam bez 5 nebo 10 lidí. Stál mezi 1 a 2 stromy. Šel bez 5, 10 nebo 15 lidí.",
         "Byl tam bez pěti nebo deseti lidí. Stál mezi jedním a dvěma stromy. Šel bez pěti, deseti nebo patnácti lidí."),
+    "genitive-verb-list-of-noun-phrases": (
+        "cs", None, "Dosáhl 5 bodů, 10 bodů nebo 15 bodů. Cena dosáhla 5 Kč, 10 Kč nebo 15 Kč. "
+                    "Vrátil se z 5 měst, 10 vesnic a 15 osad.",
+        "Dosáhl pěti bodů, deseti bodů nebo patnácti bodů. Cena dosáhla pěti korun, deseti korun nebo "
+        "patnácti korun. Vrátil se z pěti měst, deseti vesnic a patnácti osad."),
+    "guard-noun-phrase-then-a-time-or-a-clause": (
+        "cs", None, "Dosáhl 5 bodů, 10 minut před koncem. Zůstal bez 5 korun a 10 lidí odešlo. "
+                    "Dosáhl 5, 10 nebo 15 bodů, 3 jich odešlo.",
+        "Dosáhl pěti bodů, deset minut před koncem. Zůstal bez pěti korun a deset lidí odešlo. "
+        "Dosáhl pěti, deseti nebo patnácti bodů, tři jich odešlo."),
+    "genitive-verb-list-of-counted-subjects": (
+        "cs", None, "Cíle dosáhli 5 mužů, 10 žen a 15 dětí. 2 muži a 5 žen dosáhli cíle.",
+        "Cíle dosáhli pět mužů, deset žen a patnáct dětí. Dva muži a pět žen dosáhli cíle."),
+    "genitive-verb-list-of-counted-subjects-before-a-plural-verb": (
+        "cs", None, "5 mužů, 10 žen a 15 dětí dosáhli cíle.", "Pět mužů, deset žen a patnáct dětí dosáhli cíle."),
+    "guard-genitive-verb-list-of-counted-objects": (
+        "cs", None, "5 bodů, 10 bodů a 15 bodů dosáhli hráči. Dosáhli 5 bodů, 10 bodů a 15 bodů.",
+        "Pěti bodů, deseti bodů a patnácti bodů dosáhli hráči. Dosáhli pěti bodů, deseti bodů a patnácti bodů."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
     "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
                                                 "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
