@@ -62,6 +62,7 @@ def test_punctuation_and_empty(cs):
 
 # ---- added with Prompt 2.2 ------------------------------------------------------------------
 import logging
+import time
 
 from src.text.phonemizer import CzechSlovakPhonemizer
 
@@ -99,6 +100,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "dot-time-range": ("cs", None, "Otevřeno 15.30–16.00 hod.", "Otevřeno patnáct třicet až šestnáct hodin."),
     "negative-decimal-range": ("cs", None, "Teplota −1,5–−0,5 °C.",
                                "Teplota mínus jedna celá pět desetin až mínus nula celá pět desetin stupně Celsia."),
+    "integer-end-of-a-decimal-range-takes-its-case": ("cs", None, "Při 30–35,5 °C. Po 1,5–2 hodinách odešel. Při 30,5–35 °C.",
+                                                      "Při třiceti až třicet pět celých pět desetin stupně Celsia. Po jedna "
+                                                      "celá pět desetin až dvou hodinách odešel. Při třicet celých pět "
+                                                      "desetin až třiceti pěti stupních Celsia."),
     "sign-after-opening-quote": ("cs", None, "Řekl: „-5 °C“.", "Řekl: „Mínus pět stupňů Celsia“."),
     "sk-diminutive-animals": ("sk", None, "Prišli 2 ježkovia.", "Prišli dva ježkovia."),
     "spaced-per-unit": ("cs", None, "Stojí to 100 Kč / kg.", "Stojí to sto korun za kilogram."),
@@ -125,7 +130,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "negative-zero-scaled": ("cs", None, "Dluh -0 tis. Kč a $-0 mil.", "Dluh mínus nula korun a mínus nula dolarů."),
     "preposition-before-time-range": ("cs", None, "Otevřeno od 2:00–3:00.", "Otevřeno od dvou hodin až tří hodin."),
     "preposition-before-hour-word-range": ("cs", None, "Od 2:00 hod.–3:00 hod.", "Od dvou hodin až tří hodin."),
+    "time-range-with-az-after-od": ("cs", None, "Od 8.30 až 9.30 hod. Od 1:00 až 2:00.",
+                                    "Od osmi třiceti až devíti třiceti. Od jedné hodiny až dvou hodin."),
     "sk-preposition-before-time-range": ("sk", None, "Otvorené od 2:00–3:00.", "Otvorené od druhej až tretej."),
+    "sk-time-range-with-az-after-od": ("sk", None, "Otvorené od 2:00 až 3:00.", "Otvorené od druhej až tretej."),
     "negative-zero": ("cs", None, "Bylo −0 °C, dluh $-0 a hodnota -0,0.",
                       "Bylo mínus nula stupňů Celsia, dluh mínus nula dolarů a hodnota mínus nula."),
     "sk-duration-time": ("sk", None, "Trať zabehol za 2:15, štart bol o 2:15.",
@@ -179,7 +187,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "compact-time-range": ("cs", None, "Otevřeno 10:00-12:00.", "Otevřeno deset hodin až dvanáct hodin."),
     "dot-times-sharing-hour-word": ("cs", None, "Schůzky jsou v 8.30 a 9.30 hod.", "Schůzky jsou v osm třicet a devět třicet."),
     "hour-abbreviation-h": ("cs", None, "Otevřeno 14:30 h a 14.30 h.", "Otevřeno čtrnáct třicet a čtrnáct třicet."),
+    "hour-unit-after-v-in-ranges-and-lists": ("cs", None, "Otevřeno v 9–17 h, přijdu v 1 h nebo v 5 nebo 6 h, po 2 h odejdu.",
+                                              "Otevřeno v devět až sedmnáct hodin, přijdu v jednu hodinu nebo v pět nebo "
+                                              "šest hodin, po dvou hodinách odejdu."),
+    "time-unit-after-na-is-a-time-span": ("cs", None, "Na 2 h odešel.", "Na dvě hodiny odešel."),
+    "time-unit-after-a-verb-with-na-and-the-locative": ("cs", None, "Záleží na 2 h.", "Záleží na dvou hodinách."),
     "mixed-time-range-with-hour-word": ("cs", None, "Otevřeno 8.30–9:30 hod.", "Otevřeno osm třicet až devět třicet."),
+    "dot-time-before-az-do": ("cs", None, "Od 8.30 až do 9.30 hod.", "Od osmi třiceti až do devíti třiceti."),
     "sk-times-sharing-preposition": ("sk", None, "Stretnutia sú o 8.30 a 9.30 hod.",
                                      "Stretnutia sú o ôsmej tridsať a deviatej tridsať."),
     "seconds-hours-pieces": ("cs", None, "Trvalo to 5 s. Balení má 5 ks, let trval 3 h, mám 5 s sebou.",
@@ -321,6 +335,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "capitals-sentence-ends": ("cs", None, "BYL TAM ATD. POTOM ODEŠEL. STALO SE TO 5. 6. POTOM ODEŠEL.",
                                "BYL TAM a tak dále. POTOM ODEŠEL. STALO SE TO pátého června. POTOM ODEŠEL."),
     "capitals-name-goes-on": ("cs", None, "VLÁDL KAREL IV. LUCEMBURSKÝ.", "VLÁDL KAREL čtvrtý LUCEMBURSKÝ."),
+    "capitals-label-numbered-before-a-new-sentence": ("cs", None, "VYŠEL DÍL V. KNIHA O NĚM VYŠLA.",
+                                                      "VYŠEL DÍL pátý. KNIHA O NĚM VYŠLA."),
+    "capitals-initial-after-a-label": ("cs", None, "VYŠLA KNIHA V. HAVLA.", "VYŠLA KNIHA V. HAVLA."),
     "capitals-verb-after-a-full-clause": ("cs", None, "BYL TAM ATD. ODEŠEL DOMŮ. VLÁDL KAREL IV. ZALOŽIL UNIVERZITU. "
                                           "ČEKAL 5 MIN. ODEŠEL.",
                                           "BYL TAM a tak dále. ODEŠEL DOMŮ. VLÁDL KAREL čtvrtý. ZALOŽIL UNIVERZITU. "
@@ -378,6 +395,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "range-with-az-before-sentence-end": ("cs", None, "Počítal s 1 až 2. Potom odešel.",
                                           "Počítal s jedním až dvěma. Potom odešel."),
     "capitals-ordinal-after-az": ("cs", None, "ZLEPŠENÍ NASTANE 5 AŽ 6. DEN.", "ZLEPŠENÍ NASTANE pět AŽ šestý DEN."),
+    "capitals-verb-past-an-ordinal-after-az": ("cs", None, "DOSÁHL AŽ 3. DEN 5 BODŮ.", "DOSÁHL AŽ třetí DEN pěti BODŮ."),
     "ordinal-before-sentence-with-conjunction": ("cs", None, "Bylo jich 1. A 2. díl vyšel.",
                                                  "Bylo jich jeden. A druhý díl vyšel."),
     "capitals-ordinal-chain": ("cs", None, "ODE DNE 1. AŽ 5. LEDNA A 1. A 2. DÍL. BYLO JICH 5. A PAK ODEŠEL.",
@@ -419,6 +437,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "verse-reference-with-english-book": ("cs", {"verse_references": ["John"], "english": ["John"]}, "Viz John 3,16.",
                                           "Viz <en>John</en> tři, šestnáct."),
     "verse-references-off": ("cs", None, "Viz Jan 3,16.", "Viz Jan tři celé šestnáct setin."),  # "Jan" is a name too
+    "numbered-verse-books": ("cs", {"verse_references": ["Jan", "Kor", "Sam"]}, "Viz 1 Jan 3,16, 2. Kor 5,17 a 2Sam 7,12.",
+                             "Viz první Jan tři, šestnáct, druhý Kor pět, sedmnáct a druhá Sam sedm, dvanáct."),
+    "number-before-a-verse-reference": ("cs", {"verse_references": ["Jan"]}, "Bylo jich 5. Jan 3,16 to říká.",
+                                        "Bylo jich pět. Jan tři, šestnáct to říká."),
     "per-second-before-word": ("cs", None, "Jel 5 m / s a pak šel, tok měl 5 l / s a víc.",
                                "Jel pět metrů za sekundu a pak šel, tok měl pět litrů za sekundu a víc."),
     "sk-per-second-before-word": ("sk", None, "Išiel 5 m / s a potom zastal.",
@@ -486,6 +508,14 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                           "Báli se otce a 5 mužů.",
                                               "Cíle dosáhli Petr a pět mužů. Petr a pět mužů dosáhli cíle. "
                                               "Báli se otce a pěti mužů."),
+    "genitive-verb-object-put-first": ("cs", None, "Cíle dosáhl vůdce a 5 mužů. Cíle dosáhli 5 procent studentů.",
+                                       "Cíle dosáhl vůdce a pět mužů. Cíle dosáhli pět procent studentů."),
+    "genitive-verb-genitive-object-put-first": ("cs", None, "Úspěchu dosáhl vůdce a 5 mužů. "
+                                                            "Voleb se zúčastnili 60 procent voličů.",
+                                                "Úspěchu dosáhl vůdce a pět mužů. "
+                                                "Voleb se zúčastnili šedesát procent voličů."),
+    "genitive-verb-soft-genitive-object-put-first": ("cs", None, "Konce se dočkal vůdce a 5 rytířů.",
+                                                     "Konce se dočkal vůdce a pět rytířů."),
     "genitive-verb-before-five-and-more": ("cs", None, "Dosáhl 5 bodů a zúčastnilo se 50 lidí. Chce dosáhnout 5 bodů. "
                                                        "5 mužů dosáhlo cíle. Vzdal 5 bodů.",
                                            "Dosáhl pěti bodů a zúčastnilo se padesát lidí. Chce dosáhnout pěti bodů. "
@@ -519,14 +549,44 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "fronted-amounts-after-an-approximator": ("cs", None, "S 2 kg a asi 3 kg pracoval. S 5 lidmi a asi 3 psy přišel.",
                                               "Se dvěma kilogramy a asi třemi kilogramy pracoval. S pěti lidmi a asi "
                                               "třemi psy přišel."),
+    "approximator-inside-a-shared-preposition-chain": ("cs", None, "Pracoval s 2 kg a asi 3 kg a 4 kg.",
+                                                       "Pracoval se dvěma kilogramy a asi třemi kilogramy a čtyřmi "
+                                                       "kilogramy."),
+    "infinitive-opens-no-clause": ("cs", None, "Nemohl s 2 kg a asi 3 kg pracovat. Chtěl s 5 lidmi a asi 3 psy odejít.",
+                                   "Nemohl se dvěma kilogramy a asi třemi kilogramy pracovat. Chtěl s pěti lidmi a asi "
+                                   "třemi psy odejít."),
+    "auxiliary-is-not-the-clause-verb": ("cs", None, "Včera jsem s 2 kg a asi 3 kg pracoval. Ráno jsme s 5 lidmi a asi 3 psy "
+                                                     "odešli. Pracovat s 2 kg a asi 3 kg je těžké.",
+                                         "Včera jsem se dvěma kilogramy a asi třemi kilogramy pracoval. Ráno jsme s pěti "
+                                         "lidmi a asi třemi psy odešli. Pracovat se dvěma kilogramy a asi třemi kilogramy "
+                                         "je těžké."),
+    "amount-opening-a-clause-without-an-approximator": ("cs", None, "Pracoval s 2 kg a 3 kg zůstaly. S 2 kg a 3 kg pracoval. "
+                                                                    "Začal s 2 kg a 3 kg cvičit. Včera jsem s 2 kg a 3 kg "
+                                                                    "pracoval.",
+                                                        "Pracoval se dvěma kilogramy a tři kilogramy zůstaly. Se dvěma "
+                                                        "kilogramy a třemi kilogramy pracoval. Začal se dvěma kilogramy a "
+                                                        "třemi kilogramy cvičit. Včera jsem se dvěma kilogramy a třemi "
+                                                        "kilogramy pracoval."),
+    "amount-with-a-symbol-or-range-opening-a-clause": ("cs", None, "Pracoval s 2 € a 3 € zůstaly. "
+                                                                   "Pracoval s 1 kg a 2–3 kg zůstaly.",
+                                                       "Pracoval se dvěma eury a tři eura zůstaly. "
+                                                       "Pracoval s jedním kilogramem a dva až tři kilogramy zůstaly."),
+    "amount-with-a-period-opening-no-clause": ("cs", None, "Pracoval s 2 h a 3 h. Zůstaly mu.",
+                                               "Pracoval se dvěma hodinami a třemi hodinami. Zůstaly mu."),
     "unit-shared-after-od-and-an-approximator": ("cs", None, "Od přibližně 1 do 2 h. Bylo od asi 1 do 2 hodin.",
                                                  "Od přibližně jedné do dvou hodin. Bylo od asi jedné do dvou hodin."),
-    "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jedna NEBO dvě hodiny."),
+    "unit-shared-across-a-link-in-capitals": ("cs", None, "TRVALO TO 1 NEBO 2 H.", "TRVALO TO jednu NEBO dvě hodiny."),
     "one-sharing-a-neuter-plural": ("cs", None, "Má 1 nebo 2 děti. Měl 1 nebo 2 oči zavřené.",
                                     "Má jedno nebo dvě děti. Měl jedno nebo dvě oči zavřené."),
     "one-to-four-before-a-mistagged-genitive": ("cs", None, "Hrál si s dětmi a skoro 2 hodiny tam zůstal. Bál se 2 žen.",
                                                 "Hrál si s dětmi a skoro dvě hodiny tam zůstal. Bál se dvou žen."),
     "sk-genitive-noun-after-one-to-four": ("sk", None, "Bál sa 2 žien.", "Bál sa dvoch žien."),
+    "sk-genitive-verb-object": ("sk", None, "Bál sa 5 psov. Týka sa to 5 ľudí. Báli sme sa 25 psov. "
+                                "Chce sa zbaviť 5 kíl. Bál sa 5 až 6 psov. Bál sa 5 psov a 2 mačiek.",
+                                "Bál sa piatich psov. Týka sa to piatich ľudí. Báli sme sa dvadsiatich piatich psov. "
+                                "Chce sa zbaviť piatich kíl. Bál sa piatich až šiestich psov. "
+                                "Bál sa piatich psov a dvoch mačiek."),
+    "sk-genitive-verb-neuter-in-i": ("sk", None, "Bál sa 5 stretnutí.", "Bál sa piatich stretnutí."),
     "genitive-verbs": ("cs", None, "Dosáhli 5. místa, bál se 2. dílu a vzdal se 2. kola.",
                        "Dosáhli pátého místa, bál se druhého dílu a vzdal se druhého kola."),
     "accusative-without-clitic": ("cs", None, "Vzdal 2. kolo.", "Vzdal druhé kolo."),
@@ -542,6 +602,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                           "Cíle dosáhne 2. sdružení.",
                                           "Cíle dosáhlo druhé sdružení. Dožil se druhého tisíciletí. Dosáhlo to druhého výročí. "
                                           "Cíle dosáhne druhé sdružení."),
+    "genitive-verb-subject-to": ("cs", None, "Dosáhlo to 5 bodů. Toto dosáhlo 5 bodů.",
+                                 "Dosáhlo to pěti bodů. Toto dosáhlo pěti bodů."),
+    "guard-genitive-verb-to-taking-no-part": ("cs", None, "Zúčastnilo se to 50 lidí.", "Zúčastnilo se to padesát lidí."),
     "genitive-verb-measures": ("cs", None, "Teplota dosáhla 30 °C. Dosáhl 5 Kč. Cena dosáhla 4,50 €. "
                                            "Cena dosáhla 0,50 €. Cena dosáhla 100 Kč/kg.",
                                "Teplota dosáhla třiceti stupňů Celsia. Dosáhl pěti korun. Cena dosáhla čtyř eur "
@@ -555,11 +618,83 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                  "Dosáhl rychlosti sto dvacet kilometrů za hodinu. "
                                                  "Teplota dosáhla během dne třiceti stupňů Celsia. "
                                                  "Teplota dosáhla třicet celých pět desetin stupně Celsia."),
+    "genitive-verb-time-after-its-object": ("cs", None, "Dosáhl cíle 5 minut před ostatními. "
+                                                        "Zbavil se bolesti 5 hodin po operaci.",
+                                            "Dosáhl cíle pět minut před ostatními. "
+                                            "Zbavil se bolesti pět hodin po operaci."),
     "zero-after-genitive-verb": ("cs", None, "Teplota dosáhla 0 °C. Teplota se dotkla 0 stupňů. Dosáhl 0 bodů.",
                                  "Teplota dosáhla nuly stupňů Celsia. Teplota se dotkla nuly stupňů. Dosáhl nuly bodů."),
     "genitive-verb-number-after-a-measure-and-a": ("cs", None, "Dosáhl 5 km a 10 bodů. Dosáhl 5 km a 6 km.",
                                                    "Dosáhl pěti kilometrů a deseti bodů. "
                                                    "Dosáhl pěti kilometrů a šesti kilometrů."),
+    "genitive-verb-number-list": ("cs", None, "Dosáhl 5, 10 nebo 15 bodů. Dosáhl 2, 3 nebo 5 bodů.",
+                                  "Dosáhl pěti, deseti nebo patnácti bodů. Dosáhl dvou, tří nebo pěti bodů."),
+    "number-list-before-its-verb-and-after-it": ("cs", None, "5, 10 nebo 15 bodů Petr nedosáhne.",
+                                                 "Pěti, deseti nebo patnácti bodů Petr nedosáhne."),
+    "number-list-joined-to-a-subject": ("cs", None, "Cíle dosáhl Petr a 5 nebo 10 mužů.",
+                                        "Cíle dosáhl Petr a pět nebo deset mužů."),
+    "genitive-verb-measure-list": ("cs", None, "Dosáhl 5, 10 nebo 15 Kč.", "Dosáhl pěti, deseti nebo patnácti korun."),
+    "measure-list-after-its-own-noun": ("cs", None, "Dosáhl rychlosti 120, 130 nebo 140 km/h.",
+                                        "Dosáhl rychlosti sto dvacet, sto třicet nebo "
+                                        "sto čtyřicet kilometrů za hodinu."),
+    "preposition-before-a-list-subject": ("cs", None, "Dosáhl cíle pro 5, 10 nebo 15 hráčů.",
+                                          "Dosáhl cíle pro pět, deset nebo patnáct hráčů."),
+    "year-label-before-a-count": ("cs", None, "Dožil se roku 1990, 5 dní po svatbě.",
+                                  "Dožil se roku tisíc devět set devadesát, pět dní po svatbě."),
+    "comma-list-after-genitive-verb": ("cs", None, "Dosáhl 1,2,3 bodů. Bál se 2,3,4 psů.",
+                                       "Dosáhl jednoho, dvou, tří bodů. Bál se dvou, tří, čtyř psů."),
+    "comma-list-after-accusative-verb": ("cs", None, "Vypil 1,2,3 piva.", "Vypil jedno, dvě, tři piva."),
+    "number-sharing-a-numeral-subject": ("cs", None, "Zúčastnilo se 2 nebo 50 lidí.",
+                                         "Zúčastnilo se dva nebo padesát lidí."),
+    "number-sharing-a-genitive-object": ("cs", None, "Bál se 2 nebo 5 psů.", "Bál se dvou nebo pěti psů."),
+    "sk-number-sharing-a-genitive-verb-object": ("sk", None, "Bál sa 2 alebo 5 žien. Bál sa 3 alebo 5 mačiek. "
+                                                 "Bál sa 2 alebo asi 5 žien.",
+                                                 "Bál sa dvoch alebo piatich žien. Bál sa troch alebo piatich mačiek. "
+                                                 "Bál sa dvoch alebo asi piatich žien."),
+    "number-sharing-an-accusative-noun": ("cs", None, "Vypil 2 nebo 5 piv.", "Vypil dvě nebo pět piv."),
+    "one-sharing-a-later-noun": ("cs", None, "Dosáhl 1 nebo 2 bodů.", "Dosáhl jednoho nebo dvou bodů."),
+    "one-sharing-a-numeral-subject": ("cs", None, "Zúčastnilo se 1 nebo 50 lidí.",
+                                      "Zúčastnilo se jeden nebo padesát lidí."),
+    "one-sharing-a-subject-noun": ("cs", None, "Přišla 1 nebo 2 ženy.", "Přišla jedna nebo dvě ženy."),
+    "preposition-of-a-list-of-numbers": (
+        "cs", None, "Byl tam bez 5 nebo 10 lidí. Stál mezi 1 a 2 stromy. Šel bez 5, 10 nebo 15 lidí.",
+        "Byl tam bez pěti nebo deseti lidí. Stál mezi jedním a dvěma stromy. Šel bez pěti, deseti nebo patnácti lidí."),
+    "one-sharing-a-plural-tagged-singular": (
+        "cs", None, "Trvalo to 1 nebo 2 hodiny. Stálo to 1 nebo 2 koruny. Spal 1 nebo 2 hodiny.",
+        "Trvalo to jednu nebo dvě hodiny. Stálo to jednu nebo dvě koruny. Spal jednu nebo dvě hodiny."),
+    "guard-one-sharing-a-plural-subject-or-predicate": (
+        "cs", None, "Byla to 1 nebo 2 hodiny. Zbývá 1 nebo 2 minuty.",
+        "Byla to jedna nebo dvě hodiny. Zbývá jedna nebo dvě minuty."),
+    "zero-before-a-written-noun": (
+        "cs", None, "S 0 body skončil. Při 0 stupních Celsia. Za 0 bodů. S 0 bodů.",
+        "S nula body skončil. Při nula stupních Celsia. Za nula bodů. S nulou bodů."),
+    "guard-zero-genitive-before-a-written-noun": ("cs", None, "Bez 0 bodů. Mám 0 bodů.", "Bez nuly bodů. Mám nula bodů."),
+    "zero-before-a-unit": (
+        "cs", None, "Při 0 °C voda mrzne. Koupil to za 0 Kč. Přijdu v 0 h. Po 0:00 odešel.",
+        "Při nula stupních Celsia voda mrzne. Koupil to za nula korun. Přijdu v nula hodin. Po nula hodinách odešel."),
+    "guard-zero-genitive-before-a-unit": ("cs", None, "Do 0 °C. Bez 0 Kč.", "Do nuly stupňů Celsia. Bez nuly korun."),
+    "unit-after-a-written-scale-word": (
+        "cs", None, "Mám 5 milionů Kč, 2 tisíce € a 5 tisíc m².",
+        "Mám pět milionů korun, dva tisíce eur a pět tisíc metrů čtverečních."),
+    "guard-written-scale-word-before-a-word": ("cs", None, "Mám 5 tisíc s sebou.", "Mám pět tisíc s sebou."),
+    "genitive-verb-list-of-noun-phrases": (
+        "cs", None, "Dosáhl 5 bodů, 10 bodů nebo 15 bodů. Cena dosáhla 5 Kč, 10 Kč nebo 15 Kč. "
+                    "Vrátil se z 5 měst, 10 vesnic a 15 osad.",
+        "Dosáhl pěti bodů, deseti bodů nebo patnácti bodů. Cena dosáhla pěti korun, deseti korun nebo "
+        "patnácti korun. Vrátil se z pěti měst, deseti vesnic a patnácti osad."),
+    "guard-noun-phrase-then-a-time-or-a-clause": (
+        "cs", None, "Dosáhl 5 bodů, 10 minut před koncem. Zůstal bez 5 korun a 10 lidí odešlo. "
+                    "Dosáhl 5, 10 nebo 15 bodů, 3 jich odešlo.",
+        "Dosáhl pěti bodů, deset minut před koncem. Zůstal bez pěti korun a deset lidí odešlo. "
+        "Dosáhl pěti, deseti nebo patnácti bodů, tři jich odešlo."),
+    "genitive-verb-list-of-counted-subjects": (
+        "cs", None, "Cíle dosáhli 5 mužů, 10 žen a 15 dětí. 2 muži a 5 žen dosáhli cíle.",
+        "Cíle dosáhli pět mužů, deset žen a patnáct dětí. Dva muži a pět žen dosáhli cíle."),
+    "genitive-verb-list-of-counted-subjects-before-a-plural-verb": (
+        "cs", None, "5 mužů, 10 žen a 15 dětí dosáhli cíle.", "Pět mužů, deset žen a patnáct dětí dosáhli cíle."),
+    "guard-genitive-verb-list-of-counted-objects": (
+        "cs", None, "5 bodů, 10 bodů a 15 bodů dosáhli hráči. Dosáhli 5 bodů, 10 bodů a 15 bodů.",
+        "Pěti bodů, deseti bodů a patnácti bodů dosáhli hráči. Dosáhli pěti bodů, deseti bodů a patnácti bodů."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
     "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
                                                 "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
@@ -571,10 +706,23 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                                "Vyšel díl pátý. Nové vydání uspělo. Vyšel díl desátý. Toto vydání uspělo."),
     "roman-numbers-a-thing-before-pronoun": ("cs", None, "Vyšel díl V. On uspěl. Vyšel díl X. Poté kniha uspěla.",
                                              "Vyšel díl pátý. On uspěl. Vyšel díl desátý. Poté kniha uspěla."),
+    "roman-numbers-a-thing-before-a-phrase": ("cs", None, "Vyšel díl V. Kniha o něm vyšla. Pan V. Kniha o něm vyšla.",
+                                              "Vyšel díl pátý. Kniha o něm vyšla. Pan V. Kniha o něm vyšla."),
+    "label-numbered-before-a-capitalised-noun": ("cs", None, "Kapitola V. Návrat domů.", "Kapitola pátá. Návrat domů."),
     "initial-before-adjective-surname": ("cs", None, "Firma V. Nový vznikla.", "Firma V. Nový vznikla."),
     "initial-after-a-woman": ("cs", None, "Paní V. Ona poté odešla. Vyšla část V. Kniha byla úspěšná.",
                               "Paní V. Ona poté odešla. Vyšla část pátá. Kniha byla úspěšná."),
     "initial-after-a-person": ("cs", None, "Autor V. Kovář napsal knihu.", "Autor V. Kovář napsal knihu."),
+    "ruler-number-after-a-title": ("cs", None, "Císař Karel V. Kniha o něm vyšla. Vládl kníže Václav I. Kniha o něm vyšla.",
+                                   "Císař Karel pátý. Kniha o něm vyšla. Vládl kníže Václav první. Kniha o něm vyšla."),
+    "roman-numeral-before-a-sentence-led-by-a-name": ("cs", None, "Za vlády císaře Karla IV. Země vzkvétala.",
+                                                      "Za vlády císaře Karla čtvrtého. Země vzkvétala."),
+    "sk-roman-numeral-before-a-sentence-led-by-a-name": ("sk", None, "Vládol Karol IV. Kniha o ňom vyšla.",
+                                                         "Vládol Karol štvrtý. Kniha o ňom vyšla."),
+    "roman-numeral-before-an-epithet": ("cs", None, "Za Karla IV. Lucemburského vznikla univerzita.",
+                                        "Za Karla čtvrtého Lucemburského vznikla univerzita."),
+    "roman-numeral-before-an-agreeing-epithet-tagged-a-name": ("cs", None, "Karel IV. Lucemburský zemřel.",
+                                                               "Karel čtvrtý Lucemburský zemřel."),
     "nearest-verb-governs": ("cs", None, "Dosáhl cíle a obsadil 2. místo, postavil se a zpíval mezi 2 stromy.",
                              "Dosáhl cíle a obsadil druhé místo, postavil se a zpíval mezi dvěma stromy."),
     "acronym-starts-sentence-in-mixed-text": ("cs", None, "Byl tam atd. USA zasáhly. Vládl Karel IV. NATO vzniklo později.",
@@ -604,9 +752,71 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                      "VIZ JAN tři, šestnáct. VÁHA pět gramů."),
     "english-phrase-with-hyphen-variant": ("cs", {"english": ["state\u2011of\u2011the\u2011art"]},
                                            "Je to state\u2011of\u2011the\u2011art.", "Je to <en>state-of-the-art</en>."),
+    "sk-genitive-verb-unit-object": ("sk", None, "Zbavil sa 5 kg. Zbavila sa 3 kg. Chce sa zbaviť 5 kg. "
+                                     "Týka sa to 5 %.",
+                                     "Zbavil sa piatich kilogramov. Zbavila sa troch kilogramov. "
+                                     "Chce sa zbaviť piatich kilogramov. Týka sa to piatich percent."),
+    "genitive-verb-imperfective-imperative-and-infinitive": (
+        "cs", None, "Zúčastňoval se 5 závodů. Neboj se 5 psů. Nemusíš se bát 5 psů. Všímal si 5 chyb.",
+        "Zúčastňoval se pěti závodů. Neboj se pěti psů. Nemusíš se bát pěti psů. Všímal si pěti chyb."),
+    "sk-genitive-verb-imperfective-imperative-and-infinitive": (
+        "sk", None, "Zúčastňoval sa 5 pretekov. Neboj sa 5 psov. Nemusíš sa báť 5 psov.",
+        "Zúčastňoval sa piatich pretekov. Neboj sa piatich psov. Nemusíš sa báť piatich psov."),
+    "na-before-a-level-amount": (
+        "cs", None, "Záleží na 5 %. Inflace zůstala na 5 %. Teplota se drží na 20 °C.",
+        "Záleží na pěti procentech. Inflace zůstala na pěti procentech. Teplota se drží na dvaceti stupních Celsia."),
+    "guard-na-before-a-target-or-a-span": (
+        "cs", None, "Inflace vzrostla na 5 %. Zůstal na 2 h. Na 5 km² žije 100 lidí.",
+        "Inflace vzrostla na pět procent. Zůstal na dvě hodiny. Na pěti kilometrech čtverečních žije sto lidí."),
+    "po-before-an-amount-that-is-no-time": (
+        "cs", None, "Po 5 km zastavil. Prodával je po 5 Kč.",
+        "Po pěti kilometrech zastavil. Prodával je po pěti korunách."),
+    "guard-po-before-a-time": ("cs", None, "Přijdu po 2 h.", "Přijdu po dvou hodinách."),
+    "guard-po-until-an-amount": (
+        "cs", None, "Voda stoupla až po 5 m. Šel od 2 km po 5 km.",
+        "Voda stoupla až po pět metrů. Šel od dvou kilometrů po pět kilometrů."),
+    "guard-time-subject-or-before-its-verb": (
+        "cs", None, "Čekala 1 nebo 2 ženy. 1 h trvá 60 min.",
+        "Čekala jedna nebo dvě ženy. Jedna hodina trvá šedesát minut."),
+    "na-after-a-subject-noun-that-owns-the-amount": (
+        "cs", None, "Zůstala mu faktura na 5 Kč. Zůstal mu dluh na 5 Kč. Zůstala objednávka na 5 ks.",
+        "Zůstala mu faktura na pět korun. Zůstal mu dluh na pět korun. Zůstala objednávka na pět kusů."),
+    "roman-numeral-before-the-verb-of-its-sentence": (
+        "cs", None,
+        "Za vlády Karla IV. Lucemburského země vzkvétala. Václavu II. Přemyslovci patřilo Polsko. "
+        "Vládl Karel IV. Petr byl jeho synem.",
+        "Za vlády Karla čtvrtého Lucemburského země vzkvétala. Václavu druhému Přemyslovci patřilo Polsko. "
+        "Vládl Karel čtvrtý. Petr byl jeho synem."),
+    "roman-numeral-before-an-epithet-ending-its-sentence": (
+        "cs", None, "Patřilo to Václavu II. Přemyslovci.", "Patřilo to Václavu druhému Přemyslovci."),
+    "sk-roman-numeral-before-a-new-sentence-led-by-a-name": (
+        "sk", None, "Vládol Karol IV. Peter bol jeho synom.", "Vládol Karol štvrtý. Peter bol jeho synom."),
+    "guard-roman-numeral-before-an-epithet-and-a-verbless-name": (
+        "cs", None, "Jindřich VIII. Tudor zemřel. Zemřel Karel IV. Jeho syn vládl. Císař Karel V. Kniha o něm vyšla.",
+        "Jindřich osmý Tudor zemřel. Zemřel Karel čtvrtý. Jeho syn vládl. Císař Karel pátý. Kniha o něm vyšla."),
+    "guard-roman-numeral-after-an-oblique-name-before-a-sentence-of-its-own": (
+        "cs", None, "Dal to Karlu IV. Země byla chudá. Poslal dopis Karlu IV. Praha.",
+        "Dal to Karlu čtvrtému. Země byla chudá. Poslal dopis Karlu čtvrtému. Praha."),
+    "guard-roman-numeral-before-a-subject-after-a-fronted-phrase": (
+        "cs", None, "Za Karla IV. Velký požár vypukl v Praze. Za vlády Karla IV. Kniha vyšla.",
+        "Za Karla čtvrtého. Velký požár vypukl v Praze. Za vlády Karla čtvrtého. Kniha vyšla."),
+    "sk-unit-after-a-written-scale-word-in-cases": (
+        "sk", None, "S 5 miliónmi € odišiel. O 5 miliónoch € sa nehovorí.",
+        "S piatimi miliónmi eur odišiel. O piatich miliónoch eur sa nehovorí."),
+    "sk-clock-span-to-an-afternoon-hour": (
+        "sk", None, "Otvorené od 8 h do 17 h. Otvorené od 8 do 17 h. Po 18 h je zatvorené.",
+        "Otvorené od ôsmej do sedemnástej. Otvorené od ôsmej do sedemnástej. Po osemnástej je zatvorené."),
+    "sk-afternoon-hour-after-other-prepositions": (
+        "sk", None, "Príde pred 20 h. Príde okolo 15 h. Príde k 17 h. Príde medzi 14 a 16 h.",
+        "Príde pred dvadsiatou. Príde okolo pätnástej. Príde k sedemnástej. Príde medzi štrnástou a šestnástou."),
+    "sk-afternoon-span-from-a-morning-hour": (
+        "sk", None, "Príde medzi 9 a 17 h.", "Príde medzi deviatou a sedemnástou."),
+    "sk-afternoon-span-in-capitals": ("sk", None, "PRÍDE OD 8 DO 17 H.", "PRÍDE OD ôsmej DO sedemnástej."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
+    "count-ends-sentence-before-a-phrase": ("cs", "Bylo jich 5. Kniha o válce vyšla.",
+                                            "Bylo jich pět. Kniha o válce vyšla.", "no governing noun"),
     "doubtful-tag": ("cs", "Vyšly 2. díly.", "Vyšly druhé díly.", "plural noun"),
     "adverb-before-noun": ("cs", "Vrátil 2 zpátky knihovně.", "Vrátil dva zpátky knihovně.",
                            "nominative masculine inanimate"),
@@ -625,34 +835,76 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                    "not thousands"),
     # with no subject, a number after a present genitive verb is its object, but after "zúčastnit se" its subject
     "genitive-verb-present-tense": ("cs", "Dosáhne 5 bodů.", "Dosáhne pěti bodů.", "read as the object"),
+    "sk-genitive-verb-present-tense": ("sk", "Bojí sa 5 psov.", "Bojí sa piatich psov.", "read as the object"),
     "genitive-verb-present-tense-concerning": ("cs", "Týká se 50 lidí.", "Týká se padesáti lidí.", "read as the object"),
     "genitive-verb-present-tense-taking-part": ("cs", "Zúčastní se 50 lidí.", "Zúčastní se padesát lidí.", "read as the subject"),
+    "sk-genitive-verb-present-tense-taking-part": ("sk", "Zúčastní sa 50 ľudí.", "Zúčastní sa päťdesiat ľudí.",
+                                                    "read as the subject"),
     # a verbal noun names an event, which is what one takes part in
     "genitive-verb-present-tense-taking-part-in-events": ("cs", "Zúčastní se 50 jednání.", "Zúčastní se padesáti jednání.",
                                                           "read as the object"),
+    "genitive-verb-present-tense-taking-part-in-races": ("cs", "Zúčastní se 5 závodů.", "Zúčastní se pěti závodů.",
+                                                         "read as the object"),
+    "guard-genitive-verb-present-tense-taking-part-after-the-race": ("cs", "Závodu se zúčastní 5 jezdců.",
+                                                                     "Závodu se zúčastní pět jezdců.",
+                                                                     "read as the subject"),
+    "genitive-verb-present-tense-taking-part-in-a-percent-of-votes": ("cs", "Zúčastní se 5 procent hlasování.",
+                                                                      "Zúčastní se pěti procent hlasování.",
+                                                                      "read as the object"),
+    "guard-genitive-verb-present-tense-taking-part-with-to": ("cs", "Zúčastní se to 50 lidí.",
+                                                              "Zúčastní se to padesát lidí.", "read as the subject"),
+    "guard-genitive-verb-present-tense-to-after-a-question-word": ("cs", "Čeho se to bojí 5 psů?",
+                                                                   "Čeho se to bojí pěti psů?", "read as the object"),
     "genitive-verb-present-tense-time": ("cs", "Bojí se 5 minut.", "Bojí se pěti minut.", "duration"),
     "genitive-verb-present-tense-after-conjunction": ("cs", "Dosáhne vítězství a 5 bodů.", "Dosáhne vítězství a pěti bodů.",
                                                       "subject or object"),
     # "akce" is also a genitive and "každý rok" an accusative, so neither is a subject before the number
     "genitive-verb-present-tense-after-object-and-time": ("cs", "Každý rok se akce zúčastní 50 lidí.",
                                                           "Každý rok se akce zúčastní padesát lidí.", "subject or object"),
+    "guard-genitive-verb-present-tense-after-an-e-feminine": ("cs", "Inflace dosahuje 5 procent.",
+                                                              "Inflace dosahuje pěti procent.", "read as the object"),
+    "guard-genitive-verb-present-tense-after-a-night": ("cs", "Tu noc se bojí 5 dětí.", "Tu noc se bojí pěti dětí.",
+                                                        "read as the object"),
+    "guard-genitive-verb-present-tense-after-a-time": ("cs", "Příštího roku dosáhne 5 bodů.",
+                                                       "Příštího roku dosáhne pěti bodů.", "read as the object"),
     # the subject of "přijde" is shared by "dosáhne", unless "a" opens a clause whose subject is the number
     "genitive-verb-present-tense-shared-subject": ("cs", "Petr přijde a dosáhne 5 bodů.", "Petr přijde a dosáhne pěti bodů.",
                                                    "shared across"),
     # a number before its verb opens a clause of its own, so "Petr" is not its verb's subject
     "genitive-verb-present-tense-number-first": ("cs", "Petr přišel a 5 mužů dosáhne cíle.",
                                                  "Petr přišel a pět mužů dosáhne cíle.", "subject or object"),
+    "genitive-verb-present-tense-object-put-first": ("cs", "Úspěchu dosáhne 5 studentů.",
+                                                     "Úspěchu dosáhne pět studentů.", "read as the subject"),
+    "genitive-verb-present-tense-soft-genitive-put-first": ("cs", "Konce se dočká 5 lidí.",
+                                                            "Konce se dočká pět lidí.", "read as the subject"),
     # a plural verb that agrees with the number is how people speak; a fronted object fits too
     "genitive-verb-colloquial-plural": ("cs", "5 mužů dosáhli cíle.", "Pět mužů dosáhli cíle.", "plural verb"),
-    "unit-shared-without-a-preposition": ("cs", "Trvá to 1 nebo 2 h.", "Trvá to jedna nebo dvě hodiny.", "no preposition"),
-    "unit-shared-past-an-approximator": ("cs", "Trvá to 1 nebo asi 2 h.", "Trvá to jedna nebo asi dvě hodiny.",
+    "sk-genitive-verb-number-before-plural-verb": ("sk", "5 žien sa báli psov.", "Päť žien sa báli psov.",
+                                                    "subject of a plural verb, as people say"),
+    "genitive-verb-number-before-a-neuter-plural-verb": ("cs", "5 procent voličů se zúčastnila voleb.",
+                                                         "Pět procent voličů se zúčastnila voleb.",
+                                                         "subject of a plural verb, as people say"),
+    "unit-shared-without-a-preposition": ("cs", "Zbývá 1 nebo 2 h.", "Zbývá jedna nebo dvě hodiny.", "no preposition"),
+    "unit-shared-past-an-approximator": ("cs", "Zbývá 1 nebo asi 2 h.", "Zbývá jedna nebo asi dvě hodiny.",
                                          "no preposition"),
     "capitals-ordinal-after-conjunction-before-a-plural": ("cs", "DOSÁHL CÍLE A 2. DÍLY VYŠLY.",
                                                            "DOSÁHL CÍLE A druhé DÍLY VYŠLY.", "plural noun"),
+    "capitals-ordinal-after-az-before-a-time": ("cs", "BOJOVAL AŽ 3. DEN PADL.", "BOJOVAL AŽ třetí DEN PADL.",
+                                                "ordinal after až"),
+    "capitals-count-after-az-before-a-noun": ("cs", "PŘIŠLO JICH AŽ 5. MATKA ODEŠLA.", "PŘIŠLO JICH AŽ pět. MATKA ODEŠLA.",
+                                              "no governing noun"),
     # a bare number after "v" is more often a clock time than an age ("Číst uměl v pěti")
     "bare-number-after-v": ("cs", "Přišel v 5.", "Přišel v pět.", "time (v pět) or age"),
-    "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pěti mužů.", "plural verb"),
+    "guard-genitive-verb-children-of-a-masculine-verb": ("cs", "Děti se báli 5 psů.", "Děti se báli pěti psů.",
+                                                         "plural verb"),
+    "guard-genitive-verb-coordinated-subject": ("cs", "Petr a Eva se báli 5 psů.", "Petr a Eva se báli pěti psů.",
+                                                "plural verb"),
     "genitive-verb-before-a-time": ("cs", "Dožil se 90 let.", "Dožil se devadesáti let.", "duration"),
+    "sk-genitive-verb-time": ("sk", "Dožil sa 90 rokov.", "Dožil sa deväťdesiatich rokov.",
+                              "a duration is the accusative"),
+    "guard-genitive-verb-age-after-its-noun": ("cs", "Dosáhla věku 90 let.", "Dosáhla věku devadesáti let.", "duration"),
+    "genitive-verb-age-after-its-noun-before-po": ("cs", "Dosáhl věku 90 let po operaci.",
+                                                   "Dosáhl věku devadesáti let po operaci.", "duration"),
     # "vůdce" is a genitive as well, so its nominative tag cannot make the number a conjunct of the subject
     "genitive-verb-conjunct-or-object": ("cs", "Dočkali se vůdce a 5 rytířů.", "Dočkali se vůdce a pěti rytířů.",
                                          "conjunct of a nominative subject"),
@@ -662,6 +914,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                       "Dosáhne třiceti stupňů Celsia až třiceti pěti stupňů Celsia.", "read as the object"),
     "genitive-verb-scale-amount": ("cs", "Dosáhne $1 mil.", "Dosáhne milionu dolarů.", "as 'milionu'"),
     "zero-after-an-la-verb": ("cs", "Dosáhla 0 bodů.", "Dosáhla nuly bodů.", "may agree with zero, read as the object"),
+    "zero-events-after-an-la-verb": ("cs", "Zúčastnila se 0 závodů.", "Zúčastnila se nuly závodů.",
+                                     "may agree with zero, read as the object"),
+    "neuter-unit-of-events-after-an-la-verb": ("cs", "Zúčastnila se 2 % soutěží.", "Zúčastnila se dvou procent soutěží.",
+                                               "may be neuter plural, read as the object"),
     "zero-subject-of-an-la-verb": ("cs", "Zúčastnila se 0 lidí.", "Zúčastnila se nula lidí.",
                                    "may agree with zero, read as the subject"),
     "genitive-verb-cents-range": ("cs", "Dosáhne 1,50–2,50 €.",
@@ -673,35 +929,135 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                 "may be neuter plural, read as the object"),
     "genitive-verb-unit-of-a-plural-verb": ("cs", "5 % studentů dosáhli cíle.", "Pět procent studentů dosáhli cíle.",
                                             "subject of a plural verb, as people say"),
+    "genitive-verb-percent-of-a-plural-verb": ("cs", "5 procent studentů dosáhli cíle.",
+                                               "Pět procent studentů dosáhli cíle.",
+                                               "subject of a plural verb, as people say"),
+    "genitive-verb-percent-sign-before-a-neuter-plural-verb": ("cs", "5 % voličů se zúčastnila voleb.",
+                                                               "Pět procent voličů se zúčastnila voleb.",
+                                                               "subject of a plural verb, as people say"),
     # a clause with a verb of its own does not share the one before "a"; the tagger's plural is logged
     "own-verb-after-conjunction": ("cs", "Dosáhl cíle a 2. díly vyšly.", "Dosáhl cíle a druhé díly vyšly.", "plural noun"),
     "roman-between-label-and-genitive": ("cs", "Vyšel díl V. knihy.", "Vyšel díl páté knihy.", "may number it"),
+    "initial-or-ruler-after-a-name": ("cs", "Karel V. Kniha o něm vyšla.", "Karel V. Kniha o něm vyšla.",
+                                      "initial or a ruler's number"),
+    "initial-or-ruler-read-as-the-number": ("cs", "Karel V. byl zadržen.", "Karel pátý byl zadržen.",
+                                            "initial or a ruler's number"),
     "wait-on-one-form-noun": ("cs", "Čekal na 2. náměstí.", "Čekal na druhé náměstí.", "locative"),
     "going-behind-or-after": ("cs", "Šel za 2 stromy a tam se zastavil.", "Šel za dvěma stromy a tam se zastavil.",
                               "place behind"),
     "comma-list-object-or-subject": ("cs", "Viděl 1,2,5 mužů.", "Viděl jeden, dva, pět mužů.", "accusative"),
+    "sk-genitive-verb-shared-unit-time": ("sk", "Týka sa 2 alebo 3 h.", "Týka sa dvoch alebo troch hodín.",
+                                          "a duration is the accusative"),
+    "sk-genitive-verb-unit-time": ("sk", "Bál sa 5 min.", "Bál sa piatich minút.", "a duration is the accusative"),
+    "sk-genitive-verb-neuter-plural-unit-subject": ("sk", "Volieb sa zúčastnili 2 % voličov.",
+                                                    "Volieb sa zúčastnili dve percentá voličov.",
+                                                    "may be neuter plural, read as the subject"),
+    "sk-genitive-verb-unit-of-a-plural-verb-after": ("sk", "Zúčastnili sa 60 % voličov.",
+                                                     "Zúčastnili sa šesťdesiatich percent voličov.",
+                                                     "subject of a plural verb, as people say"),
+    "sk-genitive-verb-plural-verb-feminine-subject": ("sk", "Zúčastnili sa 5 žien.", "Zúčastnili sa piatich žien.",
+                                                      "subject of a plural verb, as people say"),
+    "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
+                                                             "Zúčastňuje se padesát lidí.", "read as the subject"),
+    "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "na-enough-for-after-zustat-with-a-dative": ("cs", "Zůstalo mu jen na 5 Kč.", "Zůstalo mu jen na pět korun."),
+    "sk-genitive-verb-plural-verb-plural-subject": ("sk", "Ženy sa báli 5 psov.", "Ženy sa báli piatich psov."),
+    "sk-genitive-verb-plural-imperative": ("sk", "Nebojte sa 5 psov.", "Nebojte sa piatich psov."),
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),
     "label-across-a-line": ("cs", "Viz č.\n5 a str.\n7.", "Viz číslo\npět a strana\nsedm."),
     "genitive-verb-first-person-auxiliary": ("cs", "Báli jsme se 5 psů.", "Báli jsme se pěti psů."),
+    "genitive-verb-number-list-before-a-plural-verb": ("cs", "Petr a 5, 10 nebo 15 mužů dosáhli cíle.",
+                                                       "Petr a pět, deset nebo patnáct mužů dosáhli cíle."),
+    "genitive-verb-measure-list-subject": ("cs", "Voleb se zúčastnilo 50, 60 nebo 70 % voličů.",
+                                           "Voleb se zúčastnilo padesát, šedesát nebo sedmdesát procent voličů."),
+    "genitive-verb-present-tense-subject-to": ("cs", "Týká se to 5 lidí.", "Týká se to pěti lidí."),
+    "sk-genitive-verb-present-tense-subject-to": ("sk", "Týka sa to 5 ľudí.", "Týka sa to piatich ľudí."),
+    "guard-genitive-verb-to-after-a-question-word": ("cs", "Čeho se to bálo 5 psů?", "Čeho se to bálo pět psů?"),
+    "genitive-verb-colloquial-plural-after": ("cs", "Cíle dosáhli 5 mužů.", "Cíle dosáhli pět mužů."),
     "genitive-verb-unit-subject": ("cs", "Voleb se zúčastnilo 60 % voličů.",
                                    "Voleb se zúčastnilo šedesát procent voličů."),
     "genitive-verb-unit-range-after-its-subject": ("cs", "Teplota dosáhne 30–35 °C.",
                                                    "Teplota dosáhne třiceti až třiceti pěti stupňů Celsia."),
     "genitive-verb-unit-first-person": ("cs", "Dosáhli jsme 30 °C.", "Dosáhli jsme třiceti stupňů Celsia."),
     "genitive-verb-percent-and-percent": ("cs", "Dosáhl 5 % a 10 %.", "Dosáhl pěti procent a deseti procent."),
+    "guard-genitive-verb-percent-of-a-singular": ("cs", "Stroje dosáhly 5 procent výkonu.",
+                                                  "Stroje dosáhly pěti procent výkonu."),
     "zero-subject-of-genitive-verb": ("cs", "Zúčastnilo se 0 lidí.", "Zúčastnilo se nula lidí."),
+    "sk-genitive-verb-zero-subject": ("sk", "Zúčastnilo sa 0 ľudí.", "Zúčastnilo sa nula ľudí."),
     "genitive-verb-neuter-unit-after-a-first-person-la": ("cs", "Dosáhla jsem 3 %.", "Dosáhla jsem tří procent."),
+    "guard-genitive-verb-object-put-before-a-feminine-verb": ("cs", "5 vítězství dosáhla už v prvním roce.",
+                                                              "Pěti vítězství dosáhla už v prvním roce."),
+    "guard-genitive-verb-number-after-a-feminine-verb": ("cs", "Dosáhla 5 procent.", "Dosáhla pěti procent."),
+    "guard-genitive-verb-object-put-before-a-feminine-verb-and-a-time": ("cs", "5 vítězství dosáhla minulého roku.",
+                                                                         "Pěti vítězství dosáhla minulého roku."),
+    "guard-genitive-verb-percent-put-before-a-feminine-verb-and-a-time": ("cs", "5 procent dosáhla toho roku.",
+                                                                          "Pěti procent dosáhla toho roku."),
     "genitive-verb-unit-after-a-feminine-subject": ("cs", "Strana dosáhla 4 %.", "Strana dosáhla čtyř procent."),
+    "genitive-verb-feminine-subject-in-a-consonant": ("cs", "Nezaměstnanost dosahuje 5 procent. Daň se týká 5 lidí.",
+                                                      "Nezaměstnanost dosahuje pěti procent. Daň se týká pěti lidí."),
+    "guard-genitive-verb-loanword-subject-in-e": ("cs", "Google dosáhne 5 miliard uživatelů.",
+                                                  "Google dosáhne pěti miliard uživatelů."),
     "sk-genitive-verb-unit": ("sk", "Teplota dosiahla 30 °C.", "Teplota dosiahla tridsať stupňov Celzia."),
+    "sk-genitive-verb-object-of-a-subject": ("sk", "Zákon sa dotkne 50 ľudí. Eva sa bála 5 psov.",
+                                             "Zákon sa dotkne päťdesiatich ľudí. Eva sa bála piatich psov."),
+    "sk-genitive-verb-subject": ("sk", "Zúčastnilo sa 50 ľudí. Celé leto sa bálo 5 detí.",
+                                 "Zúčastnilo sa päťdesiat ľudí. Celé leto sa bálo päť detí."),
+    "sk-genitive-verb-invariable-numeral": ("sk", "Týka sa to 100 ľudí.", "Týka sa to sto ľudí."),
+    "sk-accusative-verbs": ("sk", "Dosiahol 5 bodov. Všimol si 5 chýb.", "Dosiahol päť bodov. Všimol si päť chýb."),
+    "sk-genitive-verb-genitive-object-put-first": ("sk", "Úspechu sa dočkal vodca a 5 mužov. Cieľa sa dočkalo 5 ľudí.",
+                                                   "Úspechu sa dočkal vodca a päť mužov. Cieľa sa dočkalo päť ľudí."),
+    "sk-neuter-in-i-after-an-accusative-verb": ("sk", "Mal 5 stretnutí. Dosiahol 5 vysvedčení.",
+                                                "Mal päť stretnutí. Dosiahol päť vysvedčení."),
+    "sk-ordinal-after-genitive-verb": ("sk", "Bál sa 3. vlny.", "Bál sa tretej vlny."),
+    "sk-ordinal-genitive-after-a": ("sk", "Bál sa 2. dielu a 3. dielu.", "Bál sa druhého dielu a tretieho dielu."),
+    "sk-ordinal-instrumental-after-genitive-verb": ("sk", "Dotkol sa 2. prstom stola.", "Dotkol sa druhým prstom stola."),
+    "sk-ordinal-after-other-verbs": ("sk", "Dosiahli sme 21. storočie. Myslel na 2. diel.",
+                                     "Dosiahli sme dvadsiate prvé storočie. Myslel na druhý diel."),
+    "sk-number-sharing-a-subject-or-an-accusative": ("sk", "Bálo sa 2 alebo 5 detí. Vypil 2 alebo 5 pív.",
+                                                     "Bálo sa dve alebo päť detí. Vypil dve alebo päť pív."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
                                          "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),
+    "hour-unit-after-v-is-a-clock-time": ("cs", "Přijdu ve 2 h.", "Přijdu ve dvě hodiny."),
     "spaced-multiplication-sign": ("cs", "Spočítej 3x 4.", "Spočítej tři krát čtyři."),
     "approximately-between-labels": ("cs", "Platí 1≈2 a 2~1.", "Platí jedna přibližně dva a dva přibližně jedna."),
     "approximately-before-currency-operand": ("cs", "Platí 1≈$2.", "Platí jedna přibližně dva dolary."),
+    "capitals-ordinal-after-az-without-a-verb": ("cs", "ZLEPŠENÍ NASTANE AŽ 3. DEN.", "ZLEPŠENÍ NASTANE AŽ třetí DEN."),
+    "sk-genitive-verb-unit-subject-of-a-neuter-verb": ("sk", "Zúčastnilo sa 60 % voličov. Zúčastnilo sa 5 % voličov.",
+                                                       "Zúčastnilo sa šesťdesiat percent voličov. "
+                                                       "Zúčastnilo sa päť percent voličov."),
+    "sk-tagger-gender-fix-points": ("sk", "Získal 2 body. Dosiahol 2 body. Chýbali mu 2 body.",
+                                    "Získal dva body. Dosiahol dva body. Chýbali mu dva body."),
+    "sk-multiplier-after-a-genitive-verb": ("sk", "Vzdal sa 5 krát. Dotkol sa jej 3 krát.",
+                                            "Vzdal sa päť krát. Dotkol sa jej tri krát."),
+    "genitive-verb-imperative-ordinal": ("cs", "Nebojte se 2. kola.", "Nebojte se druhého kola."),
+    "guard-fighting-takes-no-genitive": ("cs", "Bojoval 5 let. Bojovali s 5 nepřáteli.",
+                                         "Bojoval pět let. Bojovali s pěti nepřáteli."),
+    "guard-taking-part-imperfective-number-sharing-a-subject": ("cs", "Zúčastňovalo se 2 nebo 50 lidí.",
+                                                                "Zúčastňovalo se dva nebo padesát lidí."),
+    "time-after-a-verb-of-duration": (
+        "cs", "Trvá 1 nebo 2 hodiny. Čekala 1 nebo 2 hodiny. Trvá to 1 h.",
+        "Trvá jednu nebo dvě hodiny. Čekala jednu nebo dvě hodiny. Trvá to jednu hodinu."),
+    "unit-shared-after-a-verb-of-duration": ("cs", "Trvá to 1 nebo 2 h. Trvá to 1 nebo asi 2 h.",
+                                             "Trvá to jednu nebo dvě hodiny. Trvá to jednu nebo asi dvě hodiny."),
+    "sk-unit-after-a-written-scale-word": ("sk", "Mám 5 miliónov €, 2 milióny Kč a 5 miliárd $.",
+                                           "Mám päť miliónov eur, dva milióny korún a päť miliárd dolárov."),
+    "sk-one-oclock": ("sk", "Príde o 1:00. Od 1:00 do 2:00 spí. Pred 1:00 odišiel.",
+                      "Príde o jednej. Od jednej do druhej spí. Pred jednou odišiel."),
+    "guard-sk-afternoon-oclock": ("sk", "Prišiel o 13:00. Príde o 0:00.", "Prišiel o trinástej. Príde o nultej."),
+    "guard-sk-hours-that-are-a-count": (
+        "sk", "Od 1 do 2 h. Doručíme do 24 h. Po 15 h práce odišiel. Otvorené od 8 do 12 h.",
+        "Od jednej do dvoch hodín. Doručíme do dvadsiatich štyroch hodín. Po pätnástich hodinách práce odišiel. "
+        "Otvorené od ôsmich do dvanástich hodín."),
+    "guard-sk-hours-before-an-adjective-and-noun-stay-counts": (
+        "sk", "Batéria vydrží do 20 h nepretržitej prevádzky.",
+        "Batéria vydrží do dvadsiatich hodín nepretržitej prevádzky."),
+    "guard-sk-dash-range-and-decimal-stay-counts": (
+        "sk", "Otvorené od 8–17 h. Príde od 8,5 do 17 h.",
+        "Otvorené od ôsmich až sedemnástich hodín. Príde od osem celých päť desatín do sedemnástich hodín."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -740,6 +1096,14 @@ def test_line_structure_and_headings(cs):
     assert cs.normalize(text) == expected
 
 
+def test_long_list_of_noun_phrases_is_read_quickly(cs):  # the time grew with the cube of the items: 12 s for 150
+    cs.normalize("Mám 5 jablek.")
+    start = time.time()
+    out = cs.normalize("Dosáhl " + ", ".join(f"{n} bodů" for n in range(5, 150)) + " nebo 150 bodů.")
+    assert time.time() - start < 3
+    assert out.startswith("Dosáhl pěti bodů, šesti bodů, sedmi bodů, ") and out.endswith(" nebo sto padesáti bodů.")
+
+
 @pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>.",
                                   "Četl <en>state\u2011of\u2011the\u2011art</en>."])  # spans stay as written
 def test_digit_or_symbol_in_span_raises(cs, text):
@@ -769,9 +1133,32 @@ def test_unknown_num2words_variant_raises():
         TextNormalizer("sk", {"num2words": {"inverted": True}})  # a Czech-only keyword
 
 
+@pytest.mark.parametrize("language,variants", [
+    ("cs", {"construction": "agreemnt"}), ("cs", {"oblique_style": "ful"}), ("cs", {"ordinal_style": "Mixed"}),
+    ("cs", {"inverted": "yes"}), ("cs", {"inverted": 1}), ("sk", {"construction": "inverted"}),
+    ("sk", {"declined": "no"}), ("sk", {"codified": 0})])
+def test_bad_num2words_variant_value_raises(language, variants):
+    with pytest.raises(ValueError, match=next(iter(variants))):
+        TextNormalizer(language, {"num2words": variants})
+
+
+def test_every_num2words_variant_value_is_taken():
+    for variants in ({"construction": "inverted", "oblique_style": "partial", "ordinal_style": "all", "inverted": True},
+                     {"construction": "agreement", "oblique_style": "full", "inverted": False}):
+        TextNormalizer("cs", {"num2words": variants})
+    TextNormalizer("sk", {"num2words": {"construction": "agreement", "declined": False, "codified": True}})
+
+
 def test_numbered_verse_book_raises():  # the digit of "1 Jan" would stay as written; "Jan" leaves it to be read
     with pytest.raises(ValueError, match="verse_references"):
         TextNormalizer("cs", {"verse_references": ["Jan", "1 Jan"]})
+
+
+@pytest.mark.parametrize("config", [{"verse_references": "Jan"}, {"verse_references": True},
+                                    {"verse_references": ["Jan", 3]}, {"english": "Harry Potter"}])
+def test_book_config_options_must_be_lists_of_strings(config):
+    with pytest.raises(ValueError, match="must be a list of strings"):
+        TextNormalizer("cs", config)
 
 
 # inputs that raise have no output to tokenize; the heading example keeps "# ", which the G2P rejects
