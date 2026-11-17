@@ -648,6 +648,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "preposition-of-a-list-of-numbers": (
         "cs", None, "Byl tam bez 5 nebo 10 lidí. Stál mezi 1 a 2 stromy. Šel bez 5, 10 nebo 15 lidí.",
         "Byl tam bez pěti nebo deseti lidí. Stál mezi jedním a dvěma stromy. Šel bez pěti, deseti nebo patnácti lidí."),
+    "unit-after-a-written-scale-word": (
+        "cs", None, "Mám 5 milionů Kč, 2 tisíce € a 5 tisíc m².",
+        "Mám pět milionů korun, dva tisíce eur a pět tisíc metrů čtverečních."),
+    "guard-written-scale-word-before-a-word": ("cs", None, "Mám 5 tisíc s sebou.", "Mám pět tisíc s sebou."),
     "genitive-verb-list-of-noun-phrases": (
         "cs", None, "Dosáhl 5 bodů, 10 bodů nebo 15 bodů. Cena dosáhla 5 Kč, 10 Kč nebo 15 Kč. "
                     "Vrátil se z 5 měst, 10 vesnic a 15 osad.",

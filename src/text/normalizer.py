@@ -139,6 +139,10 @@ SCALE_GENDERS = {"cs": {"tis": "masculine", "mil": "masculine", "mld": "feminine
                  "sk": {"tis": "feminine", "mil": "masculine", "mld": "feminine"}}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
+# Czech tisíc, milion and miliarda in every case: a number counts them, and they count the genitive noun after them
+SCALE_NOUN_FORMS = frozenset("tisíc tisíce tisíci tisícem tisícům tisících milion milionu milionem milionů miliony "
+                             "milionům milionech milión miliónu miliónem miliónů milióny miliónům miliónech miliarda "
+                             "miliardy miliardě miliardu miliardou miliard miliardám miliardách miliardami".split())
 SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát", "*": "krát",
                "±": "plus minus", "#": "číslo", "−": "mínus", "~": "přibližně", "≈": "přibližně"},
          "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát", "*": "krát",
@@ -448,6 +452,8 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–+]?\d)"
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
+        rf"|(?P<scaledunit>(?<=\d{_HS})(?P<scaleword>(?i:{'|'.join(sorted(SCALE_NOUN_FORMS, key=len, reverse=True))}))"
+        rf"{_HS}+{unit_per('word')})"  # "5 tisíc Kč": the unit after a written tisíc, milion, miliarda
         rf"|(?P<abbreviation>{abbr})"
         rf"|(?P<roman>{_NOT_LETTER_BEFORE}(?P<numeral>{_ROMAN})\.)"
         rf"|(?P<sign>[&+@=×±−]|#(?={_HS}*\d)"
@@ -938,11 +944,16 @@ class TextNormalizer:
                                   whole=bool(m["whole"]), scale_unit=m["scaleunit"])
             if m["per"] or m["scaleper"]:  # "100 Kč/kg" -> "sto korun za kilogram"
                 words += " " + self._per(m["per"] or m["scaleper"])
+        elif kind == "scaledunit":  # after tisíc, milion or miliarda the unit is a genitive plural: "tisíc korun"
+            noun, adjective, suffix = self._unit(m["wordunit"])
+            words = f"{m['scaleword']} {self._noun_phrase(noun, 1000, NOM, adjective)}{suffix}"
+            if m["wordper"]:
+                words += " " + self._per(m["wordper"])
         elif kind == "ordinal":
             words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
             words = self._number(m, text, tags, after_label)
-        if (kind in ("range", "measure", "time", "money", "commas") and m.group(0).endswith(".")
+        if (kind in ("range", "measure", "time", "money", "commas", "scaledunit") and m.group(0).endswith(".")
                 and self._ends_sentence(text, start, end, tags)):
             words += "."  # the period of "min.", "mil." or "hod." also ends the sentence
         return self._vocalise(text, start, words)
