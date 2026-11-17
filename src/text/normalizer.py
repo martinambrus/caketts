@@ -35,9 +35,13 @@ NOM, GEN, DAT, ACC, INS, LOC = CASES
 _UD_CASES = {"Nom": NOM, "Gen": GEN, "Dat": DAT, "Acc": ACC, "Ins": INS, "Loc": LOC, "Voc": NOM}
 _UD_GENDERS = {"Masc": "masculine", "Fem": "feminine", "Neut": "neuter"}
 
-# Step 2.1 variant keywords a book config may set; num2words silently ignores unknown keywords
-NUM2WORDS_VARIANTS = {"cs": {"construction", "oblique_style", "ordinal_style", "inverted"},
-                      "sk": {"construction", "declined", "codified"}}
+# Step 2.1 variant keywords a book config may set, with their values; num2words silently ignores unknown keywords
+# and reads an unknown value as some default
+NUM2WORDS_VARIANTS = {
+    "cs": {"construction": ("genitive", "agreement", "inverted"), "oblique_style": ("auto", "full", "partial"),
+           "ordinal_style": ("mixed", "all"), "inverted": (False, True)},
+    "sk": {"construction": ("genitive", "agreement"), "declined": (False, True), "codified": (False, True)},
+}
 
 MONTHS_GENITIVE = {
     "cs": ("ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září",
@@ -687,10 +691,14 @@ class TextNormalizer:
         config = book_config or {}
         self.language = language
         self.variants = dict(config.get("num2words") or {})
-        unknown = set(self.variants) - NUM2WORDS_VARIANTS[language]
+        unknown = set(self.variants) - set(NUM2WORDS_VARIANTS[language])
         if unknown:
             raise ValueError(f"book_config['num2words'] has keywords {sorted(unknown)} that {language} "
                              f"num2words does not take; allowed: {sorted(NUM2WORDS_VARIANTS[language])}")
+        for key, value in self.variants.items():
+            allowed = NUM2WORDS_VARIANTS[language][key]
+            if not any(type(value) is type(a) and value == a for a in allowed):  # 1 is no True
+                raise ValueError(f"book_config['num2words'][{key!r}] must be one of {list(allowed)}, got {value!r}")
         self._numbers = num2words_cs if language == "cs" else num2words_sk
         table = self.ABBREVIATIONS_CS if language == "cs" else self.ABBREVIATIONS_SK
         self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}

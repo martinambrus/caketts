@@ -1133,6 +1133,22 @@ def test_unknown_num2words_variant_raises():
         TextNormalizer("sk", {"num2words": {"inverted": True}})  # a Czech-only keyword
 
 
+@pytest.mark.parametrize("language,variants", [
+    ("cs", {"construction": "agreemnt"}), ("cs", {"oblique_style": "ful"}), ("cs", {"ordinal_style": "Mixed"}),
+    ("cs", {"inverted": "yes"}), ("cs", {"inverted": 1}), ("sk", {"construction": "inverted"}),
+    ("sk", {"declined": "no"}), ("sk", {"codified": 0})])
+def test_bad_num2words_variant_value_raises(language, variants):
+    with pytest.raises(ValueError, match=next(iter(variants))):
+        TextNormalizer(language, {"num2words": variants})
+
+
+def test_every_num2words_variant_value_is_taken():
+    for variants in ({"construction": "inverted", "oblique_style": "partial", "ordinal_style": "all", "inverted": True},
+                     {"construction": "agreement", "oblique_style": "full", "inverted": False}):
+        TextNormalizer("cs", {"num2words": variants})
+    TextNormalizer("sk", {"num2words": {"construction": "agreement", "declined": False, "codified": True}})
+
+
 def test_numbered_verse_book_raises():  # the digit of "1 Jan" would stay as written; "Jan" leaves it to be read
     with pytest.raises(ValueError, match="verse_references"):
         TextNormalizer("cs", {"verse_references": ["Jan", "1 Jan"]})
