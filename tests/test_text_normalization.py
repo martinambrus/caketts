@@ -975,6 +975,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
                                                        "Zúčastnilo sa päť percent voličov."),
     "sk-tagger-gender-fix-points": ("sk", "Získal 2 body. Dosiahol 2 body. Chýbali mu 2 body.",
                                     "Získal dva body. Dosiahol dva body. Chýbali mu dva body."),
+    "sk-multiplier-after-a-genitive-verb": ("sk", "Vzdal sa 5 krát. Dotkol sa jej 3 krát.",
+                                            "Vzdal sa päť krát. Dotkol sa jej tri krát."),
     "genitive-verb-imperative-ordinal": ("cs", "Nebojte se 2. kola.", "Nebojte se druhého kola."),
     "guard-fighting-takes-no-genitive": ("cs", "Bojoval 5 let. Bojovali s 5 nepřáteli.",
                                          "Bojoval pět let. Bojovali s pěti nepřáteli."),

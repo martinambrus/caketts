@@ -2047,8 +2047,11 @@ class TextNormalizer:
         return prev is None or (prev.upos == "PUNCT" and prev.text in ".!?…")
 
     def _number_fits(self, value, noun: _Word) -> bool:
-        """False when the tagged number of the noun cannot follow `value` ("3 hrušky" read as singular)."""
+        """False when the tagged number of the noun cannot follow `value` ("3 hrušky" read as singular), or the noun is
+        "krát", which counts nothing though the Slovak tagger calls it a genitive plural: "Vzdal sa 5 krát"."""
         number = noun.feats.get("Number")
+        if noun.text.lower() == "krát":
+            return False
         if number is None or not isinstance(value, int):
             return True
         if abs(value) == 1:
