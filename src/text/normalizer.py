@@ -1169,7 +1169,14 @@ class TextNormalizer:
         start, end = m.start(), m.end()
         low, value = _parse(low_amount)[0], _parse(high_amount)[0]
         decimal = isinstance(low, str) or isinstance(value, str)  # decimals are read in the nominative
-        if unit or scale:
+        prep, after = self._preposition(start, tags), tags.after(end)
+        if (self.language == "sk" and unit and not (scale or per or decimal) and re.fullmatch(_HOUR_WORD, unit.lower())
+                and 0 <= low <= value and 13 <= value <= 23 and getattr(prep, "text", "od").lower() == "od"
+                and not (after is not None and after.upos in ("NOUN", "ADJ") and after.feats.get("Case") == "Gen")):
+            words = f"{self._clock_hour(low, GEN)} do {self._clock_hour(value, GEN)}"  # sk "8–17 h": opening hours
+            words = words if prep is not None else f"od {words}"
+            self._warn(text, (start, end), words, "hour of the day or a span, read as the hour; check it")
+        elif unit or scale:
             high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit, comma=False)
             if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:  # "1,50–2,50 €"
                 low_words = self._measure(low_amount, unit, start, tags, text, end, comma=False, verb_log=False)
