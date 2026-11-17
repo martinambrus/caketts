@@ -243,14 +243,17 @@ PLACE_FORMS = frozenset({"je", "jsou", "není", "byl", "byla", "bylo", "byli", "
 # Czech and Slovak verbs that take the genitive (a pattern for the start of the form) with the clitic they need:
 # "Dosáhli jsme XXI. století", "Bál se 2. dílu"; vzdát se, not vzdálit se (vzdálil, vzdaluje)
 GENITIVE_VERBS = {
-    "cs": {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "se", "dožij": "se", "dočkal": "se",
-           "dočká": "se", "dočkaj": "se", "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se",
-           "bál": "se", "bojí": "se", "obával": "se", "obává": "se", "obávaj": "se", "všiml": "si", "všimn": "si",
+    "cs": {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "se", "dožij": "se", "dožít": "se",
+           "dožív": "se", "dočkal": "se", "dočkat": "se", "dočkej": "se", "dočká": "se", "dočkaj": "se",
+           "vzd(?:al(?!ov|uj)|aj|á(?!l)|ej)": "se", "zúčast[nň]": "se", "účastn": "se", "bál": "se", "bát": "se",
+           "bojí": "se", "boj(?:me|te)?$": "se", "obával": "se", "obávat": "se", "obávej": "se", "obává": "se",
+           "obávaj": "se", "všiml": "si", "všimn": "si", "všímal": "si", "všímat": "si", "všímej": "si",
            "všímá": "si", "všímaj": "si", "dotkl": "se", "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se",
            "týká": "se", "týkaj": "se", "týkal": "se", "týče": "se",  # "obávají se", "dočkají se", "co se týče"
-           "(?:ze|vy|o)?pt(?:al|á|aj|ej|at)": "se", "dot(?:áz|áž|az)": "se"},
-    "sk": {"dožil": "sa", "dožij": "sa", "dožív": "sa", "dočkal": "sa", "dočká": "sa", "dočkaj": "sa",
-           "vzd(?:al|aj|á)": "sa", "zúčastn": "sa", "účastn": "sa", "bál": "sa", "bojí": "sa", "boja": "sa",
+           "týkat": "se", "(?:ze|vy|o)?pt(?:al|á|aj|ej|at)": "se", "dot(?:áz|áž|az|až)": "se"},
+    "sk": {"dožil": "sa", "dožij": "sa", "dožiť": "sa", "dožív": "sa", "dočkal": "sa", "dočkať": "sa", "dočká": "sa",
+           "dočkaj": "sa", "vzd(?:al|aj|á|ať)": "sa", "zúčast[nň]": "sa", "účastn": "sa", "bál": "sa", "báť": "sa",
+           "bojí": "sa", "boj(?:me|te)?$": "sa", "boja": "sa",
            "obával": "sa", "obáva": "sa", "dotkol": "sa", "dotkl": "sa", "dotkn": "sa", "dotýk": "sa",
            "zbav": "sa", "týka": "sa", "zľak": "sa", "dopust": "sa", "dopúšť": "sa"}}
 # Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
@@ -1831,7 +1834,7 @@ class TextNormalizer:
     def _takes_part(verb: _Word, heads: List[_Word]) -> bool:
         """Whether `verb` is zúčastnit/účastnit se with people, whose number is its subject, not with an event (a verbal
         noun or EVENT_GENITIVES): "Zúčastní se padesát lidí", but "padesáti jednání", "pěti závodů"."""
-        return (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+        return (_affirmative(verb.text.lower()).startswith(("zúčastn", "zúčastň", "účastn"))
                 and all(h.feats.get("VerbForm") != "Vnoun" and h.text.lower() not in EVENT_GENITIVES for h in heads))
 
     def _no_subject_in_sight(self, verb: _Word, tags: _Tags) -> bool:

@@ -756,6 +756,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                                      "Týka sa to 5 %.",
                                      "Zbavil sa piatich kilogramov. Zbavila sa troch kilogramov. "
                                      "Chce sa zbaviť piatich kilogramov. Týka sa to piatich percent."),
+    "genitive-verb-imperfective-imperative-and-infinitive": (
+        "cs", None, "Zúčastňoval se 5 závodů. Neboj se 5 psů. Nemusíš se bát 5 psů. Všímal si 5 chyb.",
+        "Zúčastňoval se pěti závodů. Neboj se pěti psů. Nemusíš se bát pěti psů. Všímal si pěti chyb."),
+    "sk-genitive-verb-imperfective-imperative-and-infinitive": (
+        "sk", None, "Zúčastňoval sa 5 pretekov. Neboj sa 5 psov. Nemusíš sa báť 5 psov.",
+        "Zúčastňoval sa piatich pretekov. Neboj sa piatich psov. Nemusíš sa báť piatich psov."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -899,6 +905,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-genitive-verb-unit-of-a-plural-verb-after": ("sk", "Zúčastnili sa 60 % voličov.",
                                                      "Zúčastnili sa šesťdesiatich percent voličov.",
                                                      "subject of a plural verb, as people say"),
+    "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
+                                                             "Zúčastňuje se padesát lidí.", "read as the subject"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
@@ -967,6 +975,11 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
                                                        "Zúčastnilo sa päť percent voličov."),
     "sk-tagger-gender-fix-points": ("sk", "Získal 2 body. Dosiahol 2 body. Chýbali mu 2 body.",
                                     "Získal dva body. Dosiahol dva body. Chýbali mu dva body."),
+    "genitive-verb-imperative-ordinal": ("cs", "Nebojte se 2. kola.", "Nebojte se druhého kola."),
+    "guard-fighting-takes-no-genitive": ("cs", "Bojoval 5 let. Bojovali s 5 nepřáteli.",
+                                         "Bojoval pět let. Bojovali s pěti nepřáteli."),
+    "guard-taking-part-imperfective-number-sharing-a-subject": ("cs", "Zúčastňovalo se 2 nebo 50 lidí.",
+                                                                "Zúčastňovalo se dva nebo padesát lidí."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
