@@ -6,16 +6,10 @@ when revived. New findings are added to one of the two lists as they are verifie
 
 ## Kept
 
-Readings checked on 825ae8d; N74 and N71 re-checked on b83ec25.
+Reading checked on 825ae8d.
 
 | id | input | today | expected |
 |---|---|---|---|
-| N74 | `Trvá 1 nebo 2 hodiny.` (present verb, no subject; N44 fixed the past) | `jedna nebo dvě` | `jednu nebo dvě` |
-| N71 | sk `Mám 5 miliónov €.` | ValueError | `päť miliónov eur` |
-| N53 | `Záleží na 5 %.` / `Po 5 km zastavil.` | `na pět procent` / `Po pět kilometrů` | `na pěti procentech` / `Po pěti kilometrech` |
-| N58 | `Patřilo to Václavu II. Přemyslovci.` | `Václavu druhému. Přemyslovci.` | no sentence break |
-| N65 | sk `Otvorené od 8 do 17 h.` | `od ôsmich do sedemnástich hodín` | `od ôsmej do sedemnástej` (user 2026-11-17: clock time for 13–23 or the `od` of such a span; logged) |
-| N68 | sk `Prídem o 1:00.` | `o prvej` | `o jednej` (user 2026-11-17) |
 | N91 | num2words variant values in book_config | not validated (not re-checked) | a bad value raises |
 
 ## Fixed
@@ -41,6 +35,18 @@ Slovak chain, c0dbec5..4910515.
 | N29 | sk `Získal 2 body.` | `dva body` |
 | N32 | `Zúčastňoval se 5 závodů.` / `Neboj se 5 psů.` | `pěti` |
 | — | sk `Zúčastnili sa 60 % voličov.` / `Vzdal sa 5 krát.` / `Zúčastnili sa 5 žien.` (regressions of the chain) | read or logged as the Czech twins |
+
+Preps and misc chain, 4c7d398..7450008.
+
+| id | input | now |
+|---|---|---|
+| N53 | `Záleží na 5 %.` / `Po 5 km zastavil.` | `na pěti procentech` / `Po pěti kilometrech` |
+| N74 | `Trvá 1 nebo 2 hodiny.` | `jednu nebo dvě` |
+| N58 | `Patřilo to Václavu II. Přemyslovci.` | `Václavu druhému Přemyslovci` (no break) |
+| N71 | sk `Mám 5 miliónov €.` | `päť miliónov eur` |
+| N68 | sk `Prídem o 1:00.` | `o jednej` |
+| N65 | sk `Otvorené od 8 do 17 h.` | `od ôsmej do sedemnástej`, logged (user's rule: an afternoon hour, or the `od` of a span ending at one) |
+| — | `Zůstala mu faktura na 5 Kč.` / `Zůstalo mu jen na 5 Kč.` (regressions of N53a) | accusative again |
 
 ## Parked
 
@@ -69,3 +75,10 @@ Slovak chain, c0dbec5..4910515.
   family); sk `Zúčastnilo sa 2 alebo 50 ľudí` dvoch (personal masculine A = G); sk `Vzdal sa 5 percent mzdy` päť (SNK
   tags `percent` singular); sk `Dočkal sa 5 vnúčat a 3 pravnúčat` tri (N49 family); `Dotkl se 2. prstem stolu` druhého;
   `Viděl ho 2 krát` dvě krát.
+- Found by the preps and misc chain (2026-11-17): sk `od 8–17 h` dash span and `8–17 h` without a preposition (the
+  latter needs a decision); `Dohodli se na 5 %`, `Shodli se na 50 Kč`, `Trval na 5 %` accusative (want locative;
+  stems kept out on evidence); `Měří od 1 m po 5 m` locative and `Dostal od něj po 5 Kč` accusative (the price of the
+  "od … po" guard); N65 trade-offs logged by the rule (`Pracoval po 14 h denne`, `Cesta trvala do 20 h`, mixed
+  morning/afternoon spans, `Do 14, 15 a 16 h`); sk `o 17 h` (N38); N58 remainders (`Václavu II. Přemyslovci i jeho
+  synovi`, `Vzpomínal na Karla IV. Karel IV. byl`, `Ludvík XIV. Slunce vládl`, capitals `VÁCLAVU II.` druzí); `Mluvil
+  1 h a čekal 2 h` jedna; sk `Zostala na 5 %` / `Trvalo to 1 h` (N86).
