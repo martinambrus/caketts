@@ -6,26 +6,35 @@ when revived. New findings are added to one of the two lists as they are verifie
 
 ## Kept
 
-Readings checked on 825ae8d unless noted.
+Readings checked on 825ae8d; N74 and N71 re-checked on b83ec25.
 
 | id | input | today | expected |
 |---|---|---|---|
-| N42 | `Mám 5 milionů €.` / `Mám 5 tisíc m².` | ValueError | `pět milionů eur`, `pět tisíc metrů čtverečních` |
+| N74 | `Trvá 1 nebo 2 hodiny.` (present verb, no subject; N44 fixed the past) | `jedna nebo dvě` | `jednu nebo dvě` |
 | N71 | sk `Mám 5 miliónov €.` | ValueError | `päť miliónov eur` |
-| N43 | `Přijdu v 0 h.` / `S 0 body skončil.` | `v nulu hodin` / `S nulou body` (regression) | `v nula hodin` / `S nula body` |
-| N41 + N76 | `Dosáhl 5 bodů, 10 bodů nebo 15 bodů.` | `pěti bodů, deset bodů nebo patnáct bodů` | all genitive |
-| N5 | `Dosáhl 5, 10 nebo 15 bodů.` | `pěti, deset nebo patnáct` | `pěti, deseti nebo patnácti` |
-| N6 | `Dosáhl 1 nebo 2 bodů.` | `jeden nebo dvou` | `jednoho nebo dvou` |
-| N39 | `Stál mezi 1 a 2 stromy.` | `mezi jedním a dva stromy` | `mezi jedním a dvěma stromy` |
-| N44 + N74 | `Trvalo to 1 nebo 2 hodiny.` / `Trvá to 1 nebo 2 h.` | `jedna nebo dvě` | `jednu nebo dvě` |
 | N53 | `Záleží na 5 %.` / `Po 5 km zastavil.` | `na pět procent` / `Po pět kilometrů` | `na pěti procentech` / `Po pěti kilometrech` |
 | N58 | `Patřilo to Václavu II. Přemyslovci.` | `Václavu druhému. Přemyslovci.` | no sentence break |
 | N32 | `Zúčastňoval se 5 závodů.` / `Neboj se 5 psů.` | `pět` | `pěti` |
 | N22 | sk `Týka sa to 5 ľudí.` / `Bál sa 5 psov.` | `päť` | `piatich` |
 | N29 | sk `Získal 2 body.` | `dve body` | `dva body` |
-| N65 | sk `Otvorené od 8 do 17 h.` | `od ôsmich do sedemnástich hodín` | clock time (rule to confirm) |
-| N68 | sk `Prídem o 1:00.` | `o prvej` | `o jednej` (to confirm) |
+| N65 | sk `Otvorené od 8 do 17 h.` | `od ôsmich do sedemnástich hodín` | `od ôsmej do sedemnástej` (user 2026-11-17: clock time for 13–23 or the `od` of such a span; logged) |
+| N68 | sk `Prídem o 1:00.` | `o prvej` | `o jednej` (user 2026-11-17) |
 | N91 | num2words variant values in book_config | not validated (not re-checked) | a bad value raises |
+
+## Fixed
+
+Numbers chain, 090f7f3..b83ec25 (one commit per step; N41 and N76 together).
+
+| id | input | now |
+|---|---|---|
+| N42 | `Mám 5 milionů €.` / `5 tisíc m²` / `5 tisíc Kč/kg` | `pět milionů eur` / `metrů čtverečních` / `korun za kilogram` |
+| N43 | `Přijdu v 0 h.` / `S 0 body skončil.` | `v nula hodin` / `S nula body` |
+| N41 + N76 | `Dosáhl 5 bodů, 10 bodů nebo 15 bodů.` | all genitive; `2 muži a 5 žen dosáhli cíle.` stays nominative |
+| N5 | `Dosáhl 5, 10 nebo 15 bodů.` | `pěti, deseti nebo patnácti` |
+| N6 | `Dosáhl 1 nebo 2 bodů.` | `jednoho nebo dvou` |
+| N39 | `Stál mezi 1 a 2 stromy.` | `mezi jedním a dvěma` |
+| N44 | `Trvalo to 1 nebo 2 hodiny.` | `jednu nebo dvě` |
+| — | a list of n items cost O(n³) after the list commits (200 noun phrases: 26 s) | 0.36 s (b83ec25) |
 
 ## Parked
 
@@ -44,3 +53,8 @@ Readings checked on 825ae8d unless noted.
   right).
 - Capitals and Roman numerals: N59 (`V KNIZE II. DÍL`), N82 (`I. Jan`), N89 (abbreviation period in capitals).
 - Config nits: N62 (unclear error when the num2words config is not a dict), N92 (agreement option `dvacet jedno jablek`).
+- Found by the numbers chain (2026-11-17): `Dosáhl 5 tisíc Kč` pět (needs N12A); `Dosáhl 1,2,3 nebo 5 bodů` jedna, dva,
+  tři nebo pěti; `Bál se 5, 10 psů` pěti, deset (a lone comma pair is no list, by design); `Dosáhl 2,5 nebo 5 bodů`
+  decimal nominative; `Za 0 tis. Kč` za nulu; `Pod 5, 10 nebo 15 stromy` (two-case preposition, no verb); `Uplynulo 1 nebo
+  2 hodiny` jednu (ungrammatical input); `Dosáhl 3 gólů, 2 asistencí` dvě (N49 family); `Má 1 pravnuka` jedna (tagger);
+  lists log once per number (log volume only, N5A trade-off).
