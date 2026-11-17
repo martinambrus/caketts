@@ -45,6 +45,13 @@ Preps and misc chain, 4c7d398..7450008.
 | — | `Zůstala mu faktura na 5 Kč.` / `Zůstalo mu jen na 5 Kč.` (regressions of N53a) | accusative again |
 | N91 | `book_config["num2words"]` with a bad value (`"agreemnt"`, `"yes"` for a flag) | ValueError (89f90db) |
 
+Found-not-fixed follow-ups, 95ca4dc..91c63c3.
+
+| id | input | now |
+|---|---|---|
+| — | `Jednání trvalo 1 nebo 2 hodiny.` / `Film trvá 1 nebo 2 hodiny.` | `jednu nebo dvě` |
+| — | sk `Otvorené 8–17 h.` / `Otvorené od 8–17 h.` | `od ôsmej do sedemnástej`, logged (user 2026-11-17) |
+
 ## Parked
 
 - Genitive-verb subject or object, rare or log-only: N7 (`Dosáhl 2 vítězství` dvě; with N77, its regression), N12
@@ -72,12 +79,11 @@ Preps and misc chain, 4c7d398..7450008.
   family); sk `Zúčastnilo sa 2 alebo 50 ľudí` dvoch (personal masculine A = G); sk `Vzdal sa 5 percent mzdy` päť (SNK
   tags `percent` singular); sk `Dočkal sa 5 vnúčat a 3 pravnúčat` tri (N49 family); `Dotkl se 2. prstem stolu` druhého;
   `Viděl ho 2 krát` dvě krát.
-- Found by the preps and misc chain (2026-11-17): sk `od 8–17 h` dash span and `8–17 h` without a preposition (the
-  latter needs a decision); `Dohodli se na 5 %`, `Shodli se na 50 Kč`, `Trval na 5 %` accusative (want locative;
+- Found by the preps and misc chain (2026-11-17): `Dohodli se na 5 %`, `Shodli se na 50 Kč`, `Trval na 5 %` accusative (want locative;
   stems kept out on evidence); `Měří od 1 m po 5 m` locative and `Dostal od něj po 5 Kč` accusative (the price of the
   "od … po" guard); N65 trade-offs logged by the rule (`Pracoval po 14 h denne`, `Cesta trvala do 20 h`, mixed
   morning/afternoon spans, `Do 14, 15 a 16 h`); sk `o 17 h` (N38); N58 remainders (`Václavu II. Přemyslovci i jeho
   synovi`, `Vzpomínal na Karla IV. Karel IV. byl`, `Ludvík XIV. Slunce vládl`, capitals `VÁCLAVU II.` druzí); `Mluvil
   1 h a čekal 2 h` jedna; sk `Zostala na 5 %` / `Trvalo to 1 h` (N86).
-- Found while writing the docs (2026-11-17): `Jednání trvalo 1 nebo 2 hodiny` / `Film trvá 1 nebo 2 hodiny` jedna (a
-  subject before a verb of duration; a one-line guard broke `Čekala 1 nebo 2 ženy` and missed the targets).
+- Found with the follow-ups (2026-11-17): sk `Otvorené 8.30–17 h` reads `osem celých tri desatiny` (a time with
+  minutes in a dash span read as a decimal; N61 family).
