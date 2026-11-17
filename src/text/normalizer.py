@@ -1568,7 +1568,7 @@ class TextNormalizer:
             start = self._chain_start(start, tags)
             prev = tags.before(start)
             prep_case = _UD_CASES.get(prev.feats.get("Case")) if prev is not None and prev.upos == "ADP" else None
-            verb_case = self._verb_case(start, prev, tags) if self.language == "cs" else None
+            verb_case = self._verb_case(start, prev, tags) if self.language == "cs" or case == GEN else None
             if verb_case == ACC:
                 prep_case = ACC  # "na" with "vzpomínat": "na dvacáté století"
             if self.language == "cs" and head.feats.get("Gender") == "Neut" and head.text.lower().endswith("í"):
