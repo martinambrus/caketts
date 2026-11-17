@@ -1286,7 +1286,8 @@ class TextNormalizer:
         if (after_label or before[-1:] in _MATH_SIGNS or after[:1] in _MATH_SIGNS
                 or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(f"[~≈]{_OPERAND}", after)):
             return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
-        prep_case = self._preposition_case(start, tags)
+        list_start = self._list_start(start, tags)  # "bez 5 nebo 10 lidí": a list has one preposition
+        prep_case = self._preposition_case(list_start, tags)
         own = noun = tags.head_after(end)
         if noun is None:
             od = getattr(self._preposition(start, tags), "text", "").lower() in ("od", "ode")  # also "od asi 1 do 2 h"
@@ -1332,7 +1333,7 @@ class TextNormalizer:
                 tagged_case = noun_case = GEN  # "pět vítězství": one form for most cases, after 5 a genitive plural
             elif self._number_fits(value, noun) or (abs(value) == 1 and noun is not own):
                 noun_case = tagged_case  # a 1 shares the case of a later number's plural: "jednoho nebo dvou bodů"
-        prep = self._preposition(start, tags)
+        prep = self._preposition(list_start, tags)
         if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS
                 and noun is not None and noun.feats.get("Gender") == "Masc" and noun.feats.get("Number") == "Plur"
                 and noun.text.lower().endswith("y")):
@@ -1361,21 +1362,20 @@ class TextNormalizer:
             # "ve dvě hodiny", "v pět hodin": the tagger often gives v/na/o the locative here
             case = ACC if prep_case == ACC or tagged_case in (NOM, ACC, GEN) else prep_case
         elif noun is not None:
-            head_prep = self._preposition(self._list_start(start, tags), tags)  # "pro 5, 10 nebo 15 hráčů"
             # no governor: "Mám pět jablek" (the noun is genitive, the number nominative);
             # Slovak "videl troch mužov" (A = G of masculine personal nouns), "dvoch psov"
             if (self.language == "sk" and noun_case == GEN and noun.text.lower().endswith("ov")
                     and self._count_form(value) != "gen_pl"):
                 case = GEN
             elif (noun_case == GEN and 0 < abs(value) < 5 and (m.lastgroup == "commas" or "," not in text[start:end])
-                  and (noun is own or self._governed(noun, start, head_prep, tags))
+                  and (noun is own or self._governed(noun, start, prep, tags))
                   and not ((abs(value) > 1 or noun is not own)
                            and noun.text.lower().endswith(("a", "á", "e", "ě", "é", "i", "o", "y")))):
                 # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
                 # plural never ends like -a, -e, -i, -o, -y, so "skoro 2 hodiny" tagged genitive is not one
                 case = GEN
             elif (noun_case == GEN and (abs(value) >= 5 or value == 0) and self.language == "cs"
-                  and self._verb_case(start, head_prep, tags) == GEN):
+                  and self._verb_case(start, prep, tags) == GEN):
                 # from 5, and at 0, the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter
                 # singular verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)

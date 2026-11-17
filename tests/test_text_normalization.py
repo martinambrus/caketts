@@ -645,6 +645,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "one-sharing-a-numeral-subject": ("cs", None, "Zúčastnilo se 1 nebo 50 lidí.",
                                       "Zúčastnilo se jeden nebo padesát lidí."),
     "one-sharing-a-subject-noun": ("cs", None, "Přišla 1 nebo 2 ženy.", "Přišla jedna nebo dvě ženy."),
+    "preposition-of-a-list-of-numbers": (
+        "cs", None, "Byl tam bez 5 nebo 10 lidí. Stál mezi 1 a 2 stromy. Šel bez 5, 10 nebo 15 lidí.",
+        "Byl tam bez pěti nebo deseti lidí. Stál mezi jedním a dvěma stromy. Šel bez pěti, deseti nebo patnácti lidí."),
     "na-with-accusative-verb": ("cs", None, "Vzpomínal na XX. století.", "Vzpomínal na dvacáté století."),
     "ordinal-before-capitalised-noun-in-case": ("cs", None, "V 5. Symfonii zazněl sbor, o 5. Symfonii psal.",
                                                 "V páté Symfonii zazněl sbor, o páté Symfonii psal."),
