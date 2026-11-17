@@ -905,10 +905,14 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-genitive-verb-unit-of-a-plural-verb-after": ("sk", "Zúčastnili sa 60 % voličov.",
                                                      "Zúčastnili sa šesťdesiatich percent voličov.",
                                                      "subject of a plural verb, as people say"),
+    "sk-genitive-verb-plural-verb-feminine-subject": ("sk", "Zúčastnili sa 5 žien.", "Zúčastnili sa piatich žien.",
+                                                      "subject of a plural verb, as people say"),
     "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
                                                              "Zúčastňuje se padesát lidí.", "read as the subject"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
+    "sk-genitive-verb-plural-verb-plural-subject": ("sk", "Ženy sa báli 5 psov.", "Ženy sa báli piatich psov."),
+    "sk-genitive-verb-plural-imperative": ("sk", "Nebojte sa 5 psov.", "Nebojte sa piatich psov."),
     "spaced-two-digit-year": ("cs", "Dne 5. 6. 24 v Praze.", "Dne pátého června dvacet čtyři v Praze."),
     "sk-spaced-two-digit-year": ("sk", "Dňa 5. 6. 24 v Prahe.", "Dňa piateho júna dvadsaťštyri v Prahe."),
     "genitive-verb-century": ("cs", "Dosáhli jsme XXI. století.", "Dosáhli jsme dvacátého prvního století."),

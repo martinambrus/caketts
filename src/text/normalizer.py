@@ -1785,9 +1785,15 @@ class TextNormalizer:
         la = feats.get("Number") == "Plur,Sing" and (fronted or (
             start < verb.start and after is not None and after.feats.get("Case") == "Gen"
             and after.text.lower() not in TIME_GENITIVES))
+        # a Slovak "-li" shows no gender, so any plural may be its subject, unless a nominative plural comes first
+        sk_plural = self.language == "sk" and feats.get("Number") == "Plur" and feats.get("Person") != "2" and not any(
+            w.upos == "NOUN" and w.feats.get("Case") == "Nom" and w.feats.get("Number") == "Plur"
+            for w in self._clause_before(verb.start, tags))
         colloquial = any((feats.get("Number") == "Plur" or (la and h.feats.get("Gender") == "Neut"))
-                         and h.feats.get("Gender") in (feats.get("Gender") or "").split(",")
-                         and (h.feats.get("Gender") != "Masc" or h.feats.get("Animacy") == feats.get("Animacy"))
+                         and (sk_plural
+                              or (h.feats.get("Gender") in (feats.get("Gender") or "").split(",")
+                                  and (h.feats.get("Gender") != "Masc"
+                                       or h.feats.get("Animacy") == feats.get("Animacy"))))
                          for h in heads + members if h is noun or h.feats.get("Number") == "Plur")
         if subject:
             case = GEN
