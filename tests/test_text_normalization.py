@@ -781,6 +781,25 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "na-after-a-subject-noun-that-owns-the-amount": (
         "cs", None, "Zůstala mu faktura na 5 Kč. Zůstal mu dluh na 5 Kč. Zůstala objednávka na 5 ks.",
         "Zůstala mu faktura na pět korun. Zůstal mu dluh na pět korun. Zůstala objednávka na pět kusů."),
+    "roman-numeral-before-the-verb-of-its-sentence": (
+        "cs", None,
+        "Za vlády Karla IV. Lucemburského země vzkvétala. Václavu II. Přemyslovci patřilo Polsko. "
+        "Vládl Karel IV. Petr byl jeho synem.",
+        "Za vlády Karla čtvrtého Lucemburského země vzkvétala. Václavu druhému Přemyslovci patřilo Polsko. "
+        "Vládl Karel čtvrtý. Petr byl jeho synem."),
+    "roman-numeral-before-an-epithet-ending-its-sentence": (
+        "cs", None, "Patřilo to Václavu II. Přemyslovci.", "Patřilo to Václavu druhému Přemyslovci."),
+    "sk-roman-numeral-before-a-new-sentence-led-by-a-name": (
+        "sk", None, "Vládol Karol IV. Peter bol jeho synom.", "Vládol Karol štvrtý. Peter bol jeho synom."),
+    "guard-roman-numeral-before-an-epithet-and-a-verbless-name": (
+        "cs", None, "Jindřich VIII. Tudor zemřel. Zemřel Karel IV. Jeho syn vládl. Císař Karel V. Kniha o něm vyšla.",
+        "Jindřich osmý Tudor zemřel. Zemřel Karel čtvrtý. Jeho syn vládl. Císař Karel pátý. Kniha o něm vyšla."),
+    "guard-roman-numeral-after-an-oblique-name-before-a-sentence-of-its-own": (
+        "cs", None, "Dal to Karlu IV. Země byla chudá. Poslal dopis Karlu IV. Praha.",
+        "Dal to Karlu čtvrtému. Země byla chudá. Poslal dopis Karlu čtvrtému. Praha."),
+    "guard-roman-numeral-before-a-subject-after-a-fronted-phrase": (
+        "cs", None, "Za Karla IV. Velký požár vypukl v Praze. Za vlády Karla IV. Kniha vyšla.",
+        "Za Karla čtvrtého. Velký požár vypukl v Praze. Za vlády Karla čtvrtého. Kniha vyšla."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

@@ -2141,10 +2141,21 @@ class TextNormalizer:
             return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             name = tags.before(start)  # an epithet agrees with the name it follows: not "Karla IV. Země vzkvétala"
-            return (word is None or word.upos not in ("PROPN", "ADJ")
+            verb_follows, predicate = self._verb_follows(end, tags), self._predicate_before(start, tags)
+            # an oblique name goes on into its epithet when the clause has its verb after it ("Václavu II. Přemyslovci
+            # patřilo Polsko") or ends with it ("Patřilo to Václavu II. Přemyslovci.")
+            goes_on = (name is not None and name.upos == "PROPN" and name.feats.get("Case") not in (None, "Nom")
+                       and word is not None
+                       and (name.feats.get("Gender") == word.feats.get("Gender") if word.upos == "NOUN"
+                            else word.feats.get("Case") != "Nom")
+                       and ((verb_follows and not predicate)
+                            or (predicate and getattr(tags.after(word.end), "text", ".") in (".", "!", "?", "…"))))
+            return (word is None or word.upos not in ("NOUN", "PROPN", "ADJ")
                     or (not capitals and len(word.text) > 1 and word.text.isupper())  # "…IV. USA vznikly" is no name
-                    or (word.upos == "ADJ" and self._verb_follows(end, tags))
-                    or (word.upos == "PROPN" and name is not None and not _agree(name, word)))
+                    or (word.upos == "NOUN" and not goes_on)
+                    or (word.upos == "ADJ" and verb_follows and not goes_on)
+                    or (word.upos == "PROPN" and name is not None and not _agree(name, word))
+                    or (word.upos == "PROPN" and verb_follows and predicate))
         return True
 
     def _feminine(self, word: str, suffix: str) -> str:
