@@ -647,6 +647,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "number-sharing-a-numeral-subject": ("cs", None, "Zúčastnilo se 2 nebo 50 lidí.",
                                          "Zúčastnilo se dva nebo padesát lidí."),
     "number-sharing-a-genitive-object": ("cs", None, "Bál se 2 nebo 5 psů.", "Bál se dvou nebo pěti psů."),
+    "sk-number-sharing-a-genitive-verb-object": ("sk", None, "Bál sa 2 alebo 5 žien. Bál sa 3 alebo 5 mačiek. "
+                                                 "Bál sa 2 alebo asi 5 žien.",
+                                                 "Bál sa dvoch alebo piatich žien. Bál sa troch alebo piatich mačiek. "
+                                                 "Bál sa dvoch alebo asi piatich žien."),
     "number-sharing-an-accusative-noun": ("cs", None, "Vypil 2 nebo 5 piv.", "Vypil dvě nebo pět piv."),
     "one-sharing-a-later-noun": ("cs", None, "Dosáhl 1 nebo 2 bodů.", "Dosáhl jednoho nebo dvou bodů."),
     "one-sharing-a-numeral-subject": ("cs", None, "Zúčastnilo se 1 nebo 50 lidí.",
@@ -936,6 +940,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-ordinal-instrumental-after-genitive-verb": ("sk", "Dotkol sa 2. prstom stola.", "Dotkol sa druhým prstom stola."),
     "sk-ordinal-after-other-verbs": ("sk", "Dosiahli sme 21. storočie. Myslel na 2. diel.",
                                      "Dosiahli sme dvadsiate prvé storočie. Myslel na druhý diel."),
+    "sk-number-sharing-a-subject-or-an-accusative": ("sk", "Bálo sa 2 alebo 5 detí. Vypil 2 alebo 5 pív.",
+                                                     "Bálo sa dve alebo päť detí. Vypil dve alebo päť pív."),
     "number-after-v-before-a-day-time": ("cs", "Ve 2 ráno vstal a ve 3 v noci usnul. Vyhrál v 5 z 10 případů.",
                                          "Ve dvě ráno vstal a ve tři v noci usnul. Vyhrál v pěti z deseti případů."),
     "hour-unit-after-v-is-a-clock-time": ("cs", "Přijdu ve 2 h.", "Přijdu ve dvě hodiny."),

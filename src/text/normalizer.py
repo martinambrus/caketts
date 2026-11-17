@@ -1471,7 +1471,7 @@ class TextNormalizer:
                       if w.text.replace(" ", "").isdigit()), None)
         count = int(later.text.replace(" ", "")) if later is not None else 0
         return noun.feats.get("Number") == "Plur" and (
-            1 < count < 5 or (self.language == "cs" and self._verb_case(pos, prep, tags) == GEN
+            1 < count < 5 or (self._verb_case(pos, prep, tags) == GEN
                               and self._genitive_verb_case(count, pos, noun, "", None, tags) == GEN))
 
     def _shared_count_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
