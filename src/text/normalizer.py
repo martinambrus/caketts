@@ -139,10 +139,13 @@ SCALE_GENDERS = {"cs": {"tis": "masculine", "mil": "masculine", "mld": "feminine
                  "sk": {"tis": "feminine", "mil": "masculine", "mld": "feminine"}}
 SCALE_GENITIVES = {"cs": {"tis": "tisíce", "mil": "milionu", "mld": "miliardy"},
                    "sk": {"tis": "tisíca", "mil": "milióna", "mld": "miliardy"}}
-# Czech tisíc, milion and miliarda in every case: a number counts them, and they count the genitive noun after them
+# Czech and Slovak tisíc, milion (milión) and miliarda in every case: a number counts them, and they count the genitive
+# noun after them
 SCALE_NOUN_FORMS = frozenset("tisíc tisíce tisíci tisícem tisícům tisících milion milionu milionem milionů miliony "
                              "milionům milionech milión miliónu miliónem miliónů milióny miliónům miliónech miliarda "
-                             "miliardy miliardě miliardu miliardou miliard miliardám miliardách miliardami".split())
+                             "miliardy miliardě miliardu miliardou miliard miliardám miliardách miliardami "
+                             "tisíca tisícu tisícom tisícov tisícoch tisícmi tisícami milióna milióne miliónom "
+                             "miliónov miliónoch miliónmi miliarde miliárd".split())
 SIGNS = {"cs": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná se", "×": "krát", "x": "krát", "*": "krát",
                "±": "plus minus", "#": "číslo", "−": "mínus", "~": "přibližně", "≈": "přibližně"},
          "sk": {"&": "a", "+": "plus", "@": "zavináč", "=": "rovná sa", "×": "krát", "x": "krát", "*": "krát",

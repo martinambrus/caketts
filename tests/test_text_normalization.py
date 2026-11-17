@@ -800,6 +800,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "guard-roman-numeral-before-a-subject-after-a-fronted-phrase": (
         "cs", None, "Za Karla IV. Velký požár vypukl v Praze. Za vlády Karla IV. Kniha vyšla.",
         "Za Karla čtvrtého. Velký požár vypukl v Praze. Za vlády Karla čtvrtého. Kniha vyšla."),
+    "sk-unit-after-a-written-scale-word-in-cases": (
+        "sk", None, "S 5 miliónmi € odišiel. O 5 miliónoch € sa nehovorí.",
+        "S piatimi miliónmi eur odišiel. O piatich miliónoch eur sa nehovorí."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -1029,6 +1032,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "Trvá jednu nebo dvě hodiny. Čekala jednu nebo dvě hodiny. Trvá to jednu hodinu."),
     "unit-shared-after-a-verb-of-duration": ("cs", "Trvá to 1 nebo 2 h. Trvá to 1 nebo asi 2 h.",
                                              "Trvá to jednu nebo dvě hodiny. Trvá to jednu nebo asi dvě hodiny."),
+    "sk-unit-after-a-written-scale-word": ("sk", "Mám 5 miliónov €, 2 milióny Kč a 5 miliárd $.",
+                                           "Mám päť miliónov eur, dva milióny korún a päť miliárd dolárov."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
