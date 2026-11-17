@@ -648,6 +648,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "preposition-of-a-list-of-numbers": (
         "cs", None, "Byl tam bez 5 nebo 10 lidí. Stál mezi 1 a 2 stromy. Šel bez 5, 10 nebo 15 lidí.",
         "Byl tam bez pěti nebo deseti lidí. Stál mezi jedním a dvěma stromy. Šel bez pěti, deseti nebo patnácti lidí."),
+    "one-sharing-a-plural-tagged-singular": (
+        "cs", None, "Trvalo to 1 nebo 2 hodiny. Stálo to 1 nebo 2 koruny. Spal 1 nebo 2 hodiny.",
+        "Trvalo to jednu nebo dvě hodiny. Stálo to jednu nebo dvě koruny. Spal jednu nebo dvě hodiny."),
+    "guard-one-sharing-a-plural-subject-or-predicate": (
+        "cs", None, "Byla to 1 nebo 2 hodiny. Zbývá 1 nebo 2 minuty.",
+        "Byla to jedna nebo dvě hodiny. Zbývá jedna nebo dvě minuty."),
     "zero-before-a-written-noun": (
         "cs", None, "S 0 body skončil. Při 0 stupních Celsia. Za 0 bodů. S 0 bodů.",
         "S nula body skončil. Při nula stupních Celsia. Za nula bodů. S nulou bodů."),

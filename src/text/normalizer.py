@@ -1350,6 +1350,13 @@ class TextNormalizer:
                 tagged_case = noun_case = GEN  # "pět vítězství": one form for most cases, after 5 a genitive plural
             elif self._number_fits(value, noun) or (abs(value) == 1 and noun is not own):
                 noun_case = tagged_case  # a 1 shares the case of a later number's plural: "jednoho nebo dvou bodů"
+            later = next((w for w in reversed(tags.words[:bisect.bisect_left(tags.starts, noun.start)])
+                          if w.text.replace(" ", "").isdigit()), None)
+            if (abs(value) == 1 and noun is not own and noun_case in (NOM, GEN) and noun.feats.get("Number") == "Sing"
+                    and later is not None and 1 < int(later.text.replace(" ", "")) < 5 and self.language == "cs"):
+                # "Trvalo to 1 nebo 2 hodiny": CAC tags the plural after 2–4 singular, which it never is; it is the
+                # accusative when the verb has another subject or a gender the noun lacks
+                noun_case = ACC if self._object_of_verb(noun, start, tags) else NOM
         prep = self._preposition(list_start, tags)
         if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS
                 and noun is not None and noun.feats.get("Gender") == "Masc" and noun.feats.get("Number") == "Plur"
@@ -1421,6 +1428,21 @@ class TextNormalizer:
                            "no counted noun; masculine inanimate")
             return case, "masculine", "inanimate"
         return case, gender, animacy
+
+    def _object_of_verb(self, noun: _Word, pos: int, tags: _Tags) -> bool:
+        """Whether a number counting `noun` at `pos` is its verb's object: the verb has another subject ("to", a plain
+        nominative, a first or second person) or a gender the noun lacks ("Spal jednu nebo dvě hodiny"); a copula's
+        number is its predicate: "Byla to jedna nebo dvě hodiny"."""
+        verb = self._clause_verb(pos, tags)
+        if verb is None or verb.upos == "AUX":
+            return False
+        feats = verb.feats
+        clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
+        return (feats.get("Person") in ("1", "2")
+                or (feats.get("Gender") is not None and noun.feats.get("Gender") not in feats["Gender"].split(","))
+                or any((w.text.lower() in ("to", "toto", "tohle") and w.feats.get("Case") == "Nom")
+                       or (w.upos == "AUX" and w.feats.get("Person") in ("1", "2"))
+                       or (_plain_nominative(w) and _agree(verb, w, True)) for w in clause))
 
     def _shared_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The noun of the next ordinal, which this one shares: "1. a 2. díl", "od XIX. do XX. století",
