@@ -1330,8 +1330,8 @@ class TextNormalizer:
             if (self.language == "cs" and noun.feats.get("Gender") == "Neut" and noun.text.lower().endswith("í")
                     and self._count_form(value) == "gen_pl"):
                 tagged_case = noun_case = GEN  # "pět vítězství": one form for most cases, after 5 a genitive plural
-            elif self._number_fits(value, noun):
-                noun_case = tagged_case
+            elif self._number_fits(value, noun) or (abs(value) == 1 and noun is not own):
+                noun_case = tagged_case  # a 1 shares the case of a later number's plural: "jednoho nebo dvou bodů"
         prep = self._preposition(start, tags)
         if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS
                 and noun is not None and noun.feats.get("Gender") == "Masc" and noun.feats.get("Number") == "Plur"
@@ -1369,7 +1369,8 @@ class TextNormalizer:
                 case = GEN
             elif (noun_case == GEN and 0 < abs(value) < 5 and (m.lastgroup == "commas" or "," not in text[start:end])
                   and (noun is own or self._governed(noun, start, head_prep, tags))
-                  and not (abs(value) > 1 and noun.text.lower().endswith(("a", "á", "e", "ě", "é", "i", "o", "y")))):
+                  and not ((abs(value) > 1 or noun is not own)
+                           and noun.text.lower().endswith(("a", "á", "e", "ě", "é", "i", "o", "y")))):
                 # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
                 # plural never ends like -a, -e, -i, -o, -y, so "skoro 2 hodiny" tagged genitive is not one
                 case = GEN
