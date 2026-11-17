@@ -1124,7 +1124,8 @@ class TextNormalizer:
                 case, gender, animacy = NOM, "masculine", "inanimate"
             else:
                 case, gender, animacy = self._context(value, start, end, text, tags, after_label, m)
-            words = (f"{self._signed(low_amount, self._cardinal(low, case, gender, animacy))} {RANGE_WORD} "
+            counted = self._cardinal(low, self._count_case(low, case), gender, animacy)
+            words = (f"{self._signed(low_amount, counted)} {RANGE_WORD} "
                      f"{self._signed(high_amount, self._cardinal(value, case, gender, animacy))}")
         self._check_comma(text, (start, end), words, low_amount, high_amount)  # one check for both ends
         self._check_glued(text, m, words)
@@ -1365,8 +1366,10 @@ class TextNormalizer:
             case = noun_case  # "s pěti přáteli"
         elif prep_case == GEN:
             case = GEN  # "bez pěti jablek", "do dvou hodin"
-        elif prep_case and self._ends_in_scale_noun(value):
-            case = prep_case  # "s tisícem lidí": after tisíc the noun is genitive in every case
+        elif prep_case and (self._ends_in_scale_noun(value) or (
+                value == 0 and tagged_case == GEN and prep.text.lower() not in LOCATIVE_PREPOSITIONS[self.language]
+                | TWO_CASE_PREPOSITIONS)):
+            case = prep_case  # "s tisícem lidí", "s nulou bodů": a noun before a genitive takes its preposition's case
         elif (prep is not None and prep.text.lower() in ("v", "ve") and self.language == "cs" and 0 <= value <= 24
               and (noun is None or noun.text.lower() in DAY_TIMES) and not re.match(rf"{_HS}+ze?{_HS}", text[end:])):
             # after "v" a bare number is a clock time ("Přišel v pět", "ve dvě večer"); an age would be "v pěti"
@@ -1397,6 +1400,9 @@ class TextNormalizer:
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
+        if (value == 0 and noun is not None and case in (ACC, DAT, LOC, INS)
+                and not (case != ACC and tagged_case == GEN)):
+            case = self._count_case(value, case)  # "s nula body": an undeclined "nula" with a written noun in its case
         if case is None and noun is None:
             prev = tags.before(start)
             if prev is not None and prev.upos in ("NOUN", "PROPN"):
