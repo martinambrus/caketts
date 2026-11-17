@@ -1097,7 +1097,8 @@ class TextNormalizer:
             case = (TIME_PREPOSITIONS[self.language].get(prep.text.lower())
                     or _UD_CASES.get(prep.feats.get("Case")))
         if self.language == "sk" and case and prep.text.lower() in SK_CLOCK_PREPOSITIONS:  # "o štrnástej tridsať"
-            words = [self._ordinal(hour, case, "feminine", "inanimate")]  # also "o nultej"
+            number = self._cardinal if hour == 1 else self._ordinal  # "o jednej" (KSSJ), but "o druhej", "o nultej"
+            words = [number(hour, case, "feminine", "inanimate")]
             if minute or second:
                 words.append(self._minutes(minute, NOM))
             if second:

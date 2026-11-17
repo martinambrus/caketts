@@ -1034,6 +1034,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
                                              "Trvá to jednu nebo dvě hodiny. Trvá to jednu nebo asi dvě hodiny."),
     "sk-unit-after-a-written-scale-word": ("sk", "Mám 5 miliónov €, 2 milióny Kč a 5 miliárd $.",
                                            "Mám päť miliónov eur, dva milióny korún a päť miliárd dolárov."),
+    "sk-one-oclock": ("sk", "Príde o 1:00. Od 1:00 do 2:00 spí. Pred 1:00 odišiel.",
+                      "Príde o jednej. Od jednej do druhej spí. Pred jednou odišiel."),
+    "guard-sk-afternoon-oclock": ("sk", "Prišiel o 13:00. Príde o 0:00.", "Prišiel o trinástej. Príde o nultej."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
