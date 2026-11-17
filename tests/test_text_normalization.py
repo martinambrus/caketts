@@ -778,6 +778,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "guard-time-subject-or-before-its-verb": (
         "cs", None, "Čekala 1 nebo 2 ženy. 1 h trvá 60 min.",
         "Čekala jedna nebo dvě ženy. Jedna hodina trvá šedesát minut."),
+    "na-after-a-subject-noun-that-owns-the-amount": (
+        "cs", None, "Zůstala mu faktura na 5 Kč. Zůstal mu dluh na 5 Kč. Zůstala objednávka na 5 ks.",
+        "Zůstala mu faktura na pět korun. Zůstal mu dluh na pět korun. Zůstala objednávka na pět kusů."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

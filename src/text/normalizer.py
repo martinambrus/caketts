@@ -1918,8 +1918,11 @@ class TextNormalizer:
             return ACC  # "ve 2 h" is a clock time, as "ve 2 hodiny"
         if self.language == "cs" and prep.text.lower() == "na" and unit:
             time, verb = unit.rstrip(".").lower() in TIME_UNITS, self._clause_verb(pos, tags)
+            owner = tags.before(prep.start)  # "Zůstala mu faktura na 5 Kč": the subject after the verb owns the amount
+            owned = (owner is not None and owner.upos == "NOUN" and owner.feats.get("Case") == "Nom"
+                     and verb is not None and verb.start < owner.start)
             if verb is not None and _affirmative(verb.text.lower()).startswith(
-                    NA_LOCATIVE_VERBS + (() if time else NA_LEVEL_VERBS)):
+                    NA_LOCATIVE_VERBS + (() if time or owned else NA_LEVEL_VERBS)):
                 return LOC  # "Záleží na pěti procentech", "Zůstala na pěti procentech", but "Zůstal na dvě hodiny"
             if time:
                 return ACC  # "na 2 h" is a time span, which CAC tags locative at times
