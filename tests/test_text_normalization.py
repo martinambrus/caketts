@@ -803,6 +803,15 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-unit-after-a-written-scale-word-in-cases": (
         "sk", None, "S 5 miliónmi € odišiel. O 5 miliónoch € sa nehovorí.",
         "S piatimi miliónmi eur odišiel. O piatich miliónoch eur sa nehovorí."),
+    "sk-clock-span-to-an-afternoon-hour": (
+        "sk", None, "Otvorené od 8 h do 17 h. Otvorené od 8 do 17 h. Po 18 h je zatvorené.",
+        "Otvorené od ôsmej do sedemnástej. Otvorené od ôsmej do sedemnástej. Po osemnástej je zatvorené."),
+    "sk-afternoon-hour-after-other-prepositions": (
+        "sk", None, "Príde pred 20 h. Príde okolo 15 h. Príde k 17 h. Príde medzi 14 a 16 h.",
+        "Príde pred dvadsiatou. Príde okolo pätnástej. Príde k sedemnástej. Príde medzi štrnástou a šestnástou."),
+    "sk-afternoon-span-from-a-morning-hour": (
+        "sk", None, "Príde medzi 9 a 17 h.", "Príde medzi deviatou a sedemnástou."),
+    "sk-afternoon-span-in-capitals": ("sk", None, "PRÍDE OD 8 DO 17 H.", "PRÍDE OD ôsmej DO sedemnástej."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -950,6 +959,7 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
                                                       "subject of a plural verb, as people say"),
     "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
                                                              "Zúčastňuje se padesát lidí.", "read as the subject"),
+    "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-genitive-verb-plural-verb-plural-subject": ("sk", "Ženy sa báli 5 psov.", "Ženy sa báli piatich psov."),
@@ -1037,6 +1047,16 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-one-oclock": ("sk", "Príde o 1:00. Od 1:00 do 2:00 spí. Pred 1:00 odišiel.",
                       "Príde o jednej. Od jednej do druhej spí. Pred jednou odišiel."),
     "guard-sk-afternoon-oclock": ("sk", "Prišiel o 13:00. Príde o 0:00.", "Prišiel o trinástej. Príde o nultej."),
+    "guard-sk-hours-that-are-a-count": (
+        "sk", "Od 1 do 2 h. Doručíme do 24 h. Po 15 h práce odišiel. Otvorené od 8 do 12 h.",
+        "Od jednej do dvoch hodín. Doručíme do dvadsiatich štyroch hodín. Po pätnástich hodinách práce odišiel. "
+        "Otvorené od ôsmich do dvanástich hodín."),
+    "guard-sk-hours-before-an-adjective-and-noun-stay-counts": (
+        "sk", "Batéria vydrží do 20 h nepretržitej prevádzky.",
+        "Batéria vydrží do dvadsiatich hodín nepretržitej prevádzky."),
+    "guard-sk-dash-range-and-decimal-stay-counts": (
+        "sk", "Otvorené od 8–17 h. Príde od 8,5 do 17 h.",
+        "Otvorené od ôsmich až sedemnástich hodín. Príde od osem celých päť desatín do sedemnástich hodín."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

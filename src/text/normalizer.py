@@ -203,6 +203,9 @@ RANK_VERBS = {"cs": ("skončil", "doběhl", "dojel", "doplaval", "umístil", "by
 # a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
 # cardinal ("za dve pätnásť")
 SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medzi", "k", "ku", "na"})
+# the case of a Slovak afternoon hour of the day after these: "od ôsmej do sedemnástej", "po osemnástej"
+SK_CLOCK_CASES = {"od": GEN, "do": GEN, "po": LOC, "pred": INS, "okolo": GEN, "k": DAT, "ku": DAT, "medzi": INS}
+CLOCK = "clock"  # the animacy _context gives a bare number that is an hour of the day: _cardinal reads it as one
 
 # Czech prepositions with the accusative of direction and the instrumental of place. A masculine plural in -y
 # has one form for both ("Postavil se mezi dva stromy", "Stál mezi dvěma stromy"), so the verb decides;
@@ -961,10 +964,15 @@ class TextNormalizer:
             if plus:
                 words = f"{SIGNS[self.language]['+']} {words}"
         elif kind == "measure":
-            words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
-                                  whole=bool(m["whole"]), scale_unit=m["scaleunit"])
-            if m["per"] or m["scaleper"]:  # "100 Kč/kg" -> "sto korun za kilogram"
-                words += " " + self._per(m["per"] or m["scaleper"])
+            value = _parse(m["amount"])[0]
+            clock = self._afternoon_hour(value, m["unit"], start, end, text, tags)
+            if clock:
+                words = self._clock_hour(value, clock)  # sk "do 17 h" -> "do sedemnástej", as "do 17:00"
+            else:
+                words = self._measure(m["amount"], m["unit"] or m["scale"], start, tags, text, end,
+                                      whole=bool(m["whole"]), scale_unit=m["scaleunit"])
+                if m["per"] or m["scaleper"]:  # "100 Kč/kg" -> "sto korun za kilogram"
+                    words += " " + self._per(m["per"] or m["scaleper"])
         elif kind == "scaledunit":  # after tisíc, milion or miliarda the unit is a genitive plural: "tisíc korun"
             noun, adjective, suffix = self._unit(m["wordunit"])
             words = f"{m['scaleword']} {self._noun_phrase(noun, 1000, NOM, adjective)}{suffix}"
@@ -1097,8 +1105,7 @@ class TextNormalizer:
             case = (TIME_PREPOSITIONS[self.language].get(prep.text.lower())
                     or _UD_CASES.get(prep.feats.get("Case")))
         if self.language == "sk" and case and prep.text.lower() in SK_CLOCK_PREPOSITIONS:  # "o štrnástej tridsať"
-            number = self._cardinal if hour == 1 else self._ordinal  # "o jednej" (KSSJ), but "o druhej", "o nultej"
-            words = [number(hour, case, "feminine", "inanimate")]
+            words = [self._clock_hour(hour, case)]  # "o jednej" (KSSJ), but "o druhej", "o nultej"
             if minute or second:
                 words.append(self._minutes(minute, NOM))
             if second:
@@ -1115,6 +1122,34 @@ class TextNormalizer:
         else:
             words.append(self._noun_phrase("hodina", hour, case))
         return " ".join(words)
+
+    def _clock_hour(self, hour: int, case: str) -> str:
+        """A Slovak hour of the day: an ordinal ("o piatej"), but one o'clock is "o jednej" (KSSJ: "príde o jednej")."""
+        return (self._cardinal if hour == 1 else self._ordinal)(hour, case, "feminine", "inanimate")
+
+    def _afternoon_hour(self, value, unit: Optional[str], start: int, end: int, text: str, tags: _Tags,
+                        log: bool = True) -> Optional[str]:
+        """The case of sk "do 17 h" read as the hour of the day ("do sedemnástej"), or None. After od, do, po, pred,
+        okolo, k or medzi only an afternoon hour (13 to 23) is one, and the "od" of a span that ends at one: "od 8 h
+        do 17 h"; "do 17 h" may be a span, so the reading is logged."""
+        if (self.language != "sk" or not isinstance(value, int) or not unit
+                or not re.fullmatch(_HOUR_WORD, unit.lower())):
+            return None
+        prep = self._preposition(start, tags) or self._shared_preposition(start, tags, end)
+        word = getattr(prep, "text", "").lower()
+        end_word = {"od": "do", "medzi": "a"}.get(word)
+        until = (re.match(rf"\d+(?:{_HS}*{_HOUR_WORD})?{_HS}+(?i:{end_word}){_HS}+(\d+)", text[start:])
+                 if end_word else None)
+        hour, after = int(until[1]) if until else value, tags.after(end)  # a span decides at its end
+        if (word not in SK_CLOCK_CASES or not (13 <= hour <= 23 and value <= hour)
+                or re.search(r"(?<![\d.])(?<!\d,)\d+[.,]\d+(?![\d.])(?!,\d)", text[prep.end:end])
+                or (word == "do" and re.search(rf"\d[.,]\d+{_HS}+$", text[:prep.start]))
+                or (after is not None and after.upos in ("NOUN", "ADJ") and after.feats.get("Case") == "Gen")):
+            return None  # "od 8.30 do 17 h", "od 8,5 do 17 h" and "po 18 h práce" count hours
+        if log and until is None:
+            self._warn(text, (start, end), self._clock_hour(value, SK_CLOCK_CASES[word]),
+                       "hour of the day or a span, read as the hour; check it")
+        return SK_CLOCK_CASES[word]
 
     def _minutes(self, minute: int, case: str) -> str:
         words = self._cardinal(minute, case, "feminine", "inanimate")
@@ -1334,6 +1369,10 @@ class TextNormalizer:
             unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
             later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
             if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
+                clock = self._afternoon_hour(value, later_unit["unit"], start, end + later_unit.end("unit"), text, tags,
+                                             log=False)
+                if clock:
+                    return clock, "feminine", CLOCK  # sk "od 8 do 17 h": the hour, as the later one is
                 unit_gender = NOUNS[self.language][self._unit(later_unit["unit"])[0]][0]
                 unit_case = self._governing_case(start, tags, later_unit["later"], later_unit["unit"],
                                                  end + later_unit.end("unit")) or self._unit_verb_case(
@@ -2189,6 +2228,8 @@ class TextNormalizer:
         return NOM if value == 0 and case != GEN and self.language == "cs" else case
 
     def _cardinal(self, value, case: str, gender: str, animacy: str) -> str:
+        if animacy == CLOCK:
+            return self._clock_hour(value, case)
         return self._numbers.num2words(value, to="cardinal", gender=gender, case=case, animacy=animacy,
                                        **self.variants)
 
