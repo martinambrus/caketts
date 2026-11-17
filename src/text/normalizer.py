@@ -1361,19 +1361,20 @@ class TextNormalizer:
             # "ve dvě hodiny", "v pět hodin": the tagger often gives v/na/o the locative here
             case = ACC if prep_case == ACC or tagged_case in (NOM, ACC, GEN) else prep_case
         elif noun is not None:
+            head_prep = self._preposition(self._list_start(start, tags), tags)  # "pro 5, 10 nebo 15 hráčů"
             # no governor: "Mám pět jablek" (the noun is genitive, the number nominative);
             # Slovak "videl troch mužov" (A = G of masculine personal nouns), "dvoch psov"
             if (self.language == "sk" and noun_case == GEN and noun.text.lower().endswith("ov")
                     and self._count_form(value) != "gen_pl"):
                 case = GEN
             elif (noun_case == GEN and 0 < abs(value) < 5 and "," not in text[start:end]
-                  and (noun is own or self._governed(noun, start, prep, tags))
+                  and (noun is own or self._governed(noun, start, head_prep, tags))
                   and not (abs(value) > 1 and noun.text.lower().endswith(("a", "á", "e", "ě", "é", "i", "o", "y")))):
                 # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
                 # plural never ends like -a, -e, -i, -o, -y, so "skoro 2 hodiny" tagged genitive is not one
                 case = GEN
             elif (noun_case == GEN and (abs(value) >= 5 or value == 0) and self.language == "cs"
-                  and self._verb_case(start, prep, tags) == GEN):
+                  and self._verb_case(start, head_prep, tags) == GEN):
                 # from 5, and at 0, the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter
                 # singular verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)
@@ -1438,6 +1439,25 @@ class TextNormalizer:
                and (w[i - 2].text.isdigit() or re.fullmatch(_ROMAN, w[i - 2].text))):
             i -= 3
         return w[i + 1].start if i + 1 < len(w) else pos
+
+    @staticmethod
+    def _list_start(pos: int, tags: _Tags) -> int:
+        """Where the list of numbers around the one at `pos` starts: "5, 10 nebo 15 bodů" has one governor. Two numbers
+        with a comma alone are no list: "roku 1990, 5 dní"."""
+        w, i = tags.words, bisect.bisect_left(tags.starts, pos)
+        if i >= len(w) or not w[i].text.replace(" ", "").isdigit():
+            return pos
+
+        def linked(link: int, number: int) -> bool:
+            return (0 <= min(link, number) and max(link, number) < len(w) and w[number].text.replace(" ", "").isdigit()
+                    and (w[link].upos == "CCONJ" or w[link].text == ","))
+
+        first = last = i
+        while linked(first - 1, first - 2):
+            first -= 2
+        while linked(last + 1, last + 2):
+            last += 2
+        return pos if first == last or (last - first == 2 and w[first + 1].text == ",") else w[first].start
 
     def _label(self, value: int) -> Tuple[str, str, str]:
         """A number that names rather than counts is nominative; Czech labels and counts with "jedna"."""
@@ -1526,12 +1546,14 @@ class TextNormalizer:
         i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
 
         def closes(j: int) -> bool:  # an ordinal's period is no sentence end: "a 2. místo obsadil", "A 2. DÍLY VYŠLY"
-            return w[j].text in (",", ".", "!", "?", "…", ";", ":") and not (
+            return (w[j].text in (",", ".", "!", "?", "…", ";", ":") and not (
                 w[j].text == "." and 0 < j < len(w) - 1 and w[j - 1].end == w[j].start
                 and (w[j - 1].text.isdigit() or re.fullmatch(_ROMAN, w[j - 1].text))
                 and (w[j + 1].text[:1].islower() or (tags.capitals and j >= 2 and w[j - 2].upos == "CCONJ"
                                                     and not (j >= 3 and w[j - 3].text.isdigit()))
-                     or (j >= 2 and TextNormalizer._until(w[j - 2], tags.head_after(w[j].end), tags))))
+                     or (j >= 2 and TextNormalizer._until(w[j - 2], tags.head_after(w[j].end), tags))))) and not (
+                w[j].text == "," and j + 1 < len(w)  # a list's comma: "Dosáhl 5, 10 nebo 15 bodů"
+                and TextNormalizer._list_start(w[j + 1].start, tags) < w[j].start)
 
         for step, across in ((-1, False), (1, False), (-1, True)):
             if across and found:
@@ -1616,7 +1638,7 @@ class TextNormalizer:
             warn(self._cardinal(0, case, "feminine", "inanimate"), "subject or object of a verb that may agree with "
                  "zero, read as the " + ("subject" if case == NOM else "object") + "; check it")
             return case
-        conjunction = tags.before(start)
+        conjunction = tags.before(self._list_start(start, tags))  # "Petr a 5, 10 nebo 15 mužů"
         if conjunction is not None and conjunction.text.lower() in APPROXIMATORS:  # "Petr a asi 5 mužů"
             conjunction = tags.before(conjunction.start)
         first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
@@ -1727,9 +1749,10 @@ class TextNormalizer:
         unit = unit.rstrip(".")
         scale = unit.lower() in SCALES
         name = None if scale else self._unit(unit)[0]
-        if (self.language != "cs" or self._after_own_noun(start, tags)  # "Dosáhl rychlosti 120 km/h"
+        head = self._list_start(start, tags)  # "Dosáhl rychlosti 120, 130 nebo 140 km/h"
+        if (self.language != "cs" or self._after_own_noun(head, tags)  # "Dosáhl rychlosti 120 km/h"
                 or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS["cs"]))
-                or self._verb_case(start, self._preposition(start, tags), tags) != GEN):
+                or self._verb_case(start, self._preposition(head, tags), tags) != GEN):
             return None
         count = (integer or int(fraction.ljust(2, "0"))) if fraction else value * 10 ** SCALES.get(unit.lower(), 0)
         gender = SCALE_GENDERS["cs"][unit.lower()] if scale else NOUNS["cs"][name][0]
