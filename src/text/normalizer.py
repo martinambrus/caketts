@@ -604,6 +604,7 @@ class _Tags:
     def __init__(self, words: List[_Word], capitals: bool = False):
         self.words, self.capitals = words, capitals
         self.starts = [w.start for w in words]
+        self.list_starts: Dict[int, int] = {}
 
     def before(self, pos: int, skip: Tuple[str, ...] = ()) -> Optional[_Word]:
         i = bisect.bisect_left(self.starts, pos) - 1
@@ -1493,6 +1494,12 @@ class TextNormalizer:
         bodů nebo 15 bodů", "5 Kč, 10 Kč nebo 15 Kč". Two items with a comma alone are no list: "roku 1990, 5 dní", "5
         bodů, 10 minut před koncem"; after an item with a noun only such items follow: "5, 10 nebo 15 bodů, 3 jich
         odešlo"."""
+        if pos not in tags.list_starts:
+            tags.list_starts[pos] = TextNormalizer._scan_list(pos, tags)
+        return tags.list_starts[pos]
+
+    @staticmethod
+    def _scan_list(pos: int, tags: _Tags) -> int:
         w, i = tags.words, bisect.bisect_left(tags.starts, pos)
 
         def number(k: int) -> bool:

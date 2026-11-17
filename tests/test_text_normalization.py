@@ -62,6 +62,7 @@ def test_punctuation_and_empty(cs):
 
 # ---- added with Prompt 2.2 ------------------------------------------------------------------
 import logging
+import time
 
 from src.text.phonemizer import CzechSlovakPhonemizer
 
@@ -948,6 +949,14 @@ def test_reading_is_not_logged(caplog, language, text, expected):
 def test_line_structure_and_headings(cs):
     text, expected = HEADINGS
     assert cs.normalize(text) == expected
+
+
+def test_long_list_of_noun_phrases_is_read_quickly(cs):  # the time grew with the cube of the items: 12 s for 150
+    cs.normalize("Mám 5 jablek.")
+    start = time.time()
+    out = cs.normalize("Dosáhl " + ", ".join(f"{n} bodů" for n in range(5, 150)) + " nebo 150 bodů.")
+    assert time.time() - start < 3
+    assert out.startswith("Dosáhl pěti bodů, šesti bodů, sedmi bodů, ") and out.endswith(" nebo sto padesáti bodů.")
 
 
 @pytest.mark.parametrize("text", ["Četl <en>Apollo 13</en>.", "Firma <en>R&D</en>.",
