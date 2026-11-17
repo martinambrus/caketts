@@ -648,6 +648,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "preposition-of-a-list-of-numbers": (
         "cs", None, "Byl tam bez 5 nebo 10 lidí. Stál mezi 1 a 2 stromy. Šel bez 5, 10 nebo 15 lidí.",
         "Byl tam bez pěti nebo deseti lidí. Stál mezi jedním a dvěma stromy. Šel bez pěti, deseti nebo patnácti lidí."),
+    "zero-before-a-unit": (
+        "cs", None, "Při 0 °C voda mrzne. Koupil to za 0 Kč. Přijdu v 0 h. Po 0:00 odešel.",
+        "Při nula stupních Celsia voda mrzne. Koupil to za nula korun. Přijdu v nula hodin. Po nula hodinách odešel."),
+    "guard-zero-genitive-before-a-unit": ("cs", None, "Do 0 °C. Bez 0 Kč.", "Do nuly stupňů Celsia. Bez nuly korun."),
     "unit-after-a-written-scale-word": (
         "cs", None, "Mám 5 milionů Kč, 2 tisíce € a 5 tisíc m².",
         "Mám pět milionů korun, dva tisíce eur a pět tisíc metrů čtverečních."),

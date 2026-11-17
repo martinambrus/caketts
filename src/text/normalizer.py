@@ -888,7 +888,8 @@ class TextNormalizer:
                 if (m["commascale"] or "").lower() == "tis" and self.language == "sk":  # "dvetisíc": one word each
                     head = [self._measure(part, m["commascale"], start, tags, text, end, comma=False) for part in parts[:-1]]
                 else:
-                    head = [self._cardinal(int(part), case, gender, "inanimate") for part in parts[:-1]]
+                    head = [self._cardinal(int(part), self._count_case(int(part), case), gender, "inanimate")
+                            for part in parts[:-1]]
                 words = ", ".join(head + [self._measure(parts[-1], m["commascale"] or m["commaunit"], start, tags, text,
                                                         end, scale_unit=m["commascaleunit"])])
                 if m["commaper"] or m["commascaleper"]:
@@ -1083,7 +1084,8 @@ class TextNormalizer:
                 words.append(self._minutes(int(second), NOM))
             return " ".join(words)
         case = case or NOM
-        words = [self._cardinal(hour, case, "feminine", "inanimate") if hour or case not in (NOM, ACC) else "nula"]
+        words = [self._cardinal(hour, self._count_case(hour, case), "feminine", "inanimate")
+                 if hour or case not in (NOM, ACC) else "nula"]
         mcase = case if self.language == "cs" and case not in (NOM, ACC) else NOM
         if minute or second:  # digital: "dvě patnáct třicet" for 2:15:30
             words.append(self._minutes(minute, mcase))
@@ -1115,7 +1117,8 @@ class TextNormalizer:
                           else NOUNS[self.language][self._unit(unit)[0]][0])
                 case = self._governing_case(start, tags, high_amount, scale or unit, end) or self._unit_verb_case(
                     high_amount, scale or unit, start, end, text, tags, log=False) or NOM
-                words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
+                counted = self._cardinal(low, self._count_case(low, case), gender, "inanimate")
+                words = f"{self._signed(low_amount, counted)} {RANGE_WORD} {high}"
         else:
             if isinstance(value, str):  # _context counts whole numbers only
                 case, gender, animacy = NOM, "masculine", "inanimate"
@@ -1203,7 +1206,7 @@ class TextNormalizer:
                 UNIT_SUFFIXES[self.language].get(base, ""))
 
     def _counted(self, value: int, noun: str, case: str, adjective: Optional[str] = None) -> str:
-        number = self._cardinal(value, case, NOUNS[self.language][noun][0], "inanimate")
+        number = self._cardinal(value, self._count_case(value, case), NOUNS[self.language][noun][0], "inanimate")
         return f"{number} {self._noun_phrase(noun, abs(value), case, adjective)}"
 
     def _noun_phrase(self, noun: str, count: int, case: str, adjective: Optional[str] = None) -> str:
@@ -2081,6 +2084,11 @@ class TextNormalizer:
         return m.start(1), f"{_capitalise_like(m.group(1), rule[0])}{text[m.end(1):start]}{words}"
 
     # ---- num2words -------------------------------------------------------------------------
+    def _count_case(self, value, case: str) -> str:
+        """The case of a number before the noun it counts: a Czech "nula" stays undeclined but in the genitive ("za
+        nula korun", "při nula stupních", "v nula hodin"; "bez nuly bodů")."""
+        return NOM if value == 0 and case != GEN and self.language == "cs" else case
+
     def _cardinal(self, value, case: str, gender: str, animacy: str) -> str:
         return self._numbers.num2words(value, to="cardinal", gender=gender, case=case, animacy=animacy,
                                        **self.variants)
