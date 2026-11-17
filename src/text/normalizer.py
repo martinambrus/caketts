@@ -126,6 +126,8 @@ UNITS = {  # symbol -> noun in NOUNS
            "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolár", "USD": "dolár", "£": "libra"},
 }
+UNIT_WORDS = {language: {part.lower() for key in units for part in re.findall(r"[^\W\d_]+", key)}
+              for language, units in UNITS.items()}
 UNIT_SUFFIXES = {"cs": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celsia"},
                  "sk": {"km/h": " za hodinu", "m/s": " za sekundu", "°C": " Celzia"}}
 UNIT_ADJECTIVES = {"cs": {"²": "čtvereční", "³": "krychlový"}, "sk": {"²": "štvorcový", "³": "kubický"}}
@@ -166,6 +168,11 @@ FEMININE_ENDINGS = [(("a", "á"), ("ý",), "á"), (("é",), ("í",), "é"), (("a
 SK_ANIMAL_PLURALS = frozenset("vlci býci vtáci psi orli sokoli holubi levi tigri sloni barani kocúri "
                               "kohúti capi diviaci jeleni kanci ježkovia zajkovia macíkovia vtáčikovia "
                               "koníkovia psíčkovia kocúrikovia škrečkovia kohútikovia".split())
+# plurals of neuter dítě, oko, ucho that decline as feminines; a 1 sharing them is neuter: "jedno nebo dvě děti"
+NEUTER_PLURALS = {
+    "cs": frozenset("děti dětí dětem dětmi dětech oči očí očím očima očích uši uší uším ušima uších".split()),
+    "sk": frozenset("deti detí deťom deťmi deťoch oči očí očiam očami očiach uši uší ušiam ušami ušiach".split()),
+}
 
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone
@@ -181,6 +188,7 @@ LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative pl
 # Clock times: Czech "ve čtrnáct třicet" is accusative, Slovak "o štrnástej" locative,
 # whatever case the tagger gives the preposition.
 TIME_PREPOSITIONS = {"cs": {"v": ACC, "ve": ACC}, "sk": {"o": LOC}}
+DAY_TIMES = ("ráno", "dopoledne", "odpoledne", "večer")  # "ve dvě večer": a clock time, not the noun counted
 # a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
 # cardinal ("za dve pätnásť")
 # verbs of placing, after which a number that ends the sentence is a rank: "Skončil 2." -> "druhý"
@@ -198,7 +206,12 @@ DURATION_GENITIVES = frozenset({"vteřin", "sekund", "minut", "hodin", "dní", "
 # nouns of time whose nominative is also their accusative of time, so no subject: "Každý rok se akce zúčastní"
 TIME_NOUNS = frozenset({"rok", "den", "týden", "měsíc", "večer", "čas", "víkend", "okamžik", "moment", "podzim",
                         "život", "léto", "jaro", "ráno"})
-DIRECTION_VERBS = ("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
+# words that qualify a number after "a" without opening a clause of their own: "Petr a asi pět mužů", "s 2 kg a ~3 kg"
+APPROXIMATORS = frozenset({"~", "≈", "asi", "přibližně", "zhruba", "skoro", "téměř", "cca", "nejméně", "nejvýše",
+                           "alespoň", "aspoň", "až", "také", "též", "ještě", "jen", "pouze", "približne", "takmer",
+                           "najmenej", "ešte", "tiež", "aj", "len", "iba"})
+_APPROXIMATOR = "|".join(map(re.escape, sorted(APPROXIMATORS, key=len, reverse=True)))
+DIRECTION_VERBS =("postav", "polož", "vlož", "hodil", "hodí", "pověs", "schoval", "schová", "klesl", "klesá",
                    "klesn", "spadl", "spadn", "padl", "padá", "vstoup", "vešel", "vejd", "vjel", "vjed", "rozděl",
                    "zařad", "stoupl", "stoupá", "vystoup", "posad", "sedl", "lehl", "lehn", "umísti", "umísť",
                    "vrátil", "zapadl", "vlezl", "vběhl", "přiš", "přijd", "dal", "dá", "šel", "šla", "šli", "jde",
@@ -217,7 +230,8 @@ GENITIVE_VERBS = {"dosáh": None, "dosahov": None, "dosahuj": None, "dožil": "s
                   "dočká": "se", "dočkaj": "se", "vzd(?:al(?!ov|uj)|aj|á(?!l))": "se", "zúčastn": "se", "účastn": "se",
                   "bál": "se", "bojí": "se", "obával": "se", "obává": "se", "obávaj": "se", "všiml": "si", "všimn": "si",
                   "všímá": "si", "všímaj": "si", "dotkl": "se", "dotkn": "se", "dotýk": "se", "zbavil": "se", "zbav": "se",
-                  "týká": "se", "týkaj": "se", "týkal": "se", "týče": "se"}  # "obávají se", "dočkají se", "co se týče"
+                  "týká": "se", "týkaj": "se", "týkal": "se", "týče": "se",  # "obávají se", "dočkají se", "co se týče"
+                  "(?:ze|vy|o)?pt(?:al|á|aj|ej|at)": "se", "dot(?:áz|áž|az)": "se"}
 # Czech verbs with "na" and the accusative, not the locative the tagger gives "na": "Vzpomínal na XX. století"
 NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", "čekal", "čeká", "těšil", "těší",
                        "zapomněl", "zapomín", "díval", "dívá", "podíval", "spoléh", "spolehl", "upozorn", "narazil",
@@ -491,12 +505,13 @@ def _agree(a: "_Word", b: "_Word") -> bool:
 
 def _plain_nominative(w: "_Word") -> bool:
     """A word tagged nominative in a form no genitive singular shares, and no accusative of time ("každý rok", "akce"):
-    a masculine animate ("Petr"; not "soudce"), a feminine in -a, a singular "stroj" or "auto", "on", "kdo"."""
+    a masculine animate ("Petr", "Jiří"; not "soudce"), a feminine in -a, a singular "stroj" or "auto", "on", "kdo"."""
     form, feats = w.text.lower(), w.feats
     singular, gender = feats.get("Number") == "Sing", feats.get("Gender")
     return feats.get("Case") == "Nom" and form.isalpha() and (
         form in ("on", "ono", "oni", "ony", "kdo", "někdo", "nikdo")
-        or (gender == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě", "í")))
+        or (gender == "Masc" and feats.get("Animacy") == "Anim" and not form.endswith(("e", "ě"))
+            and not (form.endswith("í") and feats.get("Number") == "Plur"))
         or (gender == "Fem" and singular and form.endswith("a"))
         or (w.upos in ("NOUN", "PROPN") and singular and form not in TIME_NOUNS
             and ((gender == "Masc" and feats.get("Animacy") == "Inan") or (gender == "Neut" and form.endswith("o")))))
@@ -528,8 +543,8 @@ class _Word:
 class _Tags:
     """Tagger output with character offsets into the paragraph."""
 
-    def __init__(self, words: List[_Word]):
-        self.words = words
+    def __init__(self, words: List[_Word], capitals: bool = False):
+        self.words, self.capitals = words, capitals
         self.starts = [w.start for w in words]
 
     def before(self, pos: int, skip: Tuple[str, ...] = ()) -> Optional[_Word]:
@@ -653,7 +668,7 @@ class TextNormalizer:
         items = [m for m in items if not any((s < m.end() and m.start() < e)  # a verse may hold its book's span
                                              and not (m.re is self._verses and m.start() <= s and e <= m.end())
                                              for s, e in spans)]
-        tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [])
+        tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [], _all_capitals(text))
         out, pos, after_label, goes_on = [], 0, -1, -1
         for m in items:
             start, words = self._resolve(m, text, tags, after_label == m.start(), heading)
@@ -798,7 +813,8 @@ class TextNormalizer:
             else:  # "1,2,3 kg" -> "jeden, dva, tři kilogramy": the unit follows the last value, all agree with it
                 gender = (SCALE_GENDERS[self.language][m["commascale"].lower()] if m["commascale"]
                           else NOUNS[self.language][self._unit(m["commaunit"])[0]][0])  # "1,2,3 tis. Kč": tisíc's
-                case = self._governing_case(start, tags) or NOM
+                case = self._governing_case(start, tags) or self._unit_verb_case(
+                    parts[-1], m["commascale"] or m["commaunit"], start, end, text, tags, log=False) or NOM
                 if (m["commascale"] or "").lower() == "tis" and self.language == "sk":  # "dvetisíc": one word each
                     head = [self._measure(part, m["commascale"], start, tags, text, end, comma=False) for part in parts[:-1]]
                 else:
@@ -812,13 +828,13 @@ class TextNormalizer:
         elif kind == "range" and m["lowscale"]:  # "5 tis. Kč–10 tis. Kč", "5 tis. Kč/kg–10 tis. Kč/kg"
             words = f" {RANGE_WORD} ".join(
                 self._measure(m[end_], m[end_ + "scale"], start, tags, text, end, scale_unit=m[end_ + "scaleunit"],
-                              comma=False)
+                              comma=False, verb_log=end_ == "high")
                 + (f" {self._per(m[end_ + 'scaleper'])}" if m[end_ + "scaleper"] else "")
                 for end_ in ("low", "high"))
             self._check_comma(text, (start, end), words, m["low"], m["high"])
         elif kind == "range" and m["lowunit"]:  # "5 km–10 m", "5 Kč/kg–10 Kč/kg"
             words = f" {RANGE_WORD} ".join(
-                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end, comma=False)
+                self._measure(m[end_], m[end_ + "unit"], start, tags, text, end, comma=False, verb_log=end_ == "high")
                 + (f" {self._per(m[end_ + 'per'])}" if m[end_ + "per"] else "")
                 for end_ in ("low", "high"))
             self._check_comma(text, (start, end), words, m["low"], m["high"])
@@ -832,14 +848,16 @@ class TextNormalizer:
             scale = (m["moneyscale"] or m["highmoneyscale"] or "").lower() or None
             if m["lowmoneyscale"] and m["lowmoneyscale"].lower() != scale:  # "$500 tis.–$1 mil."
                 words = f" {RANGE_WORD} ".join(
-                    self._measure(amount, amount_scale, start, tags, text, end, scale_unit=m["symbol"])
-                    for amount, amount_scale in ((sign + price, m["lowmoneyscale"]),
-                                                 ((m["highsign"] or "") + _plain_price(m["pricehigh"]), scale)))
+                    self._measure(amount, amount_scale, start, tags, text, end, scale_unit=m["symbol"], verb_log=high)
+                    for amount, amount_scale, high in (
+                            (sign + price, m["lowmoneyscale"], False),
+                            ((m["highsign"] or "") + _plain_price(m["pricehigh"]), scale, True)))
             elif m["lowmoneyper"]:  # "$4/kg–$5/kg"
                 words = f" {RANGE_WORD} ".join(
-                    f"{self._measure(amount, m['symbol'], start, tags, text, end)} {self._per(per)}"
-                    for amount, per in ((sign + price, m["lowmoneyper"]),
-                                        ((m["highpersign"] or "") + _plain_price(m["highprice"]), m["highmoneyper"])))
+                    f"{self._measure(amount, m['symbol'], start, tags, text, end, verb_log=high)} {self._per(per)}"
+                    for amount, per, high in (
+                            (sign + price, m["lowmoneyper"], False),
+                            ((m["highpersign"] or "") + _plain_price(m["highprice"]), m["highmoneyper"], True)))
             elif m["pricehigh"]:  # "$5–10" -> "pět až deset dolarů"
                 words = self._range(m, sign + price, (m["highsign"] or "") + _plain_price(m["pricehigh"]),
                                     None if scale else m["symbol"],
@@ -989,13 +1007,15 @@ class TextNormalizer:
         if unit or scale:
             high = self._measure(high_amount, scale or unit, start, tags, text, end, scale_unit=scale_unit, comma=False)
             if unit and decimal and self._unit(unit)[0] in MINOR_UNITS[self.language]:  # "1,50–2,50 €"
-                words = f"{self._measure(low_amount, unit, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
+                low_words = self._measure(low_amount, unit, start, tags, text, end, comma=False, verb_log=False)
+                words = f"{low_words} {RANGE_WORD} {high}"
             elif scale and scale.lower() == "tis" and self.language == "sk":  # "dvetisíc až tritisíc": one word each
                 words = f"{self._measure(low_amount, scale, start, tags, text, end, comma=False)} {RANGE_WORD} {high}"
             else:
                 gender = (SCALE_GENDERS[self.language][scale.lower()] if scale
                           else NOUNS[self.language][self._unit(unit)[0]][0])
-                case = NOM if decimal else self._governing_case(start, tags) or NOM
+                case = NOM if decimal else (self._governing_case(start, tags) or self._unit_verb_case(
+                    high_amount, scale or unit, start, end, text, tags, log=False) or NOM)
                 words = f"{self._signed(low_amount, self._cardinal(low, case, gender, 'inanimate'))} {RANGE_WORD} {high}"
         else:
             if decimal:
@@ -1009,10 +1029,13 @@ class TextNormalizer:
         return words + (f" {self._per(per)}" if per else "")
 
     def _measure(self, amount: str, unit: str, start: int, tags: _Tags, text: str, end: int,
-                 whole: bool = False, scale_unit: Optional[str] = None, comma: bool = True) -> str:
-        """comma: log a "2,000" read as a decimal (a range checks both ends itself)."""
+                 whole: bool = False, scale_unit: Optional[str] = None, comma: bool = True,
+                 verb_log: bool = True) -> str:
+        """comma: log a "2,000" read as a decimal (a range checks both ends itself); verb_log: log a genitive
+        verb's doubt (a range logs it at its upper end only)."""
         value, integer, fraction = _parse(amount)
-        case = self._governing_case(start, tags)
+        case = self._governing_case(start, tags) or self._unit_verb_case(amount, unit, start, end, text, tags,
+                                                                         log=verb_log)
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1105,7 +1128,10 @@ class TextNormalizer:
         value = _parse(m["ordinalvalue"])[1]  # "1 000. návštěvník"
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
         prev = tags.before(m.start())
-        attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT")  # "Beethovenova 5. Symfonie"
+        # "Beethovenova 5. Symfonie"; in capitals also after a conjunction ("A 2. DÍLY VYŠLY"), but not one between
+        # cardinals ("V LETECH 1914 A 1918. VÁLKA SKONČILA")
+        attributive = prev is None or prev.upos in ("ADJ", "DET", "ADP", "PUNCT") or (
+            prev.upos == "CCONJ" and tags.capitals and not getattr(tags.before(prev.start), "text", "").isdigit())
         # after a preposition, a capitalised noun in its case is the ordinal's noun even when tagged a name
         # ("V 5. Symfonii"); a nominative one before a verb starts a sentence ("Přišel v 5. Symfonie začala.")
         after_preposition = prev is not None and prev.upos == "ADP" and nxt is not None
@@ -1170,8 +1196,24 @@ class TextNormalizer:
                 or re.search(rf"\d{_HS}*[~≈]$", before) or re.match(f"[~≈]{_OPERAND}", after)):
             return self._label(value)  # "č. 5", "#1", "tři krát čtyři", "2023/2024", "1≈2"; not "s ≈5 lidmi"
         prep_case = self._preposition_case(start, tags)
-        own = tags.head_after(end)
-        noun = own or self._shared_count_head(end, tags)
+        own = noun = tags.head_after(end)
+        if noun is None:
+            od = getattr(self._preposition(start, tags), "text", "").lower() in ("od", "ode")  # also "od asi 1 do 2 h"
+            link = (rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)"
+                    rf"(?:(?i:{_APPROXIMATOR}){_HS}*)?(?P<later>[-−–+]?{_UNSIGNED})")  # "1 nebo asi 2 h"
+            unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
+            later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
+            if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
+                unit_gender = NOUNS[self.language][self._unit(later_unit["unit"])[0]][0]
+                unit_case = self._governing_case(start, tags) or self._unit_verb_case(
+                    later_unit["later"], later_unit["unit"], end + later_unit.start("later"),
+                    end + later_unit.end("unit"), text, tags, log=False)
+                words = self._cardinal(value, NOM, unit_gender, "inanimate")
+                if unit_case is None and (words != self._cardinal(value, ACC, unit_gender, "inanimate")
+                                          or (self.language == "cs" and self._verb_case(start, None, tags) == GEN)):
+                    self._warn(text, m, words, "no preposition; nominative")
+                return unit_case or NOM, unit_gender, "inanimate"
+            noun = self._shared_count_head(end, tags)
         case = gender = animacy = tagged_case = noun_case = None
         if noun is not None:
             gender, animacy = self._gender(noun)
@@ -1181,7 +1223,22 @@ class TextNormalizer:
             elif (tagged_case in PLURAL_ENDINGS and noun.feats.get("Number") == "Plur"
                     and not noun.text.lower().endswith(PLURAL_ENDINGS[tagged_case])):
                 tagged_case = GEN  # "o 5 minút": a genitive plural tagged with the preposition's case
-            if self._number_fits(value, noun):
+            approximator = tags.before(start)
+            if (approximator is not None and approximator.text.lower() in APPROXIMATORS and tagged_case != NOM
+                    and noun.feats.get("Number") == "Plur"):
+                # "s 5 lidmi a ~3 psy": past "~" CAC loses the case that "a" shares with the earlier noun; but after
+                # a clause's verb, a verb after the amount opens a new clause ("a skoro 2 hodiny tam zůstal")
+                link = tags.before(approximator.start)
+                earlier = tags.before(link.start) if link is not None and link.upos == "CCONJ" else None
+                if (earlier is not None and earlier.upos == "NOUN"
+                        and not (self._verb_follows(end, tags) and self._verb_before(earlier.start, tags, True))):
+                    shared_case = _UD_CASES.get(earlier.feats.get("Case"))
+                    if shared_case in PLURAL_ENDINGS and noun.text.lower().endswith(PLURAL_ENDINGS[shared_case]):
+                        tagged_case = shared_case
+            if (self.language == "cs" and noun.feats.get("Gender") == "Neut" and noun.text.lower().endswith("í")
+                    and self._count_form(value) == "gen_pl"):
+                tagged_case = noun_case = GEN  # "pět vítězství": one form for most cases, after 5 a genitive plural
+            elif self._number_fits(value, noun):
                 noun_case = tagged_case
         prep = self._preposition(start, tags)
         if (self.language == "cs" and prep is not None and prep.text.lower() in TWO_CASE_PREPOSITIONS
@@ -1201,6 +1258,13 @@ class TextNormalizer:
             case = GEN  # "bez pěti jablek", "do dvou hodin"
         elif prep_case and self._ends_in_scale_noun(value):
             case = prep_case  # "s tisícem lidí": after tisíc the noun is genitive in every case
+        elif (prep is not None and prep.text.lower() in ("v", "ve") and self.language == "cs" and 0 <= value <= 24
+              and (noun is None or noun.text.lower() in DAY_TIMES) and not re.match(rf"{_HS}+ze?{_HS}", text[end:])):
+            # after "v" a bare number is a clock time ("Přišel v pět", "ve dvě večer"); an age would be "v pěti"
+            if not re.match(rf"{_HS}+(?:{'|'.join(DAY_TIMES)}|v noci){_NOT_LETTER_AFTER}", text[end:]):
+                self._warn(text, m, self._cardinal(value, ACC, "feminine", "inanimate"),
+                           "time (v pět) or age (v pěti), read as a time; check it")
+            return ACC, "feminine", "inanimate"
         elif prep_case:
             # "ve dvě hodiny", "v pět hodin": the tagger often gives v/na/o the locative here
             case = ACC if prep_case == ACC or tagged_case in (NOM, ACC, GEN) else prep_case
@@ -1216,58 +1280,11 @@ class TextNormalizer:
                 # 1–4 agree with their noun ("dva body"), so a genitive one is governed: "Dosáhl dvou bodů"; a genitive
                 # plural never ends like -a, -e, -i, -o, -y, so "skoro 2 hodiny" tagged genitive is not one
                 case = GEN
-            elif noun_case == GEN and abs(value) >= 5 and self.language == "cs" and self._verb_case(start, prep, tags) == GEN:
-                # from 5 the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter singular
-                # verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
-                verb = self._clause_verb(start, tags)
-                feats = verb.feats
-                conjunction = tags.before(start)
-                first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
-                nominative = first is not None and first.feats.get("Case") == "Nom"
-                # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
-                # "a" joining the verb to another predicate ("Petr přijde a dosáhne pěti bodů"); not before "a 5 mužů"
-                subject = shared = False
-                if verb.start < start:
-                    words = self._clause_before(verb.start, tags)
-                    stop = tags.before(words[-1].start if words else verb.start)
-                    subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
-                        w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
-                        + self._clause_after(noun.end, tags))
-                    if not subject and stop is not None and stop.upos == "CCONJ" and all(
-                            w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
-                        subject = shared = any(_plain_nominative(w) and _agree(verb, w)
-                                               for w in self._clause_before(stop.start, tags))
-                # a conjunct of the subject: the verb agrees with it ("Cíle dosáhl Petr a pět mužů") or, plural for
-                # both, has its gender ("dosáhli"); a present verb has none, so its plural tells nothing
-                if nominative and not subject and (_agree(verb, first) or (
-                        feats.get("Number") == "Plur" and feats.get("Gender") is not None
-                        and all(feats.get(f) == first.feats.get(f) for f in ("Gender", "Animacy")))):
-                    case = NOM
-                elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
-                    case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
-                elif feats.get("Gender") is None:
-                    # a present verb shows no gender, but a subject before the number does: "Petr dosáhne pěti bodů"
-                    case = GEN if subject else NOM
-                elif (start < verb.start and feats.get("Number") == "Plur"
-                      and noun.feats.get("Gender") in (feats.get("Gender") or "").split(",")
-                      and (noun.feats.get("Gender") != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy"))):
-                    case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
-                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
-                               "subject of a plural verb, as people say, or an object put first; check it")
-                else:
-                    case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
-                if case == NOM and feats.get("Gender") is None and feats.get("VerbForm") != "Inf":
-                    self._warn(text, m, self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
-                               "subject or object of a present genitive verb, read as the subject; check it")
-                elif case == GEN and nominative and not subject:  # unconfirmed by agreement ("dosáhla": two genders)
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "conjunct of a nominative subject or the verb's object, read as the object; check it")
-                elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "object of a subject shared across \"a\", or a new clause's subject; check it")
-                elif case == GEN and noun.text.lower() in DURATION_GENITIVES:
-                    self._warn(text, m, self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
-                               "time after a genitive verb, read as its object; a duration is the accusative; check it")
+            elif (noun_case == GEN and (abs(value) >= 5 or value == 0) and self.language == "cs"
+                  and self._verb_case(start, prep, tags) == GEN):
+                # from 5, and at 0, the noun is genitive anyway, so the verb tells: a numeral subject takes a neuter
+                # singular verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
+                case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
         if case is None and noun is None:
@@ -1311,11 +1328,14 @@ class TextNormalizer:
             1 < count < 5 or (self.language == "cs" and self._verb_case(pos, prep, tags) == GEN))
 
     def _shared_count_head(self, pos: int, tags: _Tags) -> Optional[_Word]:
-        """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži"."""
+        """The noun of a later number that this one shares: "2 nebo 3 knihy", sk "2 alebo 3 muži", "od 1 do 2 hodin"."""
         i, w = bisect.bisect_left(tags.starts, pos), tags.words
-        if (i + 1 < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-"))
-                and w[i + 1].text.replace(" ", "").isdigit()):
-            return tags.head_after(w[i + 1].end) or self._shared_count_head(w[i + 1].end, tags)
+        od = i > 0 and getattr(tags.before(w[i - 1].start, skip=("ADV", "PART")), "text", "").lower() in ("od", "ode")
+        j = i + 2 if i + 1 < len(w) and w[i + 1].text.lower() in APPROXIMATORS else i + 1  # "1 nebo asi 2 knihy"
+        if (j < len(w) and (w[i].upos == "CCONJ" or w[i].text in (",", "–", "—", "-")
+                            or (od and w[i].text.lower() == "do"))
+                and w[j].text.replace(" ", "").isdigit()):
+            return tags.head_after(w[j].end) or self._shared_count_head(w[j].end, tags)
         return None
 
     @staticmethod
@@ -1375,6 +1395,8 @@ class TextNormalizer:
         return case, gender, animacy, plural, doubt
 
     def _gender(self, word: _Word) -> Tuple[Optional[str], Optional[str]]:
+        if word.feats.get("Number") == "Plur" and word.text.lower() in NEUTER_PLURALS[self.language]:
+            return "neuter", "inanimate"
         gender = _UD_GENDERS.get(word.feats.get("Gender", "").split(",")[0])
         if gender is None:
             return None, None
@@ -1403,10 +1425,12 @@ class TextNormalizer:
         A clause with no verb of its own shares the one before its conjunction: "Dosáhl cíle a 2. místa"."""
         i, w, found = bisect.bisect_left(tags.starts, pos), tags.words, []
 
-        def closes(j: int) -> bool:  # an ordinal's period is no sentence end: "a 2. místo obsadil"
+        def closes(j: int) -> bool:  # an ordinal's period is no sentence end: "a 2. místo obsadil", "A 2. DÍLY VYŠLY"
             return w[j].text in (",", ".", "!", "?", "…", ";", ":") and not (
-                w[j].text == "." and 0 < j < len(w) - 1 and w[j - 1].end == w[j].start and w[j + 1].text[:1].islower()
-                and (w[j - 1].text.isdigit() or re.fullmatch(_ROMAN, w[j - 1].text)))
+                w[j].text == "." and 0 < j < len(w) - 1 and w[j - 1].end == w[j].start
+                and (w[j - 1].text.isdigit() or re.fullmatch(_ROMAN, w[j - 1].text))
+                and (w[j + 1].text[:1].islower() or (tags.capitals and j >= 2 and w[j - 2].upos == "CCONJ"
+                                                    and not (j >= 3 and w[j - 3].text.isdigit()))))
 
         for step, across in ((-1, False), (1, False), (-1, True)):
             if across and found:
@@ -1470,6 +1494,132 @@ class TextNormalizer:
             return case in (ACC, LOC)  # the tagger gives v, na, o, po either case
         return case is not None and case == _UD_CASES.get(prep.feats.get("Case"))
 
+    def _genitive_verb_case(self, value: int, start: int, noun: _Word, text: str, where, tags: _Tags) -> str:
+        """Subject (NOM) or object (GEN) of a Czech genitive verb for a number counting `noun`; where=None logs nothing."""
+        gender, animacy = self._gender(noun)
+
+        def warn(reading: str, reason: str) -> None:
+            if where is not None:
+                self._warn(text, where, reading, reason)
+
+        verb = self._clause_verb(start, tags)
+        feats = verb.feats
+        if (value == 0 and "Fem" in (feats.get("Gender") or "") and "Sing" in (feats.get("Number") or "")
+                and self._no_subject_in_sight(verb, tags)):
+            # an "-la" verb also agrees with "nula": "Zúčastnila se nula lidí"; like a present verb
+            taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                           and noun.feats.get("VerbForm") != "Vnoun")
+            case = NOM if start < verb.start or taking_part else GEN
+            warn(self._cardinal(0, case, "feminine", "inanimate"), "subject or object of a verb that may agree with "
+                 "zero, read as the " + ("subject" if case == NOM else "object") + "; check it")
+            return case
+        conjunction = tags.before(start)
+        if conjunction is not None and conjunction.text.lower() in APPROXIMATORS:  # "Petr a asi 5 mužů"
+            conjunction = tags.before(conjunction.start)
+        first = tags.before(conjunction.start) if conjunction is not None and conjunction.upos == "CCONJ" else None
+        nominative = (first is not None and first.feats.get("Case") == "Nom" and first.text.isalpha()
+                      and first.text.lower() not in UNIT_WORDS[self.language])
+        # a subject in the verb's clause, also after the number ("Dosáhne pěti bodů právě Petr") or before an
+        # "a" joining it to another predicate; a number before the verb opens a clause: "Pěti chyb si nikdo"
+        subject = shared = False
+        if verb.start < start:
+            words = self._clause_before(verb.start, tags)
+            stop = tags.before(words[-1].start if words else verb.start)
+            subject = any(_plain_nominative(w) and _agree(verb, w) for w in words + [
+                w for w in self._clause_after(verb.end, tags) if w.start < start and w is not first]
+                + self._clause_after(noun.end, tags))
+            if not subject and stop is not None and stop.upos == "CCONJ" and all(
+                    w.upos in ("AUX", "ADV", "PART") or w.text.lower() in ("se", "si") for w in words):
+                subject = shared = any(_plain_nominative(w) and _agree(verb, w)
+                                       for w in self._clause_before(stop.start, tags))
+        else:
+            subject = any(_plain_nominative(w) and _agree(verb, w)
+                          for w in [w for w in self._clause_before(verb.start, tags) if w.start >= noun.end]
+                          + self._clause_after(verb.end, tags))
+        # "Báli jsme se 5 psů": an auxiliary in the first or second person is the subject
+        clause = self._clause_before(verb.start, tags) + self._clause_after(verb.end, tags)
+        subject = subject or any(w.upos == "AUX" and w.feats.get("Person") in ("1", "2") for w in clause)
+        # the verb agrees with the number in the plural, as people say: "Pět mužů dosáhli cíle"
+        noun_gender = noun.feats.get("Gender")
+        colloquial = (feats.get("Number") == "Plur" and noun_gender in (feats.get("Gender") or "").split(",")
+                      and (noun_gender != "Masc" or noun.feats.get("Animacy") == feats.get("Animacy")))
+        if subject:
+            case = GEN
+        elif nominative and _plain_nominative(first):
+            case = NOM  # "a" joins like cases: "Cíle dosáhla Eva a pět žen"; "vůdce" may be a genitive too
+        elif feats.get("VerbForm") == "Inf" or feats.get("Person") in ("1", "2"):
+            case = GEN  # "Chce dosáhnout pěti bodů": no numeral subject
+        elif feats.get("Gender") is None:
+            # a present verb shows no gender: with no subject the number is its subject before it ("Pět mužů
+            # dosáhne cíle") and its object after it ("Dosáhne pěti bodů"), but "Zúčastní se padesát lidí"
+            taking_part = (_affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+                           and noun.feats.get("VerbForm") != "Vnoun")  # an event: "padesáti jednání"
+            case = GEN if verb.start < start and not taking_part else NOM
+        elif colloquial and start < verb.start:
+            case = NOM  # before its verb the number is its subject also when the verb agrees in the plural
+            warn(self._cardinal(value, NOM, gender or "masculine", animacy or "inanimate"),
+                 "subject of a plural verb, as people say, or an object put first; check it")
+        else:
+            case = NOM if (feats.get("Gender"), feats.get("Number")) == ("Neut", "Sing") else GEN
+        if case == GEN and noun.text.lower() in DURATION_GENITIVES:
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "time after a genitive verb, read as its object; a duration is the accusative; check it")
+        elif (feats.get("Gender") is None and feats.get("VerbForm") != "Inf"
+              and feats.get("Person") not in ("1", "2") and (case == NOM or not subject)):
+            warn(self._cardinal(value, case, gender or "masculine", animacy or "inanimate"),
+                 "subject or object of a present genitive verb, read as the "
+                 + ("subject" if case == NOM else "object") + "; check it")
+        elif case == GEN and nominative and not subject:  # a nominative in a form a genitive shares
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "conjunct of a nominative subject or the verb's object, read as the object; check it")
+        elif case == GEN and shared and feats.get("Gender") is None:  # or "a" opens the number's clause
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "object of a subject shared across \"a\", or a new clause's subject; check it")
+        elif case == GEN and colloquial and not subject:  # "Cíle dosáhli pět mužů" is how people say it too
+            warn(self._cardinal(value, GEN, gender or "masculine", animacy or "inanimate"),
+                 "object, or the subject of a plural verb, as people say; check it")
+        return case
+
+    def _no_subject_in_sight(self, verb: _Word, tags: _Tags) -> bool:
+        """No plain nominative before `verb` and no first- or second-person auxiliary in its clause."""
+        before = self._clause_before(verb.start, tags)
+        return not any(_plain_nominative(w) for w in before) and not any(
+            w.upos == "AUX" and w.feats.get("Person") in ("1", "2") for w in before + self._clause_after(verb.end, tags))
+
+    def _unit_verb_case(self, amount: str, unit: str, start: int, end: int, text: str, tags: _Tags,
+                        log: bool = True) -> Optional[str]:
+        """After a Czech genitive verb an amount with a unit is its subject or object as a counted noun is."""
+        value, integer, fraction = _parse(amount)
+        unit = unit.rstrip(".")
+        scale = unit.lower() in SCALES
+        name = None if scale else self._unit(unit)[0]
+        before = tags.before(start, skip=("ADV", "PART"))
+        own = (before is not None and before.upos == "NOUN" and before.feats.get("Case") == "Gen"
+               and getattr(tags.before(before.start, skip=("ADJ", "DET", "ADV", "PART")), "upos", None)
+               not in ("ADP", "NOUN", "PROPN"))  # "Dosáhl rychlosti 120 km/h": the amount describes the noun
+        if (self.language != "cs" or own
+                or (fraction and (scale or len(fraction) > 2 or name not in MINOR_UNITS["cs"]))
+                or self._verb_case(start, self._preposition(start, tags), tags) != GEN):
+            return None
+        count = (integer or int(fraction.ljust(2, "0"))) if fraction else value * 10 ** SCALES.get(unit.lower(), 0)
+        gender = SCALE_GENDERS["cs"][unit.lower()] if scale else NOUNS["cs"][name][0]
+        verb = self._clause_verb(start, tags)
+        if (1 < integer < 5 and gender == "neuter" and "Neut" in (verb.feats.get("Gender") or "")
+                and "Plur" in (verb.feats.get("Number") or "") and self._no_subject_in_sight(verb, tags)):
+            # an "-la" verb is also a neuter plural: "Voleb se zúčastnila dvě procenta voličů"
+            taking_part = _affirmative(verb.text.lower()).startswith(("zúčastn", "účastn"))
+            case = NOM if start < verb.start or taking_part else GEN
+            if log:
+                self._warn(text, (start, end), self._cardinal(count, case, "neuter", "inanimate"),
+                           "subject or object of a verb that may be neuter plural, read as the "
+                           + ("subject" if case == NOM else "object") + "; check it")
+            return case
+        noun = tags.head_after(end)  # "60 % voličů" decides as "60 voličů"
+        if noun is None or noun.feats.get("Case") != "Gen":
+            noun = _Word(start, end, unit.lower() if scale else NOUNS["cs"][name][1][7], "NOUN",
+                         {"Gender": {v: k for k, v in _UD_GENDERS.items()}[gender], "Animacy": "Inan"})
+        return self._genitive_verb_case(count, start, noun, text, (start, end) if log else None, tags)
+
     def _governing_case(self, pos: int, tags: _Tags) -> Optional[str]:
         """The case a preposition gives an amount at `pos`, also one shared with an earlier amount:
         "s 2 kg a 3 kg", "s 1 kg a 2–3 kg"."""
@@ -1485,20 +1635,25 @@ class TextNormalizer:
         """The preposition of an earlier time or amount that this one shares: sk "o 8.30 a 9.30 hod.",
         "od 2:00–3:00", "s 2 kg a 3 kg"."""
         i, w = bisect.bisect_left(tags.starts, pos) - 1, tags.words
+        # "Pracoval s 2 kg a asi 3 kg zůstaly": a verb after the amount, in a clause with its verb, opens a new one
+        opens = (i >= 0 and w[i].text.lower() in APPROXIMATORS and i + 1 < len(w)
+                 and self._verb_follows(w[i + 1].end, tags))
+        while i >= 0 and w[i].text.lower() in APPROXIMATORS:  # "s 2 kg a ~3 kg"
+            i -= 1
         if i < 0 or w[i].text.lower() not in ("a", "nebo", "alebo", ",", "–", "—", "-"):
             return None
-        unit_words = {part.lower() for key in UNITS[self.language] for part in re.findall(r"[^\W\d_]+", key)}
         while i >= 0:
             text = w[i].text
             if w[i].upos == "ADP" and not (i > 0 and w[i - 1].text == "/"):  # the "s" of "m/s" is no preposition
-                return w[i]
+                return None if opens and self._verb_before(w[i].start, tags, True) else w[i]
             if text in (".", "!", "?", "…") and not (text == "." and 0 < i < len(w) - 1 and (
                     (w[i - 1].text.isdigit() and w[i + 1].text.isdigit() and w[i + 1].start == w[i].end)  # "8.30"
                     or ((re.fullmatch(_HOUR_WORD, w[i - 1].text.lower()) or w[i - 1].text.lower() in SCALES)
                         and not w[i + 1].text[:1].isupper()))):  # "hod.–3:00", but "s 2 kg. A 3 kg"
                 return None
             if not (text.isdigit() or not any(ch.isalnum() for ch in text) or text.lower() in ("a", "nebo", "alebo")
-                    or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in unit_words or text.lower() in SCALES):
+                    or re.fullmatch(_HOUR_WORD, text.lower()) or text.lower() in UNIT_WORDS[self.language]
+                    or text.lower() in SCALES):
                 return None
             i -= 1
         return None
