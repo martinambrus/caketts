@@ -14,9 +14,6 @@ Readings checked on 825ae8d; N74 and N71 re-checked on b83ec25.
 | N71 | sk `Mám 5 miliónov €.` | ValueError | `päť miliónov eur` |
 | N53 | `Záleží na 5 %.` / `Po 5 km zastavil.` | `na pět procent` / `Po pět kilometrů` | `na pěti procentech` / `Po pěti kilometrech` |
 | N58 | `Patřilo to Václavu II. Přemyslovci.` | `Václavu druhému. Přemyslovci.` | no sentence break |
-| N32 | `Zúčastňoval se 5 závodů.` / `Neboj se 5 psů.` | `pět` | `pěti` |
-| N22 | sk `Týka sa to 5 ľudí.` / `Bál sa 5 psov.` | `päť` | `piatich` |
-| N29 | sk `Získal 2 body.` | `dve body` | `dva body` |
 | N65 | sk `Otvorené od 8 do 17 h.` | `od ôsmich do sedemnástich hodín` | `od ôsmej do sedemnástej` (user 2026-11-17: clock time for 13–23 or the `od` of such a span; logged) |
 | N68 | sk `Prídem o 1:00.` | `o prvej` | `o jednej` (user 2026-11-17) |
 | N91 | num2words variant values in book_config | not validated (not re-checked) | a bad value raises |
@@ -35,6 +32,15 @@ Numbers chain, 090f7f3..b83ec25 (one commit per step; N41 and N76 together).
 | N39 | `Stál mezi 1 a 2 stromy.` | `mezi jedním a dvěma` |
 | N44 | `Trvalo to 1 nebo 2 hodiny.` | `jednu nebo dvě` |
 | — | a list of n items cost O(n³) after the list commits (200 noun phrases: 26 s) | 0.36 s (b83ec25) |
+
+Slovak chain, c0dbec5..4910515.
+
+| id | input | now |
+|---|---|---|
+| N22 | sk `Týka sa to 5 ľudí.` / `Bál sa 5 psov.` | `piatich` |
+| N29 | sk `Získal 2 body.` | `dva body` |
+| N32 | `Zúčastňoval se 5 závodů.` / `Neboj se 5 psů.` | `pěti` |
+| — | sk `Zúčastnili sa 60 % voličov.` / `Vzdal sa 5 krát.` / `Zúčastnili sa 5 žien.` (regressions of the chain) | read or logged as the Czech twins |
 
 ## Parked
 
@@ -58,3 +64,8 @@ Numbers chain, 090f7f3..b83ec25 (one commit per step; N41 and N76 together).
   decimal nominative; `Za 0 tis. Kč` za nulu; `Pod 5, 10 nebo 15 stromy` (two-case preposition, no verb); `Uplynulo 1 nebo
   2 hodiny` jednu (ungrammatical input); `Dosáhl 3 gólů, 2 asistencí` dvě (N49 family); `Má 1 pravnuka` jedna (tagger);
   lists log once per number (log volume only, N5A trade-off).
+- Found by the Slovak chain (2026-11-17): sk `Zúčastní sa 5 pretekov` päť + log (no Slovak event list; N21 twin); sk
+  `Toho dňa sa bojí 5 psov` päť + log (no Slovak time genitives); `Bál sa 2 stretnutí` / `Bál se 2 setkání` dve/dvě (N7
+  family); sk `Zúčastnilo sa 2 alebo 50 ľudí` dvoch (personal masculine A = G); sk `Vzdal sa 5 percent mzdy` päť (SNK
+  tags `percent` singular); sk `Dočkal sa 5 vnúčat a 3 pravnúčat` tri (N49 family); `Dotkl se 2. prstem stolu` druhého;
+  `Viděl ho 2 krát` dvě krát.
