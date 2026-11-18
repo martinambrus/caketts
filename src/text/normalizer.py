@@ -186,12 +186,13 @@ NEUTER_PLURALS = {
 }
 
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
-# volume, masculine) for feminine, even alone
+# volume, masculine) for feminine, even alone, and "neskôr", "skôr" (later, sooner) for positive adverbs
 FEATURE_FIXES = {"cs": {},
                  "sk": {"diel": {"Gender": "Masc", "Animacy": "Inan", "Number": "Sing", "Case": "Nom"},
                         "diely": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
                         "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"},
-                        "body": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"}}}
+                        "body": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
+                        "neskôr": {"Degree": "Cmp"}, "skôr": {"Degree": "Cmp"}}}
 
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}
@@ -207,8 +208,12 @@ RANK_VERBS = {"cs": ("skončil", "doběhl", "dojel", "doplaval", "umístil", "by
 # a Slovak clock time after these has an ordinal hour ("o druhej", "pred druhou"); a duration keeps the
 # cardinal ("za dve pätnásť")
 SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medzi", "k", "ku", "na"})
-# the case of a Slovak afternoon hour of the day after these: "od ôsmej do sedemnástej", "po osemnástej"
-SK_CLOCK_CASES = {"od": GEN, "do": GEN, "po": LOC, "pred": INS, "okolo": GEN, "k": DAT, "ku": DAT, "medzi": INS}
+# the case of a Slovak hour of the day after these ("o piatej", but after the others only an afternoon hour):
+# "od ôsmej do sedemnástej", "po osemnástej"
+SK_CLOCK_CASES = {"o": LOC, "od": GEN, "do": GEN, "po": LOC, "pred": INS, "okolo": GEN, "k": DAT, "ku": DAT, "medzi": INS}
+# words whose "o" and a time is a shift or their object, no hour of the day: "posunúť o 1 h", "meškanie o 2 h"
+SK_SHIFT_WORDS = re.compile("posun|posúv|presun|presúv|odlož|odklad|predĺž|predlž|skrát|skrac|oneskor|mešk|zdrž|predbeh"
+                            "|predbieh|zaostal|zaostáv|urýchl|spomal|zmen|zvýš|zníž|rozdiel|pros|žiad|ide$|išlo$")
 CLOCK = "clock"  # the animacy _context gives a bare number that is an hour of the day: _cardinal reads it as one
 
 # Czech prepositions with the accusative of direction and the instrumental of place. A masculine plural in -y
@@ -1142,7 +1147,8 @@ class TextNormalizer:
                         log: bool = True) -> Optional[str]:
         """The case of sk "do 17 h" read as the hour of the day ("do sedemnástej"), or None. After od, do, po, pred,
         okolo, k or medzi only an afternoon hour (13 to 23) is one, and the "od" of a span that ends at one: "od 8 h
-        do 17 h"; any hour is one after a time: "od 8:30 do 12 h". "do 17 h" may be a span, so the reading is logged."""
+        do 17 h"; any hour is one after a time ("od 8:30 do 12 h") and after o, unless it shifts: "o 2 h neskôr".
+        "do 17 h" may be a span, so the reading is logged."""
         if (self.language != "sk" or not isinstance(value, int) or not unit
                 or not re.fullmatch(_HOUR_WORD, unit.lower())):
             return None
@@ -1152,16 +1158,32 @@ class TextNormalizer:
         until = (re.match(rf"\d+(?:{_HS}*{_HOUR_WORD})?{_HS}+(?i:{end_word}){_HS}+(\d+)", text[start:])
                  if end_word else None)
         hour, after = int(until[1]) if until else value, tags.after(end)  # a span decides at its end
-        any_hour = word == "do" and _TIME_BEFORE.search(text[:prep.start])  # "od 8:30 do 12 h": then any hour is one
+        any_hour = word == "o" or (word == "do" and _TIME_BEFORE.search(text[:prep.start]))  # "o 5 h": any hour is one
         if (word not in SK_CLOCK_CASES or not (hour in (range(25) if any_hour else range(13, 24)) and value <= hour)
                 or re.search(rf"(?<![\d.])(?<!\d,){_DECIMAL}(?![\d.])(?!,\d)", text[prep.end:end])
                 or (word == "do" and re.search(rf"{_DECIMAL}{_HS}+$", text[:prep.start]))
-                or (after is not None and after.upos in ("NOUN", "ADJ") and after.feats.get("Case") == "Gen")):
-            return None  # "od 8,5 do 17 h" and "po 18 h práce" count hours
+                or self._measured(after) or (word == "o" and (self._shifts(start, prep, after, tags) or re.match(
+                    rf"{_HS}+(?:a{_HS}+)?(?:\d+{_HS}*min(?:út|uty)?|pol){_NOT_LETTER_AFTER}", text[end:])))):
+            return None  # "od 8,5 do 17 h", "po 18 h práce", "o 2 h neskôr" and "o 2 h 30 min" count hours
         if log and until is None:
             self._warn(text, (start, end), self._clock_hour(value, SK_CLOCK_CASES[word]),
                        "hour of the day or a span, read as the hour; check it")
         return SK_CLOCK_CASES[word]
+
+    @staticmethod
+    def _measured(after: Optional[_Word]) -> bool:
+        """Whether the hours before `after` measure it: "po 18 h práce", "o 5 h spánku" (a genitive in -u or -ej is also the
+        locative, and the tagger takes it for one after "o" or "po")."""
+        return (after is not None and after.upos in ("NOUN", "ADJ") and after.text.lower() not in TIME_GENITIVES
+                and (after.feats.get("Case") == "Gen"
+                     or (after.feats.get("Case") == "Loc" and after.text.lower().endswith(("u", "ej")))))
+
+    def _shifts(self, start: int, prep: _Word, after: Optional[_Word], tags: _Tags) -> bool:
+        """Whether sk "o 2 h" is a shift or the object of a word, no hour of the day: "o 2 h neskôr", "posunúť o 1 h",
+        "meškanie o 2 h", "prosiť o 2 h"."""
+        return (getattr(after, "feats", {}).get("Degree") == "Cmp"
+                or any(w is not None and SK_SHIFT_WORDS.match(_affirmative(w.text.lower()))
+                       for w in (self._clause_verb(start, tags), tags.before(prep.start))))
 
     def _minutes(self, minute: int, case: str) -> str:
         words = self._cardinal(minute, case, "feminine", "inanimate")
@@ -1174,10 +1196,14 @@ class TextNormalizer:
         low, value = _parse(low_amount)[0], _parse(high_amount)[0]
         decimal = isinstance(low, str) or isinstance(value, str)  # decimals are read in the nominative
         prep, after = self._preposition(start, tags), tags.after(end)
+        word = getattr(prep, "text", "od").lower()
         if (self.language == "sk" and unit and not (scale or per or decimal) and re.fullmatch(_HOUR_WORD, unit.lower())
-                and 0 <= low <= value and 13 <= value <= 23 and getattr(prep, "text", "od").lower() == "od"
-                and not (after is not None and after.upos in ("NOUN", "ADJ") and after.feats.get("Case") == "Gen")):
-            words = f"{self._clock_hour(low, GEN)} do {self._clock_hour(value, GEN)}"  # sk "8–17 h": opening hours
+                and 0 <= low <= value and not self._measured(after)
+                and ((word == "od" and 13 <= value <= 23)
+                     or (word == "o" and all(self._afternoon_hour(v, unit, start, end, text, tags, log=False)
+                                             for v in (low, value))))):
+            case, link = (GEN, "do") if word == "od" else (LOC, RANGE_WORD)  # sk "8–17 h": opening hours, "o 5–6 h"
+            words = f"{self._clock_hour(low, case)} {link} {self._clock_hour(value, case)}"
             words = words if prep is not None else f"od {words}"
             self._warn(text, (start, end), words, "hour of the day or a span, read as the hour; check it")
         elif unit or scale:

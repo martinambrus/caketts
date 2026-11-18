@@ -825,6 +825,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
         "cs", None, "Otevřeno 8–17:30.", "Otevřeno osm až sedmnáct třicet."),
     "sk-colon-time-as-the-upper-end-of-a-dash-range": (
         "sk", None, "Otvorené 8–17:30.", "Otvorené osem až sedemnásť tridsať."),
+    "sk-hours-in-a-list-after-o-each-logged": ("sk", None, "Prídem o 5 h a 6 h.", "Prídem o piatej a šiestej."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -982,6 +983,18 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "sk", "Otvorené od 8.30 do 12 h.", "Otvorené od ôsmej tridsať do dvanástej.", "read as the hour"),
     "sk-hour-after-a-colon-time-before-do": (
         "sk", "Spal od 22:00 do 6 h.", "Spal od dvadsiatej druhej do šiestej.", "read as the hour"),
+    "sk-hour-after-o-before-a-genitive-time-noun": (
+        "sk", "Prídem o 5 h rána.", "Prídem o piatej rána.", "read as the hour"),
+    "sk-afternoon-hour-after-po-before-a-genitive-time-noun": (
+        "sk", "Prídem po 18 h večera.", "Prídem po osemnástej večera.", "read as the hour"),
+    "sk-hour-after-o": ("sk", "Prídem o 5 h.", "Prídem o piatej.", "read as the hour"),
+    "sk-hour-abbreviation-after-o": (
+        "sk", "Stretnutie bude o 10 hod. v kancelárii.", "Stretnutie bude o desiatej v kancelárii.",
+        "read as the hour"),
+    "sk-hours-in-a-list-after-o": ("sk", "Prídem o 5 alebo 6 h.", "Prídem o piatej alebo šiestej.", "read as the hour"),
+    "sk-hours-in-a-dash-span-after-o": ("sk", "Prídem o 5–6 h.", "Prídem o piatej až šiestej.", "read as the hour"),
+    "sk-dot-time-and-an-hour-after-o": (
+        "sk", "Prídem o 8.30 a 9 h.", "Prídem o ôsmej tridsať a deviatej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1084,6 +1097,19 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "Batéria vydrží do dvadsiatich hodín nepretržitej prevádzky."),
     "guard-sk-decimal-span-stays-a-count": (
         "sk", "Príde od 8,5 do 17 h.", "Príde od osem celých päť desatín do sedemnástich hodín."),
+    "guard-sk-o-before-a-comparative-keeps-the-span": ("sk", "Prídem o 2 h neskôr.", "Prídem o dve hodiny neskôr."),
+    "guard-sk-o-after-a-shift-verb-keeps-the-span": ("sk", "Posunuli to o 1 h.", "Posunuli to o jednu hodinu."),
+    "guard-sk-o-after-a-verb-with-an-object-keeps-the-span": ("sk", "Prosil o 2 h.", "Prosil o dve hodiny."),
+    "guard-sk-o-after-ide-keeps-the-span": ("sk", "Ide o 5 h.", "Ide o päť hodín."),
+    "guard-sk-o-before-a-genitive-noun-keeps-the-count": ("sk", "Prídem o 5 h práce.", "Prídem o päť hodín práce."),
+    "guard-sk-o-with-a-decimal-keeps-the-count": ("sk", "Prídem o 5,5 h.", "Prídem o päť celých päť desatín hodiny."),
+    "guard-sk-o-after-25-keeps-the-count": ("sk", "Prídem o 25 h.", "Prídem o dvadsaťpäť hodín."),
+    "sk-afternoon-hours-before-a-genitive-in-u-are-a-count": (
+        "sk", "Po 18 h spánku sa zobudil.", "Po osemnástich hodinách spánku sa zobudil."),
+    "guard-sk-o-with-minutes-keeps-the-span": ("sk", "Prídem o 2 h 30 min.", "Prídem o dve hodiny tridsať minút."),
+    "guard-sk-o-with-and-minutes-keeps-the-span": (
+        "sk", "Vrátim sa o 2 h a 30 min.", "Vrátim sa o dve hodiny a tridsať minút."),
+    "guard-sk-o-with-and-a-half-keeps-the-span": ("sk", "Prídem o 2 h a pol.", "Prídem o dve hodiny a pol."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
