@@ -8,6 +8,11 @@ when revived. New findings are added to one of the two lists as they are verifie
 
 None open: every kept task is fixed (2026-11-17).
 
+Pinned, its own task when taken up: Stanza 1.15.0 (Dependabot #12) changes 563 of 9,818 corpus readings with its new
+CAC and SNK models and fails 19 tests, so `pyproject.toml` holds `stanza<1.15`. Upgrading means going through those
+readings and retuning the normalizer to the new tags. Its security alert (unrestricted pickle in the lemmatizer
+checkpoint loader) does not reach caketts, which loads only the default `tokenize,pos` models (dismissed 2026-11-18).
+
 ## Fixed
 
 Numbers chain, 090f7f3..b83ec25 (one commit per step; N41 and N76 together).

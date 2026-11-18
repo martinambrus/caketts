@@ -98,7 +98,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "scipy", specifier = ">=1.18.1" },
     { name = "soundfile", specifier = ">=0.14.0" },
-    { name = "stanza", specifier = ">=1.14.0" },
+    { name = "stanza", specifier = ">=1.14.0,<1.15" },
     { name = "torch", specifier = ">=2.14.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torchaudio", specifier = ">=2.11.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "tqdm", specifier = ">=4.70.1" },
