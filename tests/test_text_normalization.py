@@ -1338,6 +1338,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-sk-genitive-singular-of-money-after-one": ("sk", "Hodnota 1 miliardy eur.", "Hodnota jednej miliardy eur."),
     "guard-sk-feminine-homograph-of-a-masculine-plural-is-left-alone": (
         "sk", "Cena 1 roboty je 5 eur.", "Cena jednej roboty je päť eur."),
+    "cs-great-great-grandson-is-masculine-animate": ("cs", "Má 1 prapravnuka.", "Má jednoho prapravnuka."),
+    "cs-great-great-grandsons-are-masculine-animate": ("cs", "Má 2 prapravnuky.", "Má dva prapravnuky."),
+    "sk-great-great-grandson-is-masculine-animate": ("sk", "Má 1 prapravnuka.", "Má jedného prapravnuka."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
