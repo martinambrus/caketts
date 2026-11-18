@@ -1341,6 +1341,14 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "cs-great-great-grandson-is-masculine-animate": ("cs", "Má 1 prapravnuka.", "Má jednoho prapravnuka."),
     "cs-great-great-grandsons-are-masculine-animate": ("cs", "Má 2 prapravnuky.", "Má dva prapravnuky."),
     "sk-great-great-grandson-is-masculine-animate": ("sk", "Má 1 prapravnuka.", "Má jedného prapravnuka."),
+    "cs-instrumental-hand-after-an-ordinal": (
+        "cs", "Chytil se 2. rukou za zábradlí.", "Chytil se druhou rukou za zábradlí."),
+    "guard-cs-genitive-plural-hands-stay-genitive": ("cs", "Chytil se z obou rukou.", "Chytil se z obou rukou."),
+    "guard-cs-counted-hands-after-a-preposition": ("cs", "Bez 2 rukou.", "Bez dvou rukou."),
+    "guard-cs-genitive-singular-hand-after-an-ordinal": ("cs", "Dotkl se 2. ruky.", "Dotkl se druhé ruky."),
+    "guard-cs-preposition-kolem-before-an-ordinal": ("cs", "Šel kolem 2. domu.", "Šel kolem druhého domu."),
+    "guard-cs-indeclinable-show-after-a-preposition": ("cs", "Bez 1 šou to nejde.", "Bez jedné šou to nejde."),
+    "guard-cs-indeclinable-show-after-a-verb": ("cs", "Moderoval 1 šou.", "Moderoval jednu šou."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

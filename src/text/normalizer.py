@@ -925,6 +925,10 @@ class TextNormalizer:
                 fixes = dict(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
                 tagged = fixes.pop("upos", w.upos)
                 feats.update(fixes)
+                # a feminine singular in -ou is an instrumental: "Chytil se 2. rukou" (but "šou" is indeclinable)
+                if (tagged == "NOUN" and feats.get("Gender") == "Fem" and feats.get("Number") == "Sing"
+                        and len(w.text) > 3 and w.text.lower().endswith("ou")):
+                    feats["Case"] = "Ins"
                 # CAC tags "–" as a noun at times; "~" and "≈" read "přibližně", so a preposition reaches past them
                 upos = "ADV" if texts[i] in ("~", "≈") else (tagged if any(ch.isalnum() for ch in w.text) else "PUNCT")
                 words.append(_Word(t.start(), t.end(), texts[i] if i in lowered else w.text, upos, feats))
