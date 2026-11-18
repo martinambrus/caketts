@@ -1412,6 +1412,20 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-sk-zero-sharing-its-noun-with-a-later-number-is-declined": (
         "sk", "Medzi 0 a 5 bodmi bol rozdiel.", "Medzi nulou a piatimi bodmi bol rozdiel."),
     "guard-cs-zero-opening-a-range-keeps-the-genitive": ("cs", "Od 0 do 5 bodů.", "Od nuly do pěti bodů."),
+    "roman-numeral-before-an-epithet-with-more-after-it": (
+        "cs", "Patřilo to Václavu II. Přemyslovci i jeho synovi.",
+        "Patřilo to Václavu druhému Přemyslovci i jeho synovi."),
+    "roman-numeral-before-an-epithet-after-a-coordinated-name": (
+        "cs", "Dali to Janu a Václavu II. Přemyslovci.", "Dali to Janu a Václavu druhému Přemyslovci."),
+    "roman-numeral-before-an-epithet-and-a-year": (
+        "cs", "Dali to Janu Lucemburskému a Václavu II. Přemyslovci v roce 1300.",
+        "Dali to Janu Lucemburskému a Václavu druhému Přemyslovci v roce tisíc tři sta."),
+    "guard-roman-numeral-before-coordinated-subjects": (
+        "cs", "Dal to Karlu IV. Dům a zahrada byly prázdné.", "Dal to Karlu čtvrtému. Dům a zahrada byly prázdné."),
+    "guard-roman-numeral-before-the-subject-of-a-new-sentence": (
+        "cs", "Dal to Karlu IV. Země byla chudá.", "Dal to Karlu čtvrtému. Země byla chudá."),
+    "guard-roman-numeral-before-a-capitalised-adjective-and-a-verb": (
+        "cs", "Za Karla IV. Velký požár vypukl v Praze.", "Za Karla čtvrtého. Velký požár vypukl v Praze."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

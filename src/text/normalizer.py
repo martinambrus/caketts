@@ -2315,12 +2315,22 @@ class TextNormalizer:
         return False
 
     @staticmethod
-    def _predicate_before(pos: int, tags: _Tags) -> bool:
+    def _predicate_before(pos: int, tags: _Tags, clause: bool = True) -> bool:
         """Whether the clause before `pos` has its verb: a finite verb or a copula, not an infinitive or an auxiliary
-        that waits for its participle: "Včera jsem s 2 kg a asi 3 kg pracoval"."""
+        that waits for its participle: "Včera jsem s 2 kg a asi 3 kg pracoval"; with `clause` False, the sentence."""
         return any((w.upos == "VERB" and w.feats.get("VerbForm") != "Inf")
                    or (w.upos == "AUX" and _affirmative(w.text.lower()) in PLACE_FORMS)
-                   for w in TextNormalizer._clause_before(pos, tags))
+                   for w in TextNormalizer._clause_before(pos, tags, clause))
+
+    @staticmethod
+    def _verb_ahead(pos: int, tags: _Tags) -> bool:
+        """Whether a finite verb or a copula comes before the end of the sentence at `pos`."""
+        for w in tags.words[bisect.bisect_left(tags.starts, pos):]:
+            if w.text in (".", "!", "?", "…"):
+                return False
+            if (w.upos == "VERB" and w.feats.get("VerbForm") != "Inf") or w.upos == "AUX":
+                return True
+        return False
 
     @staticmethod
     def _verb_follows(pos: int, tags: _Tags) -> bool:
@@ -2424,13 +2434,13 @@ class TextNormalizer:
             name = tags.before(start)  # an epithet agrees with the name it follows: not "Karla IV. Země vzkvétala"
             verb_follows, predicate = self._verb_follows(end, tags), self._predicate_before(start, tags)
             # an oblique name goes on into its epithet when the clause has its verb after it ("Václavu II. Přemyslovci
-            # patřilo Polsko") or ends with it ("Patřilo to Václavu II. Přemyslovci.")
-            goes_on = (name is not None and name.upos == "PROPN" and name.feats.get("Case") not in (None, "Nom")
-                       and word is not None
+            # patřilo Polsko") or has no verb after it ("Patřilo to Václavu II. Přemyslovci i jeho synovi.")
+            oblique = name is not None and name.upos == "PROPN" and name.feats.get("Case") not in (None, "Nom")
+            goes_on = (oblique and word is not None
                        and (name.feats.get("Gender") == word.feats.get("Gender") if word.upos == "NOUN"
                             else word.feats.get("Case") != "Nom")
                        and ((verb_follows and not predicate)
-                            or (predicate and getattr(tags.after(word.end), "text", ".") in (".", "!", "?", "…"))))
+                            or (self._predicate_before(start, tags, False) and not self._verb_ahead(word.end, tags))))
             return (word is None or word.upos not in ("NOUN", "PROPN", "ADJ")
                     or (not capitals and len(word.text) > 1 and word.text.isupper())  # "…IV. USA vznikly" is no name
                     or (word.upos == "NOUN" and not goes_on)
