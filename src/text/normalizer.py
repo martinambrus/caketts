@@ -489,7 +489,8 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"(?:(?P<scale>(?i:tis|mil|mld))\.?(?:{_HS}+{unit_per('scale')})?"
         rf"|{unit_per('')})"
         rf"{_NOT_LETTER_AFTER})"
-        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.)))"
+        rf"|(?P<ordinal>(?<![\d.,])(?P<ordinalvalue>{_INT})\.(?={_HS}*(?:[^\W\d_]|[–—-]{_HS}*\d|,{_HS}*\d+\.))"
+        rf"(?:{_HS}*(?P<ordinalhour>hod\.|h\.?){_NOT_LETTER_AFTER})?)"
         rf"|(?P<number>(?P<value>{_AMOUNT})(?:(?P<times>krát|x|×){_NOT_LETTER_AFTER}(?!{_HS}*[-−–+]?\d)"
         rf"|-?(?P<compound>[^\W\d_]*?(?:{_ADJECTIVE_ENDINGS})){_NOT_LETTER_AFTER})?)"
         rf"|(?P<scaledunit>(?<=\d{_HS})(?P<scaleword>(?i:{'|'.join(sorted(SCALE_NOUN_FORMS, key=len, reverse=True))}))"
@@ -1004,8 +1005,8 @@ class TextNormalizer:
             words = self._ordinal_digits(m, text, tags, after_label, heading)
         else:
             words = self._number(m, text, tags, after_label)
-        if (kind in ("range", "measure", "time", "money", "commas", "scaledunit") and m.group(0).endswith(".")
-                and self._ends_sentence(text, start, end, tags)):
+        if ((kind in ("range", "measure", "time", "money", "commas", "scaledunit") or m["ordinalhour"])
+                and m.group(0).endswith(".") and self._ends_sentence(text, start, end, tags)):
             words += "."  # the period of "min.", "mil." or "hod." also ends the sentence
         return self._vocalise(text, start, words)
 
@@ -1337,6 +1338,16 @@ class TextNormalizer:
 
     def _ordinal_digits(self, m: re.Match, text: str, tags: _Tags, after_label: bool, heading: bool) -> str:
         value = _parse(m["ordinalvalue"])[1]  # "1 000. návštěvník"
+        if m["ordinalhour"]:  # "kolem 13. h": the thirteenth hour
+            prep = self._preposition(m.start(), tags)
+            case = NOM
+            if prep:
+                case = (SK_CLOCK_CASES.get(prep.text.lower()) if self.language == "sk" else None) or _UD_CASES.get(
+                    prep.feats.get("Case"), NOM)
+            words = f"{self._ordinal(value, case, 'feminine', 'inanimate')} {self._noun_phrase('hodina', 1, case)}"
+            if not prep:
+                self._warn(text, m, words, "no preposition; nominative")
+            return words
         following, nxt = text[m.end():].lstrip(" \t\u00a0\u202f"), tags.after(m.end())
         prev = tags.before(m.start())
         until = self._until(prev, tags.head_after(m.end()), tags)  # "BOJOVAL AŽ 3. DEN PADL"
