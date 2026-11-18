@@ -1616,7 +1616,7 @@ class TextNormalizer:
                 self._warn(text, m, self._cardinal(value, INS, gender, animacy),
                            "za after going read as following (instrumental); a place behind is the accusative; check it")
             if decided:
-                return decided, gender, animacy
+                return (NOM if value == 0 and noun is own else decided), gender, animacy  # "před nula body"
         if noun_case in (DAT, INS, LOC):
             case = noun_case  # "s pěti přáteli"
         elif prep_case == GEN:

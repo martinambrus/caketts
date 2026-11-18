@@ -867,6 +867,17 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
         "Auto, ktoré zrazilo piatich mužov, ušlo."),
     "sk-agreement-object-of-a-neuter-pronoun-subject": (
         "sk", {"num2words": {"construction": "agreement"}}, "Ono videlo 5 mužov.", "Ono videlo piatich mužov."),
+    "cs-zero-before-counted-nouns-after-pred": (
+        "cs", None, "Mluvili jsme před 0 body.", "Mluvili jsme před nula body."),
+    "cs-zero-before-counted-nouns-after-mezi": ("cs", None, "Stál mezi 0 body.", "Stál mezi nula body."),
+    "cs-zero-before-counted-nouns-after-nad": ("cs", None, "Stál nad 0 body.", "Stál nad nula body."),
+    "guard-sk-zero-after-pred": ("sk", None, "Stál pred 0 bodmi.", "Stál pred nula bodmi."),
+    "guard-sk-zero-after-medzi": ("sk", None, "Stál medzi 0 bodmi.", "Stál medzi nula bodmi."),
+    "guard-cs-zero-opening-a-range-after-mezi": (
+        "cs", None, "Stál mezi 0 a 5 body.", "Stál mezi nulou a pěti body."),
+    "guard-cs-zero-after-a-verb-stays-declined": ("cs", None, "Dosáhl 0 bodů.", "Dosáhl nuly bodů."),
+    "guard-cs-clock-zero-after-od": (
+        "cs", None, "Pracuje od 0:00 do 6:00.", "Pracuje od nuly hodin do šesti hodin."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
