@@ -189,7 +189,7 @@ NEUTER_PLURALS = {
 SK_MASCULINE_PLURALS = ("bary batohy centy doplnky gély hrady kotly krby matrace mobily moduly monitory "
                         "notebooky nože náramky obedy oligosacharidy parky ploty plátky pomaranče "
                         "počiatky prahy preddavky priečinky proteíny prípravky reproduktory rožky "
-                        "sacharidy senzory snímky statky stavy titulky tuky turnaje vitamíny vodopády "
+                        "sacharidy senzory statky stavy titulky tuky turnaje vitamíny vodopády "
                         "vrhy výdaje výdavky výstupky zmätky zábery zákusky zásahy záväzky ústavy ústupky "
                         "účinky čaje žĺtky").split()
 SK_FEMININE_PLURALS = ("buchty bábiky celebrity cievy cyklotrasy dámy etikety eurozóny hypotéky kocky "

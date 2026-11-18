@@ -882,6 +882,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "cs-great-great-grandchildren-nominative-plural": (
         "cs", None, "Přišli 2 prapravnuci.", "Přišli dva prapravnuci."),
     "guard-cs-great-grandchildren-accusative-plural": ("cs", None, "Viděl 2 pravnuky.", "Viděl dva pravnuky."),
+    "sk-snimky-is-left-to-the-tagger": ("sk", None, "Má 2 snímky.", "Má dve snímky."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
