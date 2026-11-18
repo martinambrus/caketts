@@ -1246,6 +1246,15 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-po-until-a-length-is-the-accusative": ("sk", "Došiel až po 5 km.", "Došiel až po päť kilometrov."),
     "guard-sk-po-with-hours-is-after": ("sk", "Po 2 h nastal pokoj.", "Po dvoch hodinách nastal pokoj."),
     "guard-sk-po-with-kilometres-is-after": ("sk", "Po 5 km odbočil.", "Po piatich kilometroch odbočil."),
+    "sk-o-before-a-time-noun-keeps-the-span": ("sk", "Ušetril o 2 h času.", "Ušetril o dve hodiny času."),
+    "sk-o-after-a-noun-of-delay-and-a-copula-keeps-the-span": (
+        "sk", "Meškanie vlaku je o 2 h.", "Meškanie vlaku je o dve hodiny."),
+    "sk-o-after-a-noun-of-delay-and-a-future-copula-keeps-the-span": (
+        "sk", "Meškanie vlaku bude o 2 h.", "Meškanie vlaku bude o dve hodiny."),
+    "sk-o-after-a-verb-of-growth-keeps-the-span": ("sk", "Vzrástol o 2 h.", "Vzrástol o dve hodiny."),
+    "sk-o-after-a-noun-of-difference-and-a-copula-keeps-the-span": (
+        "sk", "Rozdiel je o 2 h.", "Rozdiel je o dve hodiny."),
+    "o-after-a-news-noun-and-a-copula-is-the-topic": ("cs", "Zpráva je o 5 %.", "Zpráva je o pěti procentech."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

@@ -213,7 +213,8 @@ SK_CLOCK_PREPOSITIONS = frozenset({"o", "po", "pred", "okolo", "od", "do", "medz
 SK_CLOCK_CASES = {"o": LOC, "od": GEN, "do": GEN, "po": LOC, "pred": INS, "okolo": GEN, "k": DAT, "ku": DAT, "medzi": INS}
 # words whose "o" and a time is a shift or their object, no hour of the day: "posunúť o 1 h", "meškanie o 2 h"
 SK_SHIFT_WORDS = re.compile("posun|posúv|presun|presúv|odlož|odklad|predĺž|predlž|skrát|skrac|oneskor|mešk|zdrž|predbeh"
-                            "|predbieh|zaostal|zaostáv|urýchl|spomal|zmen|zvýš|zníž|rozdiel|pros|žiad|ide$|išlo$")
+                            "|predbieh|zaostal|zaostáv|urýchl|spomal|zmen|zvýš|zníž|rozdiel|pros|žiad|ide$|išlo$"
+                            "|vzrás|vzrast|stúp|kles|pokles|nárast|narás|narast|pribud|ubud|zlacn|líš")
 CLOCK = "clock"  # the animacy _context gives a bare number that is an hour of the day: _cardinal reads it as one
 
 # Czech prepositions with the accusative of direction and the instrumental of place. A masculine plural in -y
@@ -232,6 +233,7 @@ TIME_GENITIVES = frozenset({"dne", "dnu", "roku", "týdne", "měsíce", "večera
                             "jara", "podzimu", "zimy", "noci", "času", "víkendu", "chvíle", "doby", "pondělí", "úterý", "středy",
                             "čtvrtka", "pátku", "soboty", "neděle", "dňa", "roka", "týždňa", "mesiaca", "dopoludnia",
                             "popoludnia", "leta"})
+TIME_MEASURES = frozenset({"času", "doby", "chvíle"})  # time genitives that hours before them count: "o 2 h času"
 # events, which one takes part in, after a number: "Zúčastní se pěti závodů"
 EVENT_GENITIVES = frozenset({"akcí", "bitev", "debat", "diskusí", "etap", "festivalů", "her", "koncertů", "konferencí",
                              "kongresů", "kol", "kurzů", "mistrovství", "olympiád", "porad", "přednášek", "schůzí",
@@ -288,7 +290,8 @@ TIME_UNITS = ("h", "hod", "min", "s", "sek")
 # words of a difference, after which "o" and an amount is the accusative, which the taggers give the locative at times:
 # "Zpoždění o 2 h", sk "Meškanie o 2 h"
 O_DIFFERENCE_WORDS = ("zpožd", "zpozd", "opožd", "opozd", "prodlouž", "prodluž", "zkrát", "posun", "přesun", "mešk",
-                      "oneskor", "predĺž", "skrát", "presun", "zvýš", "zníž", "zdraž", "odchýl", "zrýchl")
+                      "oneskor", "predĺž", "skrát", "presun", "zvýš", "zníž", "zdraž", "odchýl", "zrýchl", "rozdíl",
+                      "rozdiel")
 # words of speaking and writing about something, after which "o" and an amount is the locative: "Mluvili o 5 %"
 O_TOPIC_WORDS = re.compile(r"mluv|hovoř|povíd|vypráv|(?:na)?ps(?:al|á)|píš|četl|čte$|čtou$|slyš|vědě[lt]|vědí|ví$"
                            r"|inform|zmín|zmiň|diskut|debat|jednal(?!o)|jedna[jt]|uvažuj|uvažov|přemýšl|hlasov|dozvěd"
@@ -1220,7 +1223,8 @@ class TextNormalizer:
     def _measured(after: Optional[_Word]) -> bool:
         """Whether the hours before `after` measure it: "po 18 h práce", "o 5 h spánku", "po 20 h jazdy" (after "o" or "po"
         the tagger takes a genitive in -u, -ej or -y for a locative, but also an adverb: "po 14 h denne")."""
-        return (after is not None and after.upos in ("NOUN", "ADJ") and after.text.lower() not in TIME_GENITIVES
+        return (after is not None and after.upos in ("NOUN", "ADJ")
+                and (after.text.lower() not in TIME_GENITIVES or after.text.lower() in TIME_MEASURES)
                 and (after.feats.get("Case") == "Gen"
                      or (after.feats.get("Case") == "Loc" and after.text.lower().endswith(("u", "ej", "y")))))
 
@@ -1232,10 +1236,19 @@ class TextNormalizer:
 
     def _shifts(self, start: int, prep: _Word, after: Optional[_Word], tags: _Tags) -> bool:
         """Whether sk "o 2 h" is a shift or the object of a word, no hour of the day: "o 2 h neskôr", "posunúť o 1 h",
-        "meškanie o 2 h", "prosiť o 2 h"."""
+        "meškanie o 2 h", "meškanie vlaku je o 2 h", "prosiť o 2 h"."""
         return (getattr(after, "feats", {}).get("Degree") == "Cmp"
-                or any(w is not None and SK_SHIFT_WORDS.match(_affirmative(w.text.lower()))
-                       for w in (self._clause_verb(start, tags), tags.before(prep.start))))
+                or any(w is not None and (SK_SHIFT_WORDS.match(_affirmative(w.text.lower()))
+                                          or _affirmative(w.text.lower()).startswith(O_DIFFERENCE_WORDS))
+                       for w in (self._clause_verb(start, tags), tags.before(prep.start),
+                                 self._clause_subject(prep.start, tags))))
+
+    def _clause_subject(self, pos: int, tags: _Tags) -> Optional[_Word]:
+        """The nearest nominative noun before `pos` in a clause whose verb is a copula: "Meškanie vlaku je o 2 h", but
+        not "Meškanie nastalo o 5 h"."""
+        verb = self._clause_verb(pos, tags)
+        return None if verb is not None and verb.upos != "AUX" else next(
+            (w for w in self._clause_before(pos, tags) if w.upos == "NOUN" and w.feats.get("Case") == "Nom"), None)
 
     def _minutes(self, minute: int, case: str) -> str:
         words = self._cardinal(minute, case, "feminine", "inanimate")
@@ -2108,7 +2121,8 @@ class TextNormalizer:
             return LOC  # after or each, tagged accusative: "po pěti minutách", "po pěti korunách"
         if prep.text.lower() == "o" and unit and end:
             after, before = tags.after(end), tags.before(prep.start)
-            words = [before] if before is not None and before.upos == "NOUN" else [before, self._clause_verb(pos, tags)]
+            words = ([before] if before is not None and before.upos == "NOUN"
+                     else [before, self._clause_verb(pos, tags), self._clause_subject(prep.start, tags)])
             words = [_affirmative(w.text.lower()) for w in words if w is not None]
             if (after is not None and after.feats.get("Degree") == "Cmp") or any(
                     w.startswith(O_DIFFERENCE_WORDS) for w in words):
