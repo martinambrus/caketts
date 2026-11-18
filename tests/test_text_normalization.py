@@ -812,6 +812,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-afternoon-span-from-a-morning-hour": (
         "sk", None, "Príde medzi 9 a 17 h.", "Príde medzi deviatou a sedemnástou."),
     "sk-afternoon-span-in-capitals": ("sk", None, "PRÍDE OD 8 DO 17 H.", "PRÍDE OD ôsmej DO sedemnástej."),
+    "dot-times-after-an-approximator": (
+        "cs", None, "Přišel v 8.30, asi 9.30 a 10.30 hod.", "Přišel v osm třicet, asi devět třicet a deset třicet."),
+    "sk-dot-times-after-an-approximator": (
+        "sk", None, "Prídem o 8.30, asi 9.30 a 10.30 hod.",
+        "Prídem o ôsmej tridsať, asi deviatej tridsať a desiatej tridsať."),
+    "dot-time-before-a-bare-hour-with-hour-word": (
+        "cs", None, "Otevřeno 8.30–17 h.", "Otevřeno osm třicet až sedmnáct hodin."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
