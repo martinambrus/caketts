@@ -1510,6 +1510,10 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Dal to Karlu IV. Přemyslovci.", "Dal to Karlu čtvrtému Přemyslovci."),
     "guard-roman-numeral-before-an-epithet-of-a-ruler": (
         "cs", "Slíbil to Jindřichu VIII. Tudorovi.", "Slíbil to Jindřichu osmému Tudorovi."),
+    "capitals-time-span-with-a-dot-before-hod": (
+        "cs", "OTEVŘENO OD 8.30 DO 9.30 HOD.", "OTEVŘENO OD osmi třiceti DO devíti třiceti."),
+    "capitals-time-with-a-dot-before-hod": ("cs", "PŘIŠEL V 8.30 HOD.", "PŘIŠEL V osm třicet."),
+    "sk-capitals-time-with-a-dot-before-hod": ("sk", "O 8.30 HOD.", "O ôsmej tridsať."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

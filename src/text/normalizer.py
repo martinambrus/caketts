@@ -439,8 +439,8 @@ _NOT_LETTER_BEFORE = r"(?<![^\W\d_])"
 _ONE_LETTER_WORDS = "aikosuvz"
 _INCLUSIVE_SUFFIXES = "kyně|yně|čka|čky|ka|ky|ce|a|á|é|y"  # "on/a", "Vážený/á", "student/ka", "přišli/y"
 # "14.30" is a time only when hod follows, also after more times: "15.30–16.00 hod.", "v 8.30, asi 9.30 a 10 h"
-_HOUR_WORD = r"(?:hod(?:\.|in[ay]?|ín)?|h\.?)"  # hod., hodin, hodiny, hodina, h., sk hodín
-_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:až{_HS}+do|do|až|a|nebo|alebo){_HS}+)"
+_HOUR_WORD = r"(?:(?i:hod(?:\.|in[ay]?|ín)?)|h\.?)"  # hod., hodin, hodiny, hodina, h., sk hodín
+_DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?i:až{_HS}+do|do|až|a|nebo|alebo){_HS}+)"
              rf"(?:(?i:{_APPROXIMATOR}){_HS}*)?(?:2[0-4]|[01]?\d)(?:[.:][0-5]\d)?)*"
              rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
 # a range ("1 až 2 °C", "1–2 °C"), but not before a time ("8 až 9.30 hod.", "8–17:30"), which the time item reads
