@@ -865,6 +865,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "guard-sk-agreement-object-in-a-relative-clause": (
         "sk", {"num2words": {"construction": "agreement"}}, "Auto, ktoré zrazilo 5 mužov, ušlo.",
         "Auto, ktoré zrazilo piatich mužov, ušlo."),
+    "sk-agreement-object-of-a-neuter-pronoun-subject": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Ono videlo 5 mužov.", "Ono videlo piatich mužov."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
