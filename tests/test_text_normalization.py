@@ -1282,6 +1282,19 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Vysoký muž dostal po 5 Kč.", "Vysoký muž dostal po pěti korunách."),
     "sk-o-after-a-noun-of-delay-and-a-past-copula-keeps-the-span": (
         "sk", "Meškanie vlaku bolo o 2 h.", "Meškanie vlaku bolo o dve hodiny."),
+    "sk-personal-nominative-plural-from-five": ("sk", "Prišli 5 muži.", "Prišli piati muži."),
+    "sk-personal-nominative-plural-over-twenty": ("sk", "Prišli 22 študenti.", "Prišli dvadsiati dvaja študenti."),
+    "sk-personal-nominative-plural-in-a-list": (
+        "sk", "Prišli 5 alebo 6 chlapci.", "Prišli piati alebo šiesti chlapci."),
+    "sk-personal-nominative-plural-in-a-comma-list": ("sk", "Prišli 5,6,7 muži.", "Prišli piati, šiesti, siedmi muži."),
+    "guard-sk-personal-genitive-plural-stays": ("sk", "Prišlo 5 mužov.", "Prišlo päť mužov."),
+    "guard-sk-personal-nominative-plural-from-two-to-four": ("sk", "Prišli 3 muži.", "Prišli traja muži."),
+    "guard-sk-animal-plural-counts-with-the-cardinal": ("sk", "Prišli 5 psi.", "Prišli päť psi."),
+    "guard-sk-year-before-a-nominative-plural-keeps-the-cardinal": (
+        "sk", "V roku 2020 muži vyhrali.", "V roku dvetisícdvadsať muži vyhrali."),
+    "guard-sk-years-in-a-list-before-a-nominative-plural-keep-the-cardinal": (
+        "sk", "V rokoch 2010 a 2011 študenti protestovali.",
+        "V rokoch dvetisícdesať a dvetisícjedenásť študenti protestovali."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

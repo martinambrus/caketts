@@ -216,6 +216,7 @@ SK_SHIFT_WORDS = re.compile("posun|posúv|presun|presúv|odlož|odklad|predĺž|
                             "|predbieh|zaostal|zaostáv|urýchl|spomal|zmen|zvýš|zníž|rozdiel|pros|žiad|ide$|išlo$"
                             "|vzrás|vzrast|stúp|kles|pokles|nárast|narás|narast|pribud|ubud|zlacn|líš")
 CLOCK = "clock"  # the animacy _context gives a bare number that is an hour of the day: _cardinal reads it as one
+AGREEING = "agreeing"  # the animacy _context gives a number before a nominative plural of persons: "piati muži"
 
 # Czech prepositions with the accusative of direction and the instrumental of place. A masculine plural in -y
 # has one form for both ("Postavil se mezi dva stromy", "Stál mezi dvěma stromy"), so the verb decides;
@@ -948,7 +949,8 @@ class TextNormalizer:
                     form = self._context(int(parts[-1]), start, end, text, tags, after_label, m)
                     words = ", ".join(self._cardinal(int(part), *form) for part in parts)
                     # the noun's form is the last value's: "Viděl 1,2,5 mužů" may want "jednoho" as an object
-                    if form[0] == NOM and words != ", ".join(self._cardinal(int(part), ACC, *form[1:]) for part in parts):
+                    if form[0] == NOM and form[2] != AGREEING and words != ", ".join(
+                            self._cardinal(int(part), ACC, *form[1:]) for part in parts):
                         self._warn(text, m, words, "list read in the nominative; as an object it takes the accusative")
                 else:
                     words = ", ".join(self._cardinal(int(part), *self._label(int(part))) for part in parts)
@@ -1611,6 +1613,9 @@ class TextNormalizer:
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
+                if (noun_case == NOM and animacy == "personal"
+                        and getattr(tags.before(list_start), "upos", None) not in ("NOUN", "PROPN")):
+                    animacy = AGREEING  # "Prišli piati muži", but "Prišlo päť mužov" and "V roku 2020 muži vyhrali"
         if (value == 0 and noun is not None and case in (ACC, DAT, LOC, INS)
                 and not (case != ACC and tagged_case == GEN)):
             case = self._count_case(value, case)  # "s nula body": an undeclined "nula" with a written noun in its case
@@ -2402,8 +2407,10 @@ class TextNormalizer:
     def _cardinal(self, value, case: str, gender: str, animacy: str) -> str:
         if animacy == CLOCK:
             return self._clock_hour(value, case)
-        return self._numbers.num2words(value, to="cardinal", gender=gender, case=case, animacy=animacy,
-                                       **self.variants)
+        variants = self.variants
+        if animacy == AGREEING:
+            animacy, variants = "personal", {**variants, "construction": "agreement"}
+        return self._numbers.num2words(value, to="cardinal", gender=gender, case=case, animacy=animacy, **variants)
 
     def _ordinal(self, value: int, case: str, gender: str, animacy: str, plural: bool = False) -> str:
         return self._numbers.num2words(value, to="ordinal", gender=gender, case=case, animacy=animacy,
