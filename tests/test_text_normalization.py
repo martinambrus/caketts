@@ -844,6 +844,9 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
         "sk", None, "Od 8. h do 17. h je otvorené.", "Od ôsmej hodiny do sedemnástej hodiny je otvorené."),
     "cs-time-span-stays-until": ("cs", None, "Otevřeno 8:30–17:00.", "Otevřeno osm třicet až sedmnáct hodin."),
     "sk-time-span-after-o-stays-until": ("sk", None, "Prídem o 8:30–9:00.", "Prídem o ôsmej tridsať až deviatej."),
+    "sk-two-hour-spans-before-denne": (
+        "sk", None, "Otvorené od 9 do 12 h a od 13 do 17 h denne.",
+        "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej denne."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -1061,6 +1064,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "Šli 2 s dvěma psy.", "Šli dva s dvěma psy.", "no governing noun"),
     "guard-sk-o-after-a-noun-before-a-topic-verb-is-the-hour": (
         "sk", "Informoval o stretnutí o 17 h.", "Informoval o stretnutí o sedemnástej.", "read as the hour"),
+    "sk-hour-span-before-denne-is-the-hour": (
+        "sk", "Otvorené od 8 do 17 h denne.", "Otvorené od ôsmej do sedemnástej denne.", "read as the hour"),
+    "sk-dash-span-before-denne-is-the-hour": (
+        "sk", "Otvorené 8–17 h denne.", "Otvorené od ôsmej do sedemnástej denne.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
