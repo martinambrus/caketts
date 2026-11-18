@@ -2446,6 +2446,12 @@ class TextNormalizer:
                                               or (verb.upos in ("VERB", "AUX", "CCONJ")
                                                   and not self._verb_before(start, tags, not list_end))):
             return False  # "ROKU 300 N. L. VLÁDL", "KAREL IV. ZALOŽIL": the verb is theirs; "BYL TAM ATD. ODEŠEL" ends
+        if (capitals and not roman and not list_end and word is not None
+                and ((word.upos in ("NOUN", "PROPN", "ADJ") and word.feats.get("Case") == "Gen"
+                      and text[start:end - 1].lower().endswith(tuple(SCALES)))
+                     or (self._verb_before(start, tags, True)
+                         and (word.upos == "CCONJ" or (word.upos == "ADP" and not self._verb_ahead(end, tags)))))):
+            return False  # "5 TIS. LIDÍ", "V 5 HOD. A ODEŠEL", "5 HOD. NA VLAK" go on; "ČEKAL 5 MIN. TICHO" ends
         if roman:  # "Karel IV. Lucemburský" goes on; "Vládl Karel IV. Potom…", "…IV. Velký požár vypukl." do not
             name = tags.before(start)  # an epithet agrees with the name it follows: not "Karla IV. Země vzkvétala"
             verb_follows, predicate = self._verb_follows(end, tags), self._predicate_before(start, tags)

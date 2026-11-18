@@ -1475,6 +1475,25 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "O KARLU IV. KNIHA ZAČÍNÁ.", "O KARLU čtvrtém. KNIHA ZAČÍNÁ."),
     "guard-capitals-roman-numeral-after-a-page-before-a-label": (
         "cs", "NA STRANĚ II. KAPITOLA ZAČÍNÁ.", "NA STRANĚ druhé. KAPITOLA ZAČÍNÁ."),
+    "capitals-scale-abbreviation-before-its-noun": (
+        "cs", "PŘIŠLO 5 TIS. LIDÍ NA NÁMĚSTÍ.", "PŘIŠLO pět tisíc LIDÍ NA NÁMĚSTÍ."),
+    "capitals-unit-abbreviation-before-a-phrase": ("cs", "ČEKAL 5 HOD. NA VLAK.", "ČEKAL pět hodin NA VLAK."),
+    "capitals-abbreviation-before-its-noun-and-a-new-sentence": (
+        "cs", "PŘIŠLO 5 TIS. LIDÍ. DNES ODEŠLI.", "PŘIŠLO pět tisíc LIDÍ. DNES ODEŠLI."),
+    "sk-capitals-scale-abbreviation-before-its-noun": ("sk", "PRIŠLO 5 TIS. ĽUDÍ.", "PRIŠLO päťtisíc ĽUDÍ."),
+    "guard-capitals-abbreviation-before-a-nominative-subject": ("cs", "ČEKAL 5 MIN. TICHO.", "ČEKAL pět minut. TICHO."),
+    "guard-capitals-abbreviation-before-a-clause-with-a-verb": (
+        "cs", "ČEKAL 5 MIN. NIKDO NEPŘIŠEL.", "ČEKAL pět minut. NIKDO NEPŘIŠEL."),
+    "guard-capitals-abbreviation-before-a-genitive-subject": (
+        "cs", "ČEKAL 5 MIN. ČASU NEBYLO.", "ČEKAL pět minut. ČASU NEBYLO."),
+    "guard-capitals-abbreviation-before-an-interjection": ("cs", "ČEKAL 5 MIN. NIC!", "ČEKAL pět minut. NIC!"),
+    "guard-capitals-abbreviation-before-a-name": ("cs", "ČEKAL 5 MIN. KAREL.", "ČEKAL pět minut. KAREL."),
+    "capitals-scale-abbreviation-at-the-start-before-its-noun": (
+        "cs", "5 TIS. LIDÍ SE ZÚČASTNILI VOLEB.", "Pět tisíc LIDÍ SE ZÚČASTNILI VOLEB."),
+    "capitals-scale-abbreviation-before-a-genitive-and-a-verb": (
+        "cs", "MĚL 3 MLD. DOLARŮ A ODEŠEL.", "MĚL tři miliardy DOLARŮ A ODEŠEL."),
+    "capitals-unit-abbreviation-before-a-conjunction": (
+        "cs", "PŘIŠEL V 5 HOD. A ODEŠEL.", "PŘIŠEL V pět hodin A ODEŠEL."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
