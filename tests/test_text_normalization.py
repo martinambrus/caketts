@@ -878,6 +878,10 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "guard-cs-zero-after-a-verb-stays-declined": ("cs", None, "Dosáhl 0 bodů.", "Dosáhl nuly bodů."),
     "guard-cs-clock-zero-after-od": (
         "cs", None, "Pracuje od 0:00 do 6:00.", "Pracuje od nuly hodin do šesti hodin."),
+    "cs-great-grandchildren-nominative-plural": ("cs", None, "Přišli 2 pravnuci.", "Přišli dva pravnuci."),
+    "cs-great-great-grandchildren-nominative-plural": (
+        "cs", None, "Přišli 2 prapravnuci.", "Přišli dva prapravnuci."),
+    "guard-cs-great-grandchildren-accusative-plural": ("cs", None, "Viděl 2 pravnuky.", "Viděl dva pravnuky."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
