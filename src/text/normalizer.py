@@ -1503,7 +1503,8 @@ class TextNormalizer:
         subject = after_preposition and nxt.feats.get("Case") == "Nom" and self._verb_follows(m.end(), tags)
         # in capitals a chain is no sentence end ("1. AŽ 5. LEDNA", "1. A 2. DÍL"); in mixed text a chain's "a" is
         # lowercase, so a capital "A" starts a sentence: "Bylo jich 1. A 2. díl vyšel."
-        if following[:1].isupper() and not heading and not governed and (
+        month = nxt is not None and nxt.text.lower() in MONTHS_GENITIVE[self.language]
+        if following[:1].isupper() and not heading and not governed and not month and (
                 not _all_capitals(text) or self._shared_head(m.end(), tags) is None) and (
                 nxt is None or nxt.upos not in ("NOUN", "ADJ") or subject
                 or (not attributive and self._verb_follows(m.end(), tags))):
@@ -1516,6 +1517,8 @@ class TextNormalizer:
             return self._cardinal(value, case, gender, animacy) + "."
         head = tags.head_after(m.end()) or self._shared_head(m.end(), tags)
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags)
+        if month:  # "5. KVĚTNA": a date, whatever the tagger made of the month
+            case, gender, animacy, plural, doubt = GEN, "masculine", "inanimate", False, None
         words = self._ordinal(value, case or NOM, gender or "masculine", animacy or "inanimate", plural)
         if case is None or gender is None:
             self._warn(text, m, words, "no noun to agree with; nominative masculine inanimate")

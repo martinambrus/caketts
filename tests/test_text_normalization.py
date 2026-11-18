@@ -1514,6 +1514,12 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "OTEVŘENO OD 8.30 DO 9.30 HOD.", "OTEVŘENO OD osmi třiceti DO devíti třiceti."),
     "capitals-time-with-a-dot-before-hod": ("cs", "PŘIŠEL V 8.30 HOD.", "PŘIŠEL V osm třicet."),
     "sk-capitals-time-with-a-dot-before-hod": ("sk", "O 8.30 HOD.", "O ôsmej tridsať."),
+    "capitals-day-before-a-month-name": ("cs", "DNE 5. DUBNA PŘIŠEL.", "DNE pátého DUBNA PŘIŠEL."),
+    "capitals-day-before-a-month-name-without-a-verb": ("cs", "5. KVĚTNA.", "Pátého KVĚTNA."),
+    "capitals-day-before-a-month-name-after-a-preposition-of-another-case": (
+        "cs", "NA 5. KVĚTNA BYLA SVOLÁNA SCHŮZE.", "NA pátého KVĚTNA BYLA SVOLÁNA SCHŮZE."),
+    "guard-day-before-a-month-name-in-mixed-text": (
+        "cs", "Bylo 5. července. Potom přišel.", "Bylo pátého července. Potom přišel."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
