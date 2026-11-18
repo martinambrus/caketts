@@ -831,6 +831,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
         "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej."),
     "sk-morning-dash-span-before-an-afternoon-span": (
         "sk", None, "Otvorené 8–12 h a 13–17 h.", "Otvorené od ôsmej do dvanástej a od trinástej do sedemnástej."),
+    "sk-hours-of-a-feminine-genitive-tagged-locative": (
+        "sk", None, "Po 20 h jazdy sme zastavili.", "Po dvadsiatich hodinách jazdy sme zastavili."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -1000,6 +1002,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-hours-in-a-dash-span-after-o": ("sk", "Prídem o 5–6 h.", "Prídem o piatej až šiestej.", "read as the hour"),
     "sk-dot-time-and-an-hour-after-o": (
         "sk", "Prídem o 8.30 a 9 h.", "Prídem o ôsmej tridsať a deviatej.", "read as the hour"),
+    "sk-clock-hour-before-an-adverb-tagged-locative": (
+        "sk", "Pracoval po 14 h denne.", "Pracoval po štrnástej denne.", "read as the hour"),
+    "sk-clock-hour-before-nonstop-tagged-locative": (
+        "sk", "Pracoval po 14 h nonstop.", "Pracoval po štrnástej nonstop.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),

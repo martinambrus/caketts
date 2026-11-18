@@ -1178,11 +1178,11 @@ class TextNormalizer:
 
     @staticmethod
     def _measured(after: Optional[_Word]) -> bool:
-        """Whether the hours before `after` measure it: "po 18 h práce", "o 5 h spánku" (a genitive in -u or -ej is also the
-        locative, and the tagger takes it for one after "o" or "po")."""
+        """Whether the hours before `after` measure it: "po 18 h práce", "o 5 h spánku", "po 20 h jazdy" (after "o" or "po"
+        the tagger takes a genitive in -u, -ej or -y for a locative, but also an adverb: "po 14 h denne")."""
         return (after is not None and after.upos in ("NOUN", "ADJ") and after.text.lower() not in TIME_GENITIVES
                 and (after.feats.get("Case") == "Gen"
-                     or (after.feats.get("Case") == "Loc" and after.text.lower().endswith(("u", "ej")))))
+                     or (after.feats.get("Case") == "Loc" and after.text.lower().endswith(("u", "ej", "y")))))
 
     def _shifts(self, start: int, prep: _Word, after: Optional[_Word], tags: _Tags) -> bool:
         """Whether sk "o 2 h" is a shift or the object of a word, no hour of the day: "o 2 h neskôr", "posunúť o 1 h",
