@@ -833,6 +833,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
         "sk", None, "Otvorené 8–12 h a 13–17 h.", "Otvorené od ôsmej do dvanástej a od trinástej do sedemnástej."),
     "sk-hours-of-a-feminine-genitive-tagged-locative": (
         "sk", None, "Po 20 h jazdy sme zastavili.", "Po dvadsiatich hodinách jazdy sme zastavili."),
+    "sk-genitive-verb-after-a-time-genitive": (
+        "sk", None, "Toho dňa sa bojí 5 psov.", "Toho dňa sa bojí piatich psov."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -1006,6 +1008,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "sk", "Pracoval po 14 h denne.", "Pracoval po štrnástej denne.", "read as the hour"),
     "sk-clock-hour-before-nonstop-tagged-locative": (
         "sk", "Pracoval po 14 h nonstop.", "Pracoval po štrnástej nonstop.", "read as the hour"),
+    "sk-hour-before-dna-and-a-date": (
+        "sk", "Prídem o 17 h dňa 5. júna.", "Prídem o sedemnástej dňa piateho júna.", "read as the hour"),
+    "sk-hour-before-dopoludnia": (
+        "sk", "Prídem o 10 h dopoludnia.", "Prídem o desiatej dopoludnia.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),

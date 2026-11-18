@@ -230,7 +230,8 @@ MEASURE_GENITIVES = frozenset({"věku", "stáří", "doby", "délky", "trvání"
 # genitives of time, which are no object: "Pěti vítězství dosáhla minulého roku"
 TIME_GENITIVES = frozenset({"dne", "dnu", "roku", "týdne", "měsíce", "večera", "rána", "dopoledne", "odpoledne", "léta",
                             "jara", "podzimu", "zimy", "noci", "času", "víkendu", "chvíle", "doby", "pondělí", "úterý", "středy",
-                            "čtvrtka", "pátku", "soboty", "neděle"})
+                            "čtvrtka", "pátku", "soboty", "neděle", "dňa", "roka", "týždňa", "mesiaca", "dopoludnia",
+                            "popoludnia", "leta"})
 # events, which one takes part in, after a number: "Zúčastní se pěti závodů"
 EVENT_GENITIVES = frozenset({"akcí", "bitev", "debat", "diskusí", "etap", "festivalů", "her", "koncertů", "konferencí",
                              "kongresů", "kol", "kurzů", "mistrovství", "olympiád", "porad", "přednášek", "schůzí",
