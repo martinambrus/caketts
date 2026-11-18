@@ -1169,6 +1169,13 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-spans-with-the-unit-once-before-work-stay-counts": (
         "sk", "Pracoval od 9 do 12 a 13 do 17 h práce.",
         "Pracoval od deviatich do dvanástich a trinástich do sedemnástich hodín práce."),
+    "po-before-a-range-end-is-the-accusative": ("cs", "Měří od 1 m po 5 m.", "Měří od jednoho metru po pět metrů."),
+    "po-after-od-and-a-pronoun-is-each": ("cs", "Dostal od něj po 5 Kč.", "Dostal od něj po pěti korunách."),
+    "po-with-minutes-is-after": ("cs", "Po 30 min se vrátil.", "Po třiceti minutách se vrátil."),
+    "po-with-hours-is-after": ("cs", "Po 12 h nastal klid.", "Po dvanácti hodinách nastal klid."),
+    "guard-po-until-a-length-is-the-accusative": ("cs", "Ujel až po 5 km.", "Ujel až po pět kilometrů."),
+    "guard-po-until-a-time-is-after": ("cs", "Až po 2 h odešel.", "Až po dvou hodinách odešel."),
+    "guard-po-between-two-percents-is-the-accusative": ("cs", "Od 5 % po 10 %.", "Od pěti procent po deset procent."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

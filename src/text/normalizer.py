@@ -2075,10 +2075,14 @@ class TextNormalizer:
                 return LOC  # "Záleží na pěti procentech", "Zůstala na pěti procentech", but "Zůstal na dvě hodiny"
             if time:
                 return ACC  # "na 2 h" is a time span, which CAC tags locative at times
-        if (self.language == "cs" and prep.text.lower() == "po" and unit and unit.rstrip(".").lower() not in TIME_UNITS
-                and getattr(tags.before(prep.start), "text", "").lower() != "až"
-                and not any(w.text.lower() == "od" for w in self._clause_before(prep.start, tags))):
-            return LOC  # after or each, tagged accusative; not "po 2 h" (also "for"), not "až po 5 m" (until)
+        if self.language == "cs" and prep.text.lower() == "po" and unit:
+            before = self._clause_before(prep.start, tags)
+            ranged = any(w.text.lower() == "od" and all(
+                x.text.isdigit() or not x.text.isalnum() or x.text.lower() in UNIT_WORDS["cs"] | set(SCALES)
+                for x in before[:i]) for i, w in enumerate(before))
+            if ranged or (before[:1] and before[0].text.lower() == "až" and unit.rstrip(".").lower() not in TIME_UNITS):
+                return ACC  # "od 1 m po 5 m", "až po 5 km" (until)
+            return LOC  # after or each, tagged accusative: "po pěti minutách", "po pěti korunách"
         return _UD_CASES.get(prep.feats.get("Case"))
 
     def _shared_preposition(self, pos: int, tags: _Tags, end: Optional[int] = None) -> Optional[_Word]:
