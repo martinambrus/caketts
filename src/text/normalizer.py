@@ -280,8 +280,10 @@ NA_ACCUSATIVE_VERBS = ("vzpomín", "vzpomněl", "vzpomene", "myslel", "myslí", 
 NA_PLACE_VERBS = ("čekal", "čeká")  # "čekat na" is also "wait at": "Čekal na 2. náměstí" may be locative
 NA_LOCATIVE_VERBS = ("zálež", "závis")  # "na" and the locative: "Záleží na dvou hodinách"
 # a level kept or reached, "na" and the locative for an amount that is no time: "Inflace zůstala na pěti procentech"
-NA_LEVEL_VERBS = ("zůst", "drž", "udrž", "setrv", "zastav", "ustál", "stabiliz", "skonč", "konč", "začín", "začal",
-                  "začn", "stagn", "zamrz")
+NA_LEVEL_VERBS = ("zůst", "zost", "ostal", "ostáv", "ostan", "drž", "udrž", "setrv", "zotrv", "zastav", "ustál",
+                  "stabiliz", "skonč", "konč", "začín", "začal", "začn", "stagn", "zamrz", "trv", "bydl", "žil", "žij",
+                  "lež")
+NA_AGREE_VERBS = ("dohod", "shod", "zhod")  # with "se": "Dohodli se na pěti procentech", but "dohodli cenu na 5 Kč"
 TIME_UNITS = ("h", "hod", "min", "s")
 # verbs of a span (trvat, čekat, spát), after which a time is the accusative: "Trvá to jednu hodinu"
 DURATION_VERBS = ("trv", "potrv", "ček", "počk", "vyčk", "spal", "spí", "spát", "vyspal", "vyspí")
@@ -2062,16 +2064,17 @@ class TextNormalizer:
             if not (after is not None and after.upos == "NOUN" and after.feats.get("Case") == "Gen"
                     and after.text.lower() not in TIME_GENITIVES):
                 return ACC  # "ve 2 h" is a clock time, as "ve 2 hodiny"
-        if self.language == "cs" and prep.text.lower() == "na" and unit:
+        if prep.text.lower() == "na" and unit:
             time, verb = unit.rstrip(".").lower() in TIME_UNITS, self._clause_verb(pos, tags)
             owner = tags.before(prep.start)  # "Zůstala mu faktura na 5 Kč": the subject after the verb owns the amount
             owned = (owner is not None and owner.upos == "NOUN" and owner.feats.get("Case") == "Nom"
                      and verb is not None and verb.start < owner.start) or (
-                verb is not None and verb.text.lower().startswith("zůst") and any(  # "Zůstalo mu jen na 5 Kč"
+                verb is not None and verb.text.lower().startswith(("zůst", "zost")) and any(  # "Zůstalo mu jen na 5 Kč"
                     w.upos == "PRON" and w.feats.get("Case") == "Dat" and w.start < prep.start
                     for w in self._clause_after(verb.end, tags)))
+            agreed = any(w.text.lower() in ("se", "sa") for w in self._clause_before(prep.start, tags))
             if verb is not None and _affirmative(verb.text.lower()).startswith(
-                    NA_LOCATIVE_VERBS + (() if time or owned else NA_LEVEL_VERBS)):
+                    NA_LOCATIVE_VERBS + (() if time or owned else NA_LEVEL_VERBS + (NA_AGREE_VERBS if agreed else ()))):
                 return LOC  # "Záleží na pěti procentech", "Zůstala na pěti procentech", but "Zůstal na dvě hodiny"
             if time:
                 return ACC  # "na 2 h" is a time span, which CAC tags locative at times

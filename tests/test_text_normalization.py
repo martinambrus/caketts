@@ -1176,6 +1176,19 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-po-until-a-length-is-the-accusative": ("cs", "Ujel až po 5 km.", "Ujel až po pět kilometrů."),
     "guard-po-until-a-time-is-after": ("cs", "Až po 2 h odešel.", "Až po dvou hodinách odešel."),
     "guard-po-between-two-percents-is-the-accusative": ("cs", "Od 5 % po 10 %.", "Od pěti procent po deset procent."),
+    "na-after-dohodnout-se-is-the-locative": ("cs", "Dohodli se na 5 %.", "Dohodli se na pěti procentech."),
+    "na-after-trvat-is-the-locative": ("cs", "Trvali na 5 kg.", "Trvali na pěti kilogramech."),
+    "na-after-zit-is-the-locative": ("cs", "Žijí na 50 m².", "Žijí na padesáti metrech čtverečních."),
+    "na-before-bydlet-is-the-locative": (
+        "cs", "Na 50 m² bydlí 5 lidí.", "Na padesáti metrech čtverečních bydlí pět lidí."),
+    "sk-na-after-zostat-is-the-locative": ("sk", "Zostala na 5 %.", "Zostala na piatich percentách."),
+    "sk-na-after-zalezat-is-the-locative": ("sk", "Záleží na 2 h.", "Záleží na dvoch hodinách."),
+    "sk-na-after-dohodnut-sa-is-the-locative": ("sk", "Dohodli sa na 5 %.", "Dohodli sa na piatich percentách."),
+    "guard-na-after-dohodnout-a-thing-is-the-accusative": (
+        "cs", "Dohodli cenu na 500 Kč.", "Dohodli cenu na pět set korun."),
+    "guard-na-after-dohodnout-se-a-time-is-the-accusative": ("cs", "Dohodli se na 2 h.", "Dohodli se na dvě hodiny."),
+    "guard-na-after-trvat-a-time-is-the-accusative": ("cs", "Trvalo to na 2 h.", "Trvalo to na dvě hodiny."),
+    "guard-sk-na-after-zostat-a-time-is-the-accusative": ("sk", "Zostal tam na 2 h.", "Zostal tam na dve hodiny."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
