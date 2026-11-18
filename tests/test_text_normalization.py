@@ -1037,6 +1037,20 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-spans-with-the-unit-once-at-the-end": (
         "sk", "Otvorené od 9 do 12 a od 13 do 17 h.",
         "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej.", "read as the hour"),
+    "guard-neuter-verb-of-time-passing-with-1-h-is-logged": (
+        "cs", "Uplynulo 1 h.", "Uplynulo jedna hodina.", "no preposition; nominative"),
+    "guard-neuter-verb-of-time-passing-and-a-list-is-logged": (
+        "cs", "Uplynulo 1 nebo 2 h.", "Uplynulo jedna nebo dvě hodiny.", "no preposition; nominative"),
+    "guard-neuter-verb-of-remaining-with-1-h-is-logged": (
+        "cs", "Zbylo 1 h.", "Zbylo jedna hodina.", "no preposition; nominative"),
+    "guard-masculine-verb-of-time-passing-with-1-h-is-logged": (
+        "cs", "Uplynul 1 h.", "Uplynul jedna hodina.", "no preposition; nominative"),
+    "guard-masculine-verb-of-remaining-with-1-h-is-logged": (
+        "cs", "Zbyl 1 h.", "Zbyl jedna hodina.", "no preposition; nominative"),
+    "guard-masculine-verb-of-ending-with-1-h-is-logged": (
+        "cs", "Skončil 1 h.", "Skončil jedna hodina.", "no preposition; nominative"),
+    "guard-sk-verb-of-time-passing-with-1-h-is-logged": (
+        "sk", "Uplynulo 1 h.", "Uplynulo jedna hodina.", "no preposition; nominative"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1204,6 +1218,10 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Informovali o růstu o 5 %.", "Informovali o růstu o pět procent."),
     "guard-o-after-a-verb-of-growth-is-the-accusative": ("cs", "Vzrostl o 5 %.", "Vzrostl o pět procent."),
     "guard-o-after-prosit-is-the-accusative": ("cs", "Prosil o 5 Kč.", "Prosil o pět korun."),
+    "time-after-a-verb-with-its-own-subject-is-the-accusative": (
+        "cs", "Mluvil 1 h a čekal 2 h.", "Mluvil jednu hodinu a čekal dvě hodiny."),
+    "time-after-an-impersonal-verb-is-the-accusative": ("cs", "Pršelo 1 h.", "Pršelo jednu hodinu."),
+    "sk-time-after-a-duration-verb-is-the-accusative": ("sk", "Trvalo to 1 h.", "Trvalo to jednu hodinu."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

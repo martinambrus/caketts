@@ -294,7 +294,10 @@ O_TOPIC_WORDS = re.compile(r"mluv|hovoř|povíd|vypráv|(?:na)?ps(?:al|á)|píš
                            r"|inform|zmín|zmiň|diskut|debat|jednal(?!o)|jedna[jt]|uvažuj|uvažov|přemýšl|hlasov|dozvěd"
                            r"|řekl|říkal|říká|zpráv|článe|článk")
 # verbs of a span (trvat, čekat, spát), after which a time is the accusative: "Trvá to jednu hodinu"
-DURATION_VERBS = ("trv", "potrv", "ček", "počk", "vyčk", "spal", "spí", "spát", "vyspal", "vyspí")
+DURATION_VERBS = ("trv", "potrv", "ček", "čak", "počk", "vyčk", "vyčak", "spal", "spí", "spát", "spať", "vyspal",
+                  "vyspí")
+# verbs of time passing, whose subject is the time: "Uplynul 1 h" is no span the verb's person spent
+ELAPSE_VERBS = ("uplyn", "uběh", "ubeh", "zby", "skonč")
 
 # preposition -> (vocalised form, starts of the number words that call for it)
 VOCALISATION = {
@@ -2020,7 +2023,12 @@ class TextNormalizer:
         Czech verb of duration a time is its span: "Trvá to jednu hodinu"."""
         value, integer, fraction = _parse(amount)
         unit = unit.rstrip(".")
-        if self.language == "cs" and unit.lower() in TIME_UNITS and self._duration(start, tags):
+        verb = self._clause_verb(start, tags)
+        if unit.lower() in TIME_UNITS and verb is not None and verb.start < start and (
+                self._duration(start, tags) or (
+                    not _affirmative(verb.text.lower()).startswith(ELAPSE_VERBS)
+                    and self._verb_case(start, None, tags) != GEN and self._object_of_verb(
+                        _Word(start, end, "hodina", "NOUN", {"Gender": "Fem"}), start, tags))):
             return ACC
         scale = unit.lower() in SCALES
         name = None if scale else self._unit(unit)[0]
@@ -2031,7 +2039,6 @@ class TextNormalizer:
             return None
         count = (integer or int(fraction.ljust(2, "0"))) if fraction else value * 10 ** SCALES.get(unit.lower(), 0)
         gender = SCALE_GENDERS[self.language][unit.lower()] if scale else NOUNS[self.language][name][0]
-        verb = self._clause_verb(start, tags)
         if (1 < integer < 5 and gender == "neuter"
                 and (self.language == "sk" or "Neut" in (verb.feats.get("Gender") or ""))
                 and "Plur" in (verb.feats.get("Number") or "") and self._no_subject_in_sight(verb, tags)):
