@@ -1121,6 +1121,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "cs-plural-subject-of-a-genitive-verb-after-an-ordinal": (
         "cs", "Soutěže se zúčastnily 2. ročníky.", "Soutěže se zúčastnily druhé ročníky.",
         "ordinal agrees with a plural noun"),
+    "guard-capitals-roman-numeral-after-an-initial-and-a-conjunction": (
+        "cs", "ZA KARLA V. A FILIPA II. ZEMĚ VZKVÉTALA.", "ZA KARLA V. A FILIPA druhého. ZEMĚ VZKVÉTALA.",
+        "kept as an initial"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1454,6 +1457,24 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-roman-numeral-before-an-oblique-surname-and-a-relative-clause": (
         "cs", "Navštívil Jindřicha VIII. Tudora, který ho přijal.",
         "Navštívil Jindřicha osmého Tudora, který ho přijal."),
+    "capitals-roman-numeral-numbers-the-noun-after-a-verbless-clause": (
+        "cs", "V KNIZE II. DÍL CHYBĚL.", "V KNIZE druhý DÍL CHYBĚL."),
+    "sk-capitals-roman-numeral-numbers-the-noun-after-a-verbless-clause": (
+        "sk", "V KNIHE II. DIEL CHÝBAL.", "V KNIHE druhý DIEL CHÝBAL."),
+    "capitals-roman-numeral-numbers-a-feminine-label-after-a-label": (
+        "cs", "V DÍLE II. KAPITOLA CHYBĚLA.", "V DÍLE druhá KAPITOLA CHYBĚLA."),
+    "guard-capitals-roman-numeral-after-a-name-before-a-subject": (
+        "cs", "ZA KARLA IV. ZEMĚ VZKVÉTALA.", "ZA KARLA čtvrtého. ZEMĚ VZKVÉTALA."),
+    "guard-mixed-roman-numeral-before-a-capitalised-noun": (
+        "cs", "V knize II. Díl chyběl.", "V knize druhé. Díl chyběl."),
+    "guard-capitals-roman-numeral-before-a-person-noun-after-a-label": (
+        "cs", "V KAPITOLE III. AUTOR PÍŠE.", "V KAPITOLE třetí. AUTOR PÍŠE."),
+    "guard-capitals-roman-numeral-after-a-ruler-before-a-neuter-subject": (
+        "cs", "LUDVÍKA XIV. SLUNCE NAZÝVALI KRÁLEM SLUNCE.", "LUDVÍKA čtrnáctého. SLUNCE NAZÝVALI KRÁLEM SLUNCE."),
+    "guard-capitals-roman-numeral-after-a-name-before-a-label": (
+        "cs", "O KARLU IV. KNIHA ZAČÍNÁ.", "O KARLU čtvrtém. KNIHA ZAČÍNÁ."),
+    "guard-capitals-roman-numeral-after-a-page-before-a-label": (
+        "cs", "NA STRANĚ II. KAPITOLA ZAČÍNÁ.", "NA STRANĚ druhé. KAPITOLA ZAČÍNÁ."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

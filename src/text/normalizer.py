@@ -375,6 +375,9 @@ NUMBERED_BOOKS = {
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
 ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
+# a label noun in any case, before a numeral that numbers the next one ("V KNIZE II. DÍL"); a name or a page is none
+ROMAN_LABEL_STEMS = {"cs": re.compile(r"kni[hz]|kapitol|čás|díl|svaz|oddíl|ročník|sešit"),
+                     "sk": re.compile(r"kni[hz]|kapitol|časť|časti|častí|diel|zväz|oddiel|ročník|zošit")}
 # a ruler's title in a singular case: after one, a single I, V or X after the name is the ruler's number ("císař Karel V.")
 RULER_TITLES = {"cs": re.compile(r"(?:král|císař|papež|car|kurfiřt|sultán)(?:e|i|ovi|em)?|kníže(?:te|ti|tem)?|vévod(?:a|y|ovi|u|ou)"
                                  r"|(?:královn|císařovn|kněžn|carevn)(?:a|y|ě|u|ou)"),
@@ -1142,7 +1145,11 @@ class TextNormalizer:
             # "XXI. století", "XIX.–XX. století", "# V. Kapitola", but "Karel IV. univerzitu" agrees with Karel
             before_noun = nxt is not None and (nxt.text[:1].islower() or heading or (
                 nxt.upos in ("NOUN", "ADJ") and (len(numeral) > 1 or numeral in "IVX")
-                and not self._verb_follows(end, tags)))  # not "D. Kapitola byla…", "Příloha C. Varianta D."
+                and (not self._verb_follows(end, tags)  # not "D. Kapitola byla…", "Příloha C. Varianta D."
+                     or (tags.capitals and prev is not None and prev.feats.get("Case") not in (None, "Nom")
+                         and ROMAN_LABEL_STEMS[self.language].match(prev.text.lower())
+                         and nxt.text.lower() in ROMAN_LABEL_NOUNS[self.language]
+                         and not self._predicate_before(m.start(), tags)))))
             head = (tags.head_after(end) if before_noun else None) or self._shared_head(end, tags)
         if head is None:
             # "Vyšel díl V. Kniha byla…", "…V. Nové vydání…": after a thing, not a person, and before a sentence
