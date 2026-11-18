@@ -1266,6 +1266,11 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "o-after-a-news-noun-and-a-copula-is-the-topic": ("cs", "Zpráva je o 5 %.", "Zpráva je o pěti procentech."),
     "sk-o-after-a-verb-of-speaking-keeps-the-topic": ("sk", "Hovorili o 5 h.", "Hovorili o piatich hodinách."),
     "sk-o-after-a-verb-of-writing-keeps-the-topic": ("sk", "Písali o 5 h.", "Písali o piatich hodinách."),
+    "sk-o-after-a-comparative-adverb-keeps-the-span": ("sk", "Bolo to dlhšie o 2 h.", "Bolo to dlhšie o dve hodiny."),
+    "sk-o-after-a-comparative-adjective-keeps-the-span": ("sk", "Je dlhší o 2 h.", "Je dlhší o dve hodiny."),
+    "sk-o-after-viac-keeps-the-span": ("sk", "Zostalo viac o 2 h.", "Zostalo viac o dve hodiny."),
+    "guard-sk-o-after-a-comparative-and-a-count-keeps-the-accusative": (
+        "sk", "Je starší o 5 rokov.", "Je starší o päť rokov."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

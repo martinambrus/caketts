@@ -1240,12 +1240,19 @@ class TextNormalizer:
         """Whether sk "o 2 h" is a shift or the object of a word, no hour of the day: "o 2 h neskôr", "posunúť o 1 h",
         "meškanie o 2 h", "meškanie vlaku je o 2 h", "prosiť o 2 h", "hovoriť o 5 h"."""
         before, verb = tags.before(prep.start), self._clause_verb(start, tags)
-        return (getattr(after, "feats", {}).get("Degree") == "Cmp"
+        return (self._comparative(after) or self._comparative(before)
                 or any(w is not None and (SK_SHIFT_WORDS.match(_affirmative(w.text.lower()))
                                           or _affirmative(w.text.lower()).startswith(O_DIFFERENCE_WORDS))
                        for w in (verb, before, self._clause_subject(prep.start, tags)))
                 or (getattr(before, "upos", None) != "NOUN" and any(
                     w is not None and O_TOPIC_WORDS.match(_affirmative(w.text.lower())) for w in (verb, before))))
+
+    @staticmethod
+    def _comparative(word: Optional[_Word]) -> bool:
+        """Whether the tagger takes `word` for a comparative; the Slovak one takes "dlhšie", "starší" for superlatives,
+        which begin with "naj"."""
+        degree = getattr(word, "feats", {}).get("Degree")
+        return degree == "Cmp" or (degree == "Sup" and not word.text.lower().startswith("naj"))
 
     def _clause_subject(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The nearest nominative noun before `pos` in a clause whose verb is a copula: "Meškanie vlaku je o 2 h", but
@@ -2128,8 +2135,8 @@ class TextNormalizer:
             words = ([before] if before is not None and before.upos == "NOUN"
                      else [before, self._clause_verb(pos, tags), self._clause_subject(prep.start, tags)])
             words = [_affirmative(w.text.lower()) for w in words if w is not None]
-            if (after is not None and after.feats.get("Degree") == "Cmp") or any(
-                    w.startswith(O_DIFFERENCE_WORDS) for w in words):
+            if (self._comparative(after) or self._comparative(before)
+                    or any(w.startswith(O_DIFFERENCE_WORDS) for w in words)):
                 return ACC  # "o 2 h později", "Zpoždění o 2 h"
             if any(O_TOPIC_WORDS.match(w) for w in words):
                 return LOC  # "Mluvili o pěti procentech"
