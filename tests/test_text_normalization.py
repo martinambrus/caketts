@@ -1318,6 +1318,11 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-times-word-before-an-adverb": ("sk", "Bol tam 2 krát týždenne.", "Bol tam dva krát týždenne."),
     "sk-times-word-before-a-comparative": ("sk", "Je to 3 krát lacnejšie.", "Je to tri krát lacnejšie."),
     "guard-sk-times-word-after-a-verb": ("sk", "Prišiel 2 krát.", "Prišiel dva krát."),
+    "sk-great-grandchildren-share-the-genitive-verb": (
+        "sk", "Dočkal sa 5 vnúčat a 3 pravnúčat.", "Dočkal sa piatich vnúčat a troch pravnúčat."),
+    "cs-great-grandchildren-share-the-genitive-verb": (
+        "cs", "Dočkal se 5 vnoučat a 3 pravnoučat.", "Dočkal se pěti vnoučat a tří pravnoučat."),
+    "sk-great-grandchildren-after-a-verb": ("sk", "Má 5 pravnúčat.", "Má päť pravnúčat."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
