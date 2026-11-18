@@ -2098,10 +2098,10 @@ class TextNormalizer:
                 return LOC  # "Záleží na pěti procentech", "Zůstala na pěti procentech", but "Zůstal na dvě hodiny"
             if time:
                 return ACC  # "na 2 h" is a time span, which CAC tags locative at times
-        if self.language == "cs" and prep.text.lower() == "po" and unit:
+        if prep.text.lower() == "po" and unit:
             before = self._clause_before(prep.start, tags)
             ranged = any(w.text.lower() == "od" and all(
-                x.text.isdigit() or not x.text.isalnum() or x.text.lower() in UNIT_WORDS["cs"] | set(SCALES)
+                x.text.isdigit() or not x.text.isalnum() or x.text.lower() in UNIT_WORDS[self.language] | set(SCALES)
                 for x in before[:i]) for i, w in enumerate(before))
             if ranged or (before[:1] and before[0].text.lower() == "až" and unit.rstrip(".").lower() not in TIME_UNITS):
                 return ACC  # "od 1 m po 5 m", "až po 5 km" (until)

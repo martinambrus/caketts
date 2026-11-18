@@ -1239,6 +1239,13 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-s-after-a-number-before-a-verb-is-seconds": (
         "sk", "Po 10 s začalo pršať.", "Po desiatich sekundách začalo pršať."),
     "guard-sek-in-capitals-is-the-krona": ("cs", "Stálo to 5 SEK.", "Stálo to pět SEK."),
+    "sk-po-with-seconds-is-after": ("sk", "Po 10 sek začalo pršať.", "Po desiatich sekundách začalo pršať."),
+    "sk-po-with-minutes-is-after": ("sk", "Po 30 min sa vrátil.", "Po tridsiatich minútach sa vrátil."),
+    "sk-po-before-a-range-end-is-the-accusative": (
+        "sk", "Meral od 1 m po 5 m.", "Meral od jedného metra po päť metrov."),
+    "sk-po-until-a-length-is-the-accusative": ("sk", "Došiel až po 5 km.", "Došiel až po päť kilometrov."),
+    "guard-sk-po-with-hours-is-after": ("sk", "Po 2 h nastal pokoj.", "Po dvoch hodinách nastal pokoj."),
+    "guard-sk-po-with-kilometres-is-after": ("sk", "Po 5 km odbočil.", "Po piatich kilometroch odbočil."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
