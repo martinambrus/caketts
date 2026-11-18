@@ -374,7 +374,7 @@ _HOUR_WORD = r"(?:hod(?:\.|in[ay]?|ín)?|h\.?)"  # hod., hodin, hodiny, hodina, 
 _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:až{_HS}+do|do|až|a|nebo|alebo){_HS}+)"
              rf"(?:(?i:{_APPROXIMATOR}){_HS}*)?(?:2[0-4]|[01]?\d)(?:[.:][0-5]\d)?)*"
              rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
-# a range written with "až" ("1 až 2 °C"), but not before a time ("8 až 9.30 hod."), which the time item reads
+# a range ("1 až 2 °C", "1–2 °C"), but not before a time ("8 až 9.30 hod.", "8–17:30"), which the time item reads
 _TIME_AHEAD = rf"(?:2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})[0-5]\d"
 _SPACES = re.compile(r"\s*")  # to the next item; inside a paragraph a line break is a space too
 _DECIMAL = r"\d+(?:,\d+|\.(?![0-5]\d(?!\d))\d+)"  # not "8.30", the time before an hour word
@@ -456,7 +456,7 @@ def _items_pattern(abbreviations, capitals: bool = False) -> re.Pattern:
         rf"|(?P<range>(?<![\d.,])(?P<low>(?:{_SIGN_START}[-−–])?{_UNSIGNED})"
         rf"(?:{_HS}*(?:(?P<lowscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+{unit_per('lowscale')})?"
-        rf"|{unit_per('low')}))?(?:{_HS}*[–—-]{_HS}*|{_HS}+(?P<rangeword>až|AŽ){_HS}+(?!{_TIME_AHEAD}))"
+        rf"|{unit_per('low')}))?(?:{_HS}*[–—-]{_HS}*|{_HS}+(?P<rangeword>až|AŽ){_HS}+)(?!{_TIME_AHEAD})"
         rf"(?P<high>[-−–+]?{_UNSIGNED})(?(rangeword){range_end})"
         rf"(?(lowscale){_HS}*(?P<highscale>(?i:tis|mil|mld))\.?{_NOT_LETTER_AFTER}"
         rf"(?:{_HS}+{unit_per('highscale')})?"

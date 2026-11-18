@@ -819,6 +819,12 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
         "Prídem o ôsmej tridsať, asi deviatej tridsať a desiatej tridsať."),
     "dot-time-before-a-bare-hour-with-hour-word": (
         "cs", None, "Otevřeno 8.30–17 h.", "Otevřeno osm třicet až sedmnáct hodin."),
+    "dot-time-as-the-upper-end-of-a-dash-range": (
+        "cs", None, "Otevřeno 8–17.30 hod.", "Otevřeno osm až sedmnáct třicet."),
+    "colon-time-as-the-upper-end-of-a-dash-range": (
+        "cs", None, "Otevřeno 8–17:30.", "Otevřeno osm až sedmnáct třicet."),
+    "sk-colon-time-as-the-upper-end-of-a-dash-range": (
+        "sk", None, "Otvorené 8–17:30.", "Otvorené osem až sedemnásť tridsať."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
