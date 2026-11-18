@@ -1323,6 +1323,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "cs-great-grandchildren-share-the-genitive-verb": (
         "cs", "Dočkal se 5 vnoučat a 3 pravnoučat.", "Dočkal se pěti vnoučat a tří pravnoučat."),
     "sk-great-grandchildren-after-a-verb": ("sk", "Má 5 pravnúčat.", "Má päť pravnúčat."),
+    "cs-great-uncle-is-masculine-animate": ("cs", "Má 1 prastrýca.", "Má jednoho prastrýca."),
+    "sk-great-uncle-after-a-verb-is-masculine-animate": ("sk", "Videl 1 prastrýca.", "Videl jedného prastrýca."),
+    "guard-sk-great-uncle-is-read-right-already": ("sk", "Má 1 prastrýca.", "Má jedného prastrýca."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
