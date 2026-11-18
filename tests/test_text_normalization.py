@@ -1068,6 +1068,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "sk", "Otvorené 8–17 h denne.", "Otvorené od ôsmej do sedemnástej denne.", "read as the hour"),
     "sk-o-after-a-verb-of-speaking-is-the-hour": (
         "sk", "Premiér bude hovoriť o 18 h.", "Premiér bude hovoriť o osemnástej.", "read as the hour"),
+    "guard-sk-o-after-a-past-copula-and-no-word-of-change-is-the-hour": (
+        "sk", "Stretnutie bolo o 5 h.", "Stretnutie bolo o piatej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1278,6 +1280,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-sk-po-after-a-verb-is-each": ("sk", "Dostal po 5 kg.", "Dostal po piatich kilogramoch."),
     "guard-po-after-a-tall-subject-is-each": (
         "cs", "Vysoký muž dostal po 5 Kč.", "Vysoký muž dostal po pěti korunách."),
+    "sk-o-after-a-noun-of-delay-and-a-past-copula-keeps-the-span": (
+        "sk", "Meškanie vlaku bolo o 2 h.", "Meškanie vlaku bolo o dve hodiny."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

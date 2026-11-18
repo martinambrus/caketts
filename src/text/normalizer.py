@@ -298,6 +298,8 @@ O_TOPIC_WORDS = re.compile(r"mluv|hovoř|povíd|vypráv|(?:na)?ps(?:al|á)|píš
                            r"|řekl|říkal|říká|zpráv|článe|článk")
 # words of reaching, depth and height, after which "po" and an amount is "up to": "Voda sahala po 50 cm"
 PO_UP_TO_WORDS = ("sah", "sáh", "siah", "dosah", "dosiah", "hlubok", "hlbok", "vysok")
+# forms of byť and být, which the tagger takes for a verb at times: "Meškanie vlaku bolo o 2 h"
+COPULA_FORMS = re.compile(r"je|jest|sú|jsou|bol[aoi]?|byl[aoi]?|bude|budú|budou")
 # verbs of a span (trvat, čekat, spát), after which a time is the accusative: "Trvá to jednu hodinu"
 DURATION_VERBS = ("trv", "potrv", "ček", "čak", "počk", "vyčk", "vyčak", "spal", "spí", "spát", "spať", "vyspal",
                   "vyspí")
@@ -1257,7 +1259,8 @@ class TextNormalizer:
         """The nearest nominative noun before `pos` in a clause whose verb is a copula: "Meškanie vlaku je o 2 h", but
         not "Meškanie nastalo o 5 h"."""
         verb = self._clause_verb(pos, tags)
-        return None if verb is not None and verb.upos != "AUX" else next(
+        return None if verb is not None and verb.upos != "AUX" and not COPULA_FORMS.fullmatch(
+            verb.text.lower()) else next(
             (w for w in self._clause_before(pos, tags) if w.upos == "NOUN" and w.feats.get("Case") == "Nom"), None)
 
     def _minutes(self, minute: int, case: str) -> str:
