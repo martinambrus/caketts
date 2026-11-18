@@ -186,13 +186,15 @@ NEUTER_PLURALS = {
 }
 
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
-# volume, masculine) for feminine, even alone, and "neskôr", "skôr" (later, sooner) for positive adverbs
+# volume, masculine) for feminine, even alone, and "neskôr", "skôr" (later, sooner) for positive adverbs;
+# an "upos" key sets the part of speech instead
 FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"},
                         "pravnuka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
                         "pravnuky": {"Gender": "Masc", "Animacy": "Anim"},
                         "pradědečka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
                         "pradědečky": {"Gender": "Masc", "Animacy": "Anim"}},
-                 "sk": {"pravnuka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
+                 "sk": {"krát": {"upos": "NOUN", "Gender": "Masc", "Animacy": "Inan"},
+                        "pravnuka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
                         "diel": {"Gender": "Masc", "Animacy": "Inan", "Number": "Sing", "Case": "Nom"},
                         "diely": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
                         "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"},
@@ -897,9 +899,11 @@ class TextNormalizer:
         for i, (t, token) in enumerate(zip(tokens, sentence.tokens)):
             for w in token.words:
                 feats = dict(f.split("=", 1) for f in (w.feats or "").split("|") if f)
-                feats.update(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
+                fixes = dict(FEATURE_FIXES[self.language].get(w.text.lower(), {}))
+                tagged = fixes.pop("upos", w.upos)
+                feats.update(fixes)
                 # CAC tags "–" as a noun at times; "~" and "≈" read "přibližně", so a preposition reaches past them
-                upos = "ADV" if texts[i] in ("~", "≈") else (w.upos if any(ch.isalnum() for ch in w.text) else "PUNCT")
+                upos = "ADV" if texts[i] in ("~", "≈") else (tagged if any(ch.isalnum() for ch in w.text) else "PUNCT")
                 words.append(_Word(t.start(), t.end(), texts[i] if i in lowered else w.text, upos, feats))
         return words
 

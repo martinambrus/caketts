@@ -1315,6 +1315,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "cs-genitive-verb-instrumental-ordinal-of-a-person": ("cs", "Bál se 2. mužem.", "Bál se druhým mužem."),
     "guard-cs-genitive-verb-genitive-ordinal": ("cs", "Dotkl se 2. prstu.", "Dotkl se druhého prstu."),
     "guard-cs-genitive-verb-dative-looking-ordinal": ("cs", "Bál se 2. dílu.", "Bál se druhého dílu."),
+    "sk-times-word-before-an-adverb": ("sk", "Bol tam 2 krát týždenne.", "Bol tam dva krát týždenne."),
+    "sk-times-word-before-a-comparative": ("sk", "Je to 3 krát lacnejšie.", "Je to tri krát lacnejšie."),
+    "guard-sk-times-word-after-a-verb": ("sk", "Prišiel 2 krát.", "Prišiel dva krát."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
