@@ -6,7 +6,22 @@ when revived. New findings are added to one of the two lists as they are verifie
 
 ## Kept
 
-None open: every kept task is fixed (2026-11-17).
+Batch 5, revived from Parked on 2026-11-18 (one commit per item on `normalizer-limits-6`). An item that already reads
+right is closed with its evidence, and one whose fix needs a lexicon or risks wide regressions goes back to Parked with
+its reason.
+
+- Hours and times: sk `Otvorené 8.30–17 h` (a dotted time in a dash span), N61 (`v 8.30, asi 9.30 a 10.30 hod.`), N38 +
+  N69 + sk `o 17 h` (`o 5 h`, `o 5 alebo 6 h`), the N65 trade-offs (`Pracoval po 14 h denne`, `Cesta trvala do 20 h`, mixed
+  spans, `Do 14, 15 a 16 h`), N81 (`Ve 24 h provozu`).
+- Case after prepositions: N55 (`o` + time after verbs of change), N84 (`Jednali o 5 %`), `Dohodli se na 5 %` / `Shodli se
+  na 50 Kč` / `Trval na 5 %`, N83 (`na` + area), `Měří od 1 m po 5 m` / `Dostal od něj po 5 Kč`, N86 (sk `Zostala na 5 %` /
+  `Trvalo to 1 h`), `Mluvil 1 h a čekal 2 h`, N88 (`po` + time).
+- Slovak forms and word-form slips: N30 (`Prišli 5 muži`), N63 (masculine plurals mistagged), N64 (`Prišlo nulu ľudí`),
+  `Dočkal sa 5 vnúčat a 3 pravnúčat`, `Viděl ho 2 krát`, `Za 0 tis. Kč`, `Má 1 pravnuka`, `Dotkl se 2. prstem stolu`,
+  `Uplynulo 1 nebo 2 hodiny`.
+- Roman numerals and capitals: the N58 remainders (`Václavu II. Přemyslovci i jeho synovi`, `Vzpomínal na Karla IV. Karel
+  IV. byl`, `Ludvík XIV. Slunce vládl`, capitals `VÁCLAVU II.`), N82 (`I. Jan`), N59 (`V KNIZE II. DÍL`), N89 (abbreviation
+  period in capitals).
 
 Pinned, its own task when taken up: Stanza 1.15.0 (Dependabot #12) changes 563 of 9,818 corpus readings with its new
 CAC and SNK models and fails 19 tests, so `pyproject.toml` holds `stanza<1.15`. Upgrading means going through those
@@ -64,31 +79,17 @@ Found-not-fixed follow-ups, 95ca4dc..91c63c3.
   soutěží` pět: tagger), N51 (`Dítě se bálo 5 psů`), N57 (sentence-initial imperatives), N75 (ordinal after a mistagged
   noun), N78 (`sdružení` takes part), N79 (`Dosáhlo 2 %`), N80 (noise logs), N90 (sk `Bál sa 5 miliónov ľudí`), N94–N99
   (twins and trade-offs of N7b/N77/N79).
-- Slovak edges: N30 (`Prišli 5 muži`), N31 (`100. narodenín`), N38 (`o 5 h`), N63 (masculine plurals mistagged; no safe fix
-  without a lexicon), N64 (`Prišlo nulu ľudí`), N66 (`Oslávil 2. Vianoce`), N67 (collective numerals `dvoje dveře`), N69
-  (`o 5 alebo 6 h`), N70 (plural-ordinal log noise), N86 (Slovak twins of N53/N74).
-- Prepositions and lists: N40 (year shares the next noun across a comma), N54 (walk stops at an abbreviation), N55 (`o` +
-  time after verbs of change), N56 (amount with its own genitive noun opening a clause), N60 + N85 (approximator mid-chain
-  with a counted noun), N61 (`v 8.30, asi 9.30 a 10.30 hod.`), N72 (approximator inside a list), N73 (abbreviation ends a
-  list), N81 (`Ve 24 h provozu`), N83 (`na` + area), N84 (`Jednali o 5 %`), N88 (`po` + time, narrow: `Po 5 minutách` reads
-  right).
-- Capitals and Roman numerals: N59 (`V KNIZE II. DÍL`), N82 (`I. Jan`), N89 (abbreviation period in capitals).
+- Slovak edges: N31 (`100. narodenín`), N66 (`Oslávil 2. Vianoce`), N67 (collective numerals `dvoje dveře`), N70
+  (plural-ordinal log noise).
+- Prepositions and lists: N40 (year shares the next noun across a comma), N54 (walk stops at an abbreviation), N56 (amount
+  with its own genitive noun opening a clause), N60 + N85 (approximator mid-chain with a counted noun), N72 (approximator
+  inside a list), N73 (abbreviation ends a list).
 - Config nits: N62 (unclear error when the num2words config is not a dict), N92 (agreement option `dvacet jedno jablek`).
 - Found by the numbers chain (2026-11-17): `Dosáhl 5 tisíc Kč` pět (needs N12A); `Dosáhl 1,2,3 nebo 5 bodů` jedna, dva,
   tři nebo pěti; `Bál se 5, 10 psů` pěti, deset (a lone comma pair is no list, by design); `Dosáhl 2,5 nebo 5 bodů`
-  decimal nominative; `Za 0 tis. Kč` za nulu; `Pod 5, 10 nebo 15 stromy` (two-case preposition, no verb); `Uplynulo 1 nebo
-  2 hodiny` jednu (ungrammatical input); `Dosáhl 3 gólů, 2 asistencí` dvě (N49 family); `Má 1 pravnuka` jedna (tagger);
-  lists log once per number (log volume only, N5A trade-off).
+  decimal nominative; `Pod 5, 10 nebo 15 stromy` (two-case preposition, no verb); `Dosáhl 3 gólů, 2 asistencí` dvě (N49
+  family); lists log once per number (log volume only, N5A trade-off).
 - Found by the Slovak chain (2026-11-17): sk `Zúčastní sa 5 pretekov` päť + log (no Slovak event list; N21 twin); sk
   `Toho dňa sa bojí 5 psov` päť + log (no Slovak time genitives); `Bál sa 2 stretnutí` / `Bál se 2 setkání` dve/dvě (N7
   family); sk `Zúčastnilo sa 2 alebo 50 ľudí` dvoch (personal masculine A = G); sk `Vzdal sa 5 percent mzdy` päť (SNK
-  tags `percent` singular); sk `Dočkal sa 5 vnúčat a 3 pravnúčat` tri (N49 family); `Dotkl se 2. prstem stolu` druhého;
-  `Viděl ho 2 krát` dvě krát.
-- Found by the preps and misc chain (2026-11-17): `Dohodli se na 5 %`, `Shodli se na 50 Kč`, `Trval na 5 %` accusative (want locative;
-  stems kept out on evidence); `Měří od 1 m po 5 m` locative and `Dostal od něj po 5 Kč` accusative (the price of the
-  "od … po" guard); N65 trade-offs logged by the rule (`Pracoval po 14 h denne`, `Cesta trvala do 20 h`, mixed
-  morning/afternoon spans, `Do 14, 15 a 16 h`); sk `o 17 h` (N38); N58 remainders (`Václavu II. Přemyslovci i jeho
-  synovi`, `Vzpomínal na Karla IV. Karel IV. byl`, `Ludvík XIV. Slunce vládl`, capitals `VÁCLAVU II.` druzí); `Mluvil
-  1 h a čekal 2 h` jedna; sk `Zostala na 5 %` / `Trvalo to 1 h` (N86).
-- Found with the follow-ups (2026-11-17): sk `Otvorené 8.30–17 h` reads `osem celých tri desatiny` (a time with
-  minutes in a dash span read as a decimal; N61 family).
+  tags `percent` singular).
