@@ -972,6 +972,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
     "sk-dot-time-before-do-an-afternoon-hour": (
         "sk", "Otvorené od 8.30 do 17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-hour-after-a-dotted-time-before-do": (
+        "sk", "Otvorené od 8.30 do 12 h.", "Otvorené od ôsmej tridsať do dvanástej.", "read as the hour"),
+    "sk-hour-after-a-colon-time-before-do": (
+        "sk", "Spal od 22:00 do 6 h.", "Spal od dvadsiatej druhej do šiestej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),

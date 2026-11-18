@@ -378,6 +378,7 @@ _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:až{_HS}+do|do|a
 _TIME_AHEAD = rf"(?:2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})[0-5]\d"
 _SPACES = re.compile(r"\s*")  # to the next item; inside a paragraph a line break is a space too
 _DECIMAL = r"\d+(?:,\d+|\.(?![0-5]\d(?!\d))\d+)"  # not "8.30", the time before an hour word
+_TIME_BEFORE = re.compile(rf"(?<![\d.,:])(?:2[0-4]|[01]?\d)[.:][0-5]\d{_HS}+$")  # sk "od 8:30 do 12 h": a time right before
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
@@ -1141,7 +1142,7 @@ class TextNormalizer:
                         log: bool = True) -> Optional[str]:
         """The case of sk "do 17 h" read as the hour of the day ("do sedemnástej"), or None. After od, do, po, pred,
         okolo, k or medzi only an afternoon hour (13 to 23) is one, and the "od" of a span that ends at one: "od 8 h
-        do 17 h"; "do 17 h" may be a span, so the reading is logged."""
+        do 17 h"; any hour is one after a time: "od 8:30 do 12 h". "do 17 h" may be a span, so the reading is logged."""
         if (self.language != "sk" or not isinstance(value, int) or not unit
                 or not re.fullmatch(_HOUR_WORD, unit.lower())):
             return None
@@ -1151,7 +1152,8 @@ class TextNormalizer:
         until = (re.match(rf"\d+(?:{_HS}*{_HOUR_WORD})?{_HS}+(?i:{end_word}){_HS}+(\d+)", text[start:])
                  if end_word else None)
         hour, after = int(until[1]) if until else value, tags.after(end)  # a span decides at its end
-        if (word not in SK_CLOCK_CASES or not (13 <= hour <= 23 and value <= hour)
+        any_hour = word == "do" and _TIME_BEFORE.search(text[:prep.start])  # "od 8:30 do 12 h": then any hour is one
+        if (word not in SK_CLOCK_CASES or not (hour in (range(25) if any_hour else range(13, 24)) and value <= hour)
                 or re.search(rf"(?<![\d.])(?<!\d,){_DECIMAL}(?![\d.])(?!,\d)", text[prep.end:end])
                 or (word == "do" and re.search(rf"{_DECIMAL}{_HS}+$", text[:prep.start]))
                 or (after is not None and after.upos in ("NOUN", "ADJ") and after.feats.get("Case") == "Gen")):
