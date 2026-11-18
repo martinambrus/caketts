@@ -847,6 +847,22 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-two-hour-spans-before-denne": (
         "sk", None, "Otvorené od 9 do 12 h a od 13 do 17 h denne.",
         "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej denne."),
+    "sk-agreement-subject-of-a-neuter-verb-counts-persons-in-the-genitive": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Prišlo 5 mužov.", "Prišlo päť mužov."),
+    "sk-agreement-subject-of-a-genitive-verb": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Zúčastnilo sa 5 mužov.", "Zúčastnilo sa päť mužov."),
+    "guard-sk-agreement-object-agrees": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Videl 5 mužov.", "Videl piatich mužov."),
+    "guard-sk-agreement-object-after-a-neuter-subject": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Dieťa videlo 5 mužov.", "Dieťa videlo piatich mužov."),
+    "guard-sk-agreement-object-after-a-pronoun-subject": (
+        "sk", {"num2words": {"construction": "agreement"}}, "To zrazilo 5 mužov.", "To zrazilo piatich mužov."),
+    "guard-sk-agreement-object-before-a-subject-after-the-verb": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Včera videlo dieťa 5 mužov.",
+        "Včera videlo dieťa piatich mužov."),
+    "guard-sk-agreement-object-in-a-relative-clause": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Auto, ktoré zrazilo 5 mužov, ušlo.",
+        "Auto, ktoré zrazilo piatich mužov, ušlo."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

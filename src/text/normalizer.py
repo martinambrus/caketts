@@ -1650,9 +1650,19 @@ class TextNormalizer:
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
                 case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal" and value != 0) else NOM
+                verb = self._clause_verb(start, tags) if case == ACC and self._count_form(value) == "gen_pl" else None
+                if (verb is not None and (verb.upos == "AUX" or (verb.feats.get("Gender"), verb.feats.get("Number"))
+                                          == ("Neut", "Sing"))
+                        and not any(w is not noun and w.upos in ("NOUN", "PROPN", "PRON", "DET")
+                                    and w.feats.get("Case") in ("Nom", "Acc") and w.feats.get("Reflex") != "Yes"
+                                    for w in (*self._clause_before(verb.start, tags),
+                                              *self._clause_after(verb.end, tags)))):
+                    case = NOM  # "Prišlo päť mužov", but "To zrazilo piatich mužov", "Dieťa videlo piatich mužov"
                 if (noun_case == NOM and animacy == "personal"
                         and getattr(tags.before(list_start), "upos", None) not in ("NOUN", "PROPN")):
                     animacy = AGREEING  # "Prišli piati muži", but "Prišlo päť mužov" and "V roku 2020 muži vyhrali"
+        if case == NOM and noun_case == GEN and animacy == "personal" and self._count_form(value) == "gen_pl":
+            animacy = "inanimate"  # the subject of "Prišlo päť mužov" counts a genitive, whatever the construction
         if (value == 0 and noun is not None and case in (ACC, DAT, LOC, INS)
                 and not (case != ACC and tagged_case == GEN)):
             case = self._count_case(value, case)  # "s nula body": an undeclined "nula" with a written noun in its case
