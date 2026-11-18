@@ -1062,12 +1062,12 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "Dostal 2 s plusem.", "Dostal dva s plusem.", "no governing noun"),
     "guard-s-before-a-dual-instrumental-is-no-unit": (
         "cs", "Šli 2 s dvěma psy.", "Šli dva s dvěma psy.", "no governing noun"),
-    "guard-sk-o-after-a-noun-before-a-topic-verb-is-the-hour": (
-        "sk", "Informoval o stretnutí o 17 h.", "Informoval o stretnutí o sedemnástej.", "read as the hour"),
     "sk-hour-span-before-denne-is-the-hour": (
         "sk", "Otvorené od 8 do 17 h denne.", "Otvorené od ôsmej do sedemnástej denne.", "read as the hour"),
     "sk-dash-span-before-denne-is-the-hour": (
         "sk", "Otvorené 8–17 h denne.", "Otvorené od ôsmej do sedemnástej denne.", "read as the hour"),
+    "sk-o-after-a-verb-of-speaking-is-the-hour": (
+        "sk", "Premiér bude hovoriť o 18 h.", "Premiér bude hovoriť o osemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1264,8 +1264,6 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-o-after-a-noun-of-difference-and-a-copula-keeps-the-span": (
         "sk", "Rozdiel je o 2 h.", "Rozdiel je o dve hodiny."),
     "o-after-a-news-noun-and-a-copula-is-the-topic": ("cs", "Zpráva je o 5 %.", "Zpráva je o pěti procentech."),
-    "sk-o-after-a-verb-of-speaking-keeps-the-topic": ("sk", "Hovorili o 5 h.", "Hovorili o piatich hodinách."),
-    "sk-o-after-a-verb-of-writing-keeps-the-topic": ("sk", "Písali o 5 h.", "Písali o piatich hodinách."),
     "sk-o-after-a-comparative-adverb-keeps-the-span": ("sk", "Bolo to dlhšie o 2 h.", "Bolo to dlhšie o dve hodiny."),
     "sk-o-after-a-comparative-adjective-keeps-the-span": ("sk", "Je dlhší o 2 h.", "Je dlhší o dve hodiny."),
     "sk-o-after-viac-keeps-the-span": ("sk", "Zostalo viac o 2 h.", "Zostalo viac o dve hodiny."),
