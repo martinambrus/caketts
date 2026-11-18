@@ -295,7 +295,9 @@ O_DIFFERENCE_WORDS = ("zpožd", "zpozd", "opožd", "opozd", "prodlouž", "prodlu
 # words of speaking and writing about something, after which "o" and an amount is the locative: "Mluvili o 5 %"
 O_TOPIC_WORDS = re.compile(r"mluv|hovoř|povíd|vypráv|(?:na)?ps(?:al|á)|píš|četl|čte$|čtou$|slyš|vědě[lt]|vědí|ví$"
                            r"|inform|zmín|zmiň|diskut|debat|jednal(?!o)|jedna[jt]|uvažuj|uvažov|přemýšl|hlasov|dozvěd"
-                           r"|řekl|říkal|říká|zpráv|článe|článk")
+                           r"|řekl|říkal|říká|zpráv|článe|článk"
+                           r"|hovor(?!c)|rozpráv|(?:na)?písal|čít|poču|vedel|vie$|zmien|zmieň|spomen|spomín|rokoval"
+                           r"|premýšľ|dozvedel|povedal")
 # verbs of a span (trvat, čekat, spát), after which a time is the accusative: "Trvá to jednu hodinu"
 DURATION_VERBS = ("trv", "potrv", "ček", "čak", "počk", "vyčk", "vyčak", "spal", "spí", "spát", "spať", "vyspal",
                   "vyspí")
@@ -1236,12 +1238,14 @@ class TextNormalizer:
 
     def _shifts(self, start: int, prep: _Word, after: Optional[_Word], tags: _Tags) -> bool:
         """Whether sk "o 2 h" is a shift or the object of a word, no hour of the day: "o 2 h neskôr", "posunúť o 1 h",
-        "meškanie o 2 h", "meškanie vlaku je o 2 h", "prosiť o 2 h"."""
+        "meškanie o 2 h", "meškanie vlaku je o 2 h", "prosiť o 2 h", "hovoriť o 5 h"."""
+        before, verb = tags.before(prep.start), self._clause_verb(start, tags)
         return (getattr(after, "feats", {}).get("Degree") == "Cmp"
                 or any(w is not None and (SK_SHIFT_WORDS.match(_affirmative(w.text.lower()))
                                           or _affirmative(w.text.lower()).startswith(O_DIFFERENCE_WORDS))
-                       for w in (self._clause_verb(start, tags), tags.before(prep.start),
-                                 self._clause_subject(prep.start, tags))))
+                       for w in (verb, before, self._clause_subject(prep.start, tags)))
+                or (getattr(before, "upos", None) != "NOUN" and any(
+                    w is not None and O_TOPIC_WORDS.match(_affirmative(w.text.lower())) for w in (verb, before))))
 
     def _clause_subject(self, pos: int, tags: _Tags) -> Optional[_Word]:
         """The nearest nominative noun before `pos` in a clause whose verb is a copula: "Meškanie vlaku je o 2 h", but

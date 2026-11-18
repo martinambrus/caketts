@@ -1059,6 +1059,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "Dostal 2 s plusem.", "Dostal dva s plusem.", "no governing noun"),
     "guard-s-before-a-dual-instrumental-is-no-unit": (
         "cs", "Šli 2 s dvěma psy.", "Šli dva s dvěma psy.", "no governing noun"),
+    "guard-sk-o-after-a-noun-before-a-topic-verb-is-the-hour": (
+        "sk", "Informoval o stretnutí o 17 h.", "Informoval o stretnutí o sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1255,6 +1257,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-o-after-a-noun-of-difference-and-a-copula-keeps-the-span": (
         "sk", "Rozdiel je o 2 h.", "Rozdiel je o dve hodiny."),
     "o-after-a-news-noun-and-a-copula-is-the-topic": ("cs", "Zpráva je o 5 %.", "Zpráva je o pěti procentech."),
+    "sk-o-after-a-verb-of-speaking-keeps-the-topic": ("sk", "Hovorili o 5 h.", "Hovorili o piatich hodinách."),
+    "sk-o-after-a-verb-of-writing-keeps-the-topic": ("sk", "Písali o 5 h.", "Písali o piatich hodinách."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
