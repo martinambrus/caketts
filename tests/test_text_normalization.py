@@ -883,6 +883,16 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
         "cs", None, "Přišli 2 prapravnuci.", "Přišli dva prapravnuci."),
     "guard-cs-great-grandchildren-accusative-plural": ("cs", None, "Viděl 2 pravnuky.", "Viděl dva pravnuky."),
     "sk-snimky-is-left-to-the-tagger": ("sk", None, "Má 2 snímky.", "Má dve snímky."),
+    "roman-numbered-verse-books": (
+        "cs", {"verse_references": ["Jan", "Kor", "Sam"]}, "Viz I. Jan 3,16, II. Kor 5,17 a II. Sam 7,12.",
+        "Viz první Jan tři, šestnáct, druhý Kor pět, sedmnáct a druhá Sam sedm, dvanáct."),
+    "roman-numeral-above-the-top-number-of-a-book-stays": (
+        "cs", {"verse_references": ["Jan", "Kor", "Sam"]}, "Viz II. Kor 5,17 a III. Jan 1,1 a IV. Jan 3,16.",
+        "Viz druhý Kor pět, sedmnáct a třetí Jan jedna, jedna a IV. Jan tři, šestnáct."),
+    "sk-roman-numbered-verse-book": (
+        "sk", {"verse_references": ["Ján"]}, "Pozri III. Ján 1,2.", "Pozri tretí Ján jeden, dva."),
+    "guard-conjunction-before-a-verse-reference": (
+        "cs", {"verse_references": ["Jan"]}, "I Jan 3,16 to potvrzuje.", "I Jan tři, šestnáct to potvrzuje."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

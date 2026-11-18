@@ -792,7 +792,11 @@ class TextNormalizer:
         for book in books:
             if book.lower() in NUMBERED_BOOKS[language]:
                 tops.setdefault(NUMBERED_BOOKS[language][book.lower()][1], []).append(re.escape(book))
-        part = "|".join(rf"[1-{top}](?=\.?{_HS}*(?:{'|'.join(found)})(?!\w))" for top, found in tops.items()) or "(?!)"
+        parts = []
+        for top, found in tops.items():
+            ahead = rf"{_HS}*(?:{'|'.join(found)})(?!\w)"
+            parts.append(rf"[1-{top}](?=\.?{ahead})|(?:{'|'.join(('V', 'IV', 'III', 'II', 'I')[5 - top:])})(?=\.{ahead})")
+        part = "|".join(parts) or "(?!)"
         self._verses = (re.compile(rf"(?<!\w)(?:(?P<part>{part})\.?{_HS}*)?"
                                    rf"(?P<book><(?P<booklang>en|cs|sk)>(?:{names})</(?P=booklang)>|(?:{names}))"
                                    rf"{_HS}+(?P<chapter>\d+)[,:]"
@@ -886,7 +890,8 @@ class TextNormalizer:
         book = v["book"]
         if v["part"]:  # "1 Jan", "2 Sam": the first epistle (list), the second book (kniha)
             gender = NUMBERED_BOOKS[self.language][book.lower()][0]
-            book = f"{self._ordinal(int(v['part']), NOM, gender, 'inanimate')} {book}"
+            part = int(v["part"]) if v["part"].isdigit() else _roman_value(v["part"])
+            book = f"{self._ordinal(part, NOM, gender, 'inanimate')} {book}"
         words = f"{book} {number(v['chapter'])}, {number(v['verse'])}"
         if v["last"]:
             words += f" {RANGE_WORD} {number(v['last'])}"
