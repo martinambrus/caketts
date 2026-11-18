@@ -1370,6 +1370,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-cs-preposition-kolem-before-an-ordinal": ("cs", "Šel kolem 2. domu.", "Šel kolem druhého domu."),
     "guard-cs-indeclinable-show-after-a-preposition": ("cs", "Bez 1 šou to nejde.", "Bez jedné šou to nejde."),
     "guard-cs-indeclinable-show-after-a-verb": ("cs", "Moderoval 1 šou.", "Moderoval jednu šou."),
+    "sk-zero-object-of-a-verb": ("sk", "Videl 0 mužov.", "Videl nula mužov."),
+    "sk-zero-object-of-a-verb-with-a-subject-clitic": ("sk", "Pozvali sme 0 ľudí.", "Pozvali sme nula ľudí."),
+    "guard-cs-zero-object-of-a-verb": ("cs", "Viděl 0 mužů.", "Viděl nula mužů."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

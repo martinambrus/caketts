@@ -1649,7 +1649,8 @@ class TextNormalizer:
                 # singular verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
-                case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal" and value != 0) else NOM
+                case = ACC if value != 0 and (noun_case == ACC or (
+                    noun_case == GEN and animacy == "personal")) else NOM
                 verb = self._clause_verb(start, tags) if case == ACC and self._count_form(value) == "gen_pl" else None
                 if (verb is not None and (verb.upos == "AUX" or (verb.feats.get("Gender"), verb.feats.get("Number"))
                                           == ("Neut", "Sing"))
