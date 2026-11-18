@@ -377,6 +377,7 @@ _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:až{_HS}+do|do|a
 # a range written with "až" ("1 až 2 °C"), but not before a time ("8 až 9.30 hod."), which the time item reads
 _TIME_AHEAD = rf"(?:2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})[0-5]\d"
 _SPACES = re.compile(r"\s*")  # to the next item; inside a paragraph a line break is a space too
+_DECIMAL = r"\d+(?:,\d+|\.(?![0-5]\d(?!\d))\d+)"  # not "8.30", the time before an hour word
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
@@ -1151,10 +1152,10 @@ class TextNormalizer:
                  if end_word else None)
         hour, after = int(until[1]) if until else value, tags.after(end)  # a span decides at its end
         if (word not in SK_CLOCK_CASES or not (13 <= hour <= 23 and value <= hour)
-                or re.search(r"(?<![\d.])(?<!\d,)\d+[.,]\d+(?![\d.])(?!,\d)", text[prep.end:end])
-                or (word == "do" and re.search(rf"\d[.,]\d+{_HS}+$", text[:prep.start]))
+                or re.search(rf"(?<![\d.])(?<!\d,){_DECIMAL}(?![\d.])(?!,\d)", text[prep.end:end])
+                or (word == "do" and re.search(rf"{_DECIMAL}{_HS}+$", text[:prep.start]))
                 or (after is not None and after.upos in ("NOUN", "ADJ") and after.feats.get("Case") == "Gen")):
-            return None  # "od 8.30 do 17 h", "od 8,5 do 17 h" and "po 18 h práce" count hours
+            return None  # "od 8,5 do 17 h" and "po 18 h práce" count hours
         if log and until is None:
             self._warn(text, (start, end), self._clock_hour(value, SK_CLOCK_CASES[word]),
                        "hour of the day or a span, read as the hour; check it")

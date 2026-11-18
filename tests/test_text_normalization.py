@@ -970,6 +970,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
                                                              "Zúčastňuje se padesát lidí.", "read as the subject"),
     "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
+    "sk-dot-time-before-do-an-afternoon-hour": (
+        "sk", "Otvorené od 8.30 do 17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
