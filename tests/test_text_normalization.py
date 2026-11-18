@@ -1311,6 +1311,10 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-great-grandson-is-masculine-animate": ("sk", "Má 1 pravnuka.", "Má jedného pravnuka."),
     "guard-cs-great-grandsons-in-the-instrumental": ("cs", "S 2 pravnuky.", "Se dvěma pravnuky."),
     "guard-cs-great-grandsons-in-the-genitive-plural": ("cs", "Má 5 pravnuků.", "Má pět pravnuků."),
+    "cs-genitive-verb-instrumental-ordinal": ("cs", "Dotkl se 2. prstem stolu.", "Dotkl se druhým prstem stolu."),
+    "cs-genitive-verb-instrumental-ordinal-of-a-person": ("cs", "Bál se 2. mužem.", "Bál se druhým mužem."),
+    "guard-cs-genitive-verb-genitive-ordinal": ("cs", "Dotkl se 2. prstu.", "Dotkl se druhého prstu."),
+    "guard-cs-genitive-verb-dative-looking-ordinal": ("cs", "Bál se 2. dílu.", "Bál se druhého dílu."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
