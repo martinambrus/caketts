@@ -120,14 +120,14 @@ UNITS = {  # symbol -> noun in NOUNS
            "kg": "kilogram", "g": "gram", "l": "litr", "L": "litr", "ml": "mililitr", "mL": "mililitr",
            "°C": "stupeň", "°": "stupeň",
            "%": "procento", "‰": "promile", "hod": "hodina", "h": "hodina", "min": "minuta", "s": "sekunda",
-           "ks": "kus", "Kč": "koruna",
+           "sek": "sekunda", "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolar", "USD": "dolar", "£": "libra"},
     "sk": {"km": "kilometer", "km/h": "kilometer", "m": "meter", "m/s": "meter", "cm": "centimeter",
            "mm": "milimeter",
            "kg": "kilogram", "g": "gram", "l": "liter", "L": "liter", "ml": "mililiter", "mL": "mililiter",
            "°C": "stupeň", "°": "stupeň",
            "%": "percento", "‰": "promile", "hod": "hodina", "h": "hodina", "min": "minúta", "s": "sekunda",
-           "ks": "kus", "Kč": "koruna",
+           "sek": "sekunda", "ks": "kus", "Kč": "koruna",
            "€": "euro", "EUR": "euro", "$": "dolár", "USD": "dolár", "£": "libra"},
 }
 UNIT_WORDS = {language: {part.lower() for key in units for part in re.findall(r"[^\W\d_]+", key)}
@@ -284,7 +284,7 @@ NA_LEVEL_VERBS = ("zůst", "zost", "ostal", "ostáv", "ostan", "drž", "udrž", 
                   "stabiliz", "skonč", "konč", "začín", "začal", "začn", "stagn", "zamrz", "trv", "bydl", "žil", "žij",
                   "lež")
 NA_AGREE_VERBS = ("dohod", "shod", "zhod")  # with "se": "Dohodli se na pěti procentech", but "dohodli cenu na 5 Kč"
-TIME_UNITS = ("h", "hod", "min", "s")
+TIME_UNITS = ("h", "hod", "min", "s", "sek")
 # words of a difference, after which "o" and an amount is the accusative, which the taggers give the locative at times:
 # "Zpoždění o 2 h", sk "Meškanie o 2 h"
 O_DIFFERENCE_WORDS = ("zpožd", "zpozd", "opožd", "opozd", "prodlouž", "prodluž", "zkrát", "posun", "přesun", "mešk",
@@ -379,10 +379,12 @@ _CAPITAL_PER = rf"|G|M{_POWER}|H|S(?!{_HS}+[^\W\d_])"  # one-letter symbols in c
 _EN_GROUPED = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?"  # "$1,234.56" after a prefixed currency symbol
 _PRICE = rf"[-−–+]?(?:{_EN_GROUPED}|(?:{_INT})(?:[.,]\d+)?)"
 _TAG_TOKEN = re.compile(rf"{_INT}|[^\W\d_]+|\S")  # "1 000" is one token: split, "000" misleads the tagger
+# no word that may be instrumental follows: "Po 5 s začalo", but "Mám 5 s sebou", "Šli 2 s dvěma psy"
+_BARE_S = rf"(?!{_HS}+(?:[^\W\d_]*(?i:[muúiíyý])|(?i:dvě|dvo|obě|obo)ma)(?![^\W\d_]))"
 _UNIT = (rf"(?i:km/h|km{_POWER}|cm{_POWER}|mm{_POWER}|m/s|kg|ks\.?|ml|hod\.?|min\.?)|m{_POWER}|g|l|L|°C|°|%|‰|h\.?"
-         rf"|s(?!{_HS}+[^\W\d_])\.?")  # "5 s.", but "Mám 5 s sebou"
+         rf"|sek\.?|s{_BARE_S}\.?")
 # in a paragraph in capitals only: SI writes these lowercase, and in mixed text a capital is a prefix or a name
-_CAPITAL_UNIT = rf"|M(?:[²³]|[23](?!\d))|(?<={_HS})(?:M{_POWER}|G|H\.?|S(?!{_HS}+[^\W\d_])\.?)"  # "5 G", "60M2"; "5G" a name
+_CAPITAL_UNIT = rf"|M(?:[²³]|[23](?!\d))|(?<={_HS})(?:M{_POWER}|G|H\.?|S{_BARE_S}\.?)"  # "5 G", "60M2"; "5G" a name
 _CURRENCY = r"(?i:kč)|€|EUR|USD|\$|£"
 _ROMAN = r"(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})"  # up to 3999
 _NOT_LETTER_AFTER = r"(?![^\W\d_])"
@@ -1290,6 +1292,7 @@ class TextNormalizer:
         value, integer, fraction = _parse(amount)
         case = self._governing_case(start, tags, amount, unit, end) or self._unit_verb_case(
             amount, unit, start, end, text, tags, log=verb_log)
+        word_after = unit.lower() == "s" and re.match(rf"{_HS}+[^\W\d_]", text[end:])
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
             unit = unit.lower()
@@ -1321,6 +1324,8 @@ class TextNormalizer:
         words = read(case or NOM)
         if case is None and words != read(ACC):
             self._warn(text, (start, end), words, "no preposition; nominative")
+        if word_after and getattr(tags.after(end), "upos", None) in ("NOUN", "PROPN", "ADJ", "DET", "NUM"):
+            self._warn(text, (start, end), words, "\"s\" before a word, read as seconds and not as the preposition")
         if comma:
             self._check_comma(text, (start, end), words, amount)
         return self._signed(amount, words) + suffix

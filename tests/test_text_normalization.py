@@ -1051,6 +1051,14 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "Skončil 1 h.", "Skončil jedna hodina.", "no preposition; nominative"),
     "guard-sk-verb-of-time-passing-with-1-h-is-logged": (
         "sk", "Uplynulo 1 h.", "Uplynulo jedna hodina.", "no preposition; nominative"),
+    "s-after-a-number-before-a-noun-is-seconds": (
+        "cs", "Po 3 s ticha odešel.", "Po třech sekundách ticha odešel.", "read as seconds and not as the preposition"),
+    "s-before-a-name-without-an-instrumental-ending-is-seconds-logged": (
+        "cs", "Přišli 3 s Kate.", "Přišli tři sekundy Kate.", "read as seconds and not as the preposition"),
+    "guard-s-before-an-instrumental-is-no-unit": (
+        "cs", "Dostal 2 s plusem.", "Dostal dva s plusem.", "no governing noun"),
+    "guard-s-before-a-dual-instrumental-is-no-unit": (
+        "cs", "Šli 2 s dvěma psy.", "Šli dva s dvěma psy.", "no governing noun"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1222,6 +1230,15 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Mluvil 1 h a čekal 2 h.", "Mluvil jednu hodinu a čekal dvě hodiny."),
     "time-after-an-impersonal-verb-is-the-accusative": ("cs", "Pršelo 1 h.", "Pršelo jednu hodinu."),
     "sk-time-after-a-duration-verb-is-the-accusative": ("sk", "Trvalo to 1 h.", "Trvalo to jednu hodinu."),
+    "s-after-a-number-before-a-verb-is-seconds": ("cs", "Po 10 s začalo pršet.", "Po deseti sekundách začalo pršet."),
+    "s-after-a-number-before-a-conjunction-is-seconds": (
+        "cs", "Počkej 10 s než se spustí.", "Počkej deset sekund než se spustí."),
+    "s-after-na-and-a-number-is-seconds": ("cs", "Na 5 s zavřel oči.", "Na pět sekund zavřel oči."),
+    "sek-is-seconds": ("cs", "Po 10 sek začalo pršet.", "Po deseti sekundách začalo pršet."),
+    "sek-with-a-period-is-seconds": ("cs", "Trvalo to 10 sek.", "Trvalo to deset sekund."),
+    "sk-s-after-a-number-before-a-verb-is-seconds": (
+        "sk", "Po 10 s začalo pršať.", "Po desiatich sekundách začalo pršať."),
+    "guard-sek-in-capitals-is-the-krona": ("cs", "Stálo to 5 SEK.", "Stálo to pět SEK."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
