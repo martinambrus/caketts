@@ -1327,7 +1327,8 @@ class TextNormalizer:
             if fraction:
                 words = f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} {SCALE_GENITIVES[self.language][unit]}"
             else:
-                words = self._cardinal(value * 10 ** SCALES[unit], case or NOM, "masculine", "inanimate")
+                count = value * 10 ** SCALES[unit]
+                words = self._cardinal(count, self._count_case(count, case or NOM), "masculine", "inanimate")
             if scale_unit:  # "5 tis. km" -> "pět tisíc kilometrů": the noun follows tisíc, milion
                 noun, adjective, suffix = self._unit(scale_unit)
                 count = 1000 if fraction else integer * 10 ** SCALES[unit]

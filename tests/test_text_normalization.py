@@ -1301,6 +1301,10 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "cs-times-word-takes-the-masculine-count": ("cs", "Viděl ho 2 krát.", "Viděl ho dva krát."),
     "guard-cs-times-word-from-five": ("cs", "Viděl ho 5 krát.", "Viděl ho pět krát."),
     "guard-cs-times-glued-to-the-digit": ("cs", "Viděl ho 2krát.", "Viděl ho dvakrát."),
+    "cs-scaled-zero-after-a-preposition": ("cs", "Za 0 tis. Kč.", "Za nula korun."),
+    "cs-scaled-zero-of-millions-after-a-preposition": ("cs", "Za 0 mil. Kč.", "Za nula korun."),
+    "guard-cs-scaled-amount-after-a-preposition": ("cs", "Za 5 tis. Kč.", "Za pět tisíc korun."),
+    "guard-cs-scaled-zero-after-a-genitive-verb": ("cs", "Dosáhl 0 tis. bodů.", "Dosáhl nuly bodů."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
