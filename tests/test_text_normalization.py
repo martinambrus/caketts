@@ -1426,6 +1426,24 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Dal to Karlu IV. Země byla chudá.", "Dal to Karlu čtvrtému. Země byla chudá."),
     "guard-roman-numeral-before-a-capitalised-adjective-and-a-verb": (
         "cs", "Za Karla IV. Velký požár vypukl v Praze.", "Za Karla čtvrtého. Velký požár vypukl v Praze."),
+    "roman-numeral-before-a-new-sentence-led-by-the-same-name": (
+        "cs", "Vzpomínal na Karla IV. Karel IV. byl velký panovník.",
+        "Vzpomínal na Karla čtvrtého. Karel čtvrtý byl velký panovník."),
+    "roman-numeral-before-a-new-sentence-led-by-a-longer-name": (
+        "cs", "Znal Karla IV. Jan Lucemburský byl jeho otec.", "Znal Karla čtvrtého. Jan Lucemburský byl jeho otec."),
+    "sk-roman-numeral-before-a-new-sentence-led-by-the-same-name": (
+        "sk", "Spomínal na Karola IV. Karol IV. bol veľký panovník.",
+        "Spomínal na Karola štvrtého. Karol štvrtý bol veľký panovník."),
+    "guard-roman-numeral-before-an-oblique-name": (
+        "cs", "Řekl to Karlu IV. Petrovi.", "Řekl to Karlu čtvrtému Petrovi."),
+    "guard-roman-numeral-before-an-accusative-name": ("cs", "Viděl Karla IV. Jana.", "Viděl Karla čtvrtého Jana."),
+    "guard-roman-numeral-before-an-oblique-surname-tagged-nominative": (
+        "cs", "Navštívil Jindřicha VIII. Tudora.", "Navštívil Jindřicha osmého Tudora."),
+    "guard-roman-numeral-before-an-oblique-surname-and-a-verb-after-a-conjunction": (
+        "cs", "Navštívil Jindřicha VIII. Tudora a odešel.", "Navštívil Jindřicha osmého Tudora a odešel."),
+    "guard-roman-numeral-before-an-oblique-surname-and-a-relative-clause": (
+        "cs", "Navštívil Jindřicha VIII. Tudora, který ho přijal.",
+        "Navštívil Jindřicha osmého Tudora, který ho přijal."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

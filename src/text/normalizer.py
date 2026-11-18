@@ -2323,10 +2323,14 @@ class TextNormalizer:
                    for w in TextNormalizer._clause_before(pos, tags, clause))
 
     @staticmethod
-    def _verb_ahead(pos: int, tags: _Tags) -> bool:
-        """Whether a finite verb or a copula comes before the end of the sentence at `pos`."""
-        for w in tags.words[bisect.bisect_left(tags.starts, pos):]:
-            if w.text in (".", "!", "?", "…"):
+    def _verb_ahead(pos: int, tags: _Tags, clause: bool = False) -> bool:
+        """Whether a finite verb or a copula comes before the end of the sentence at `pos`, or with `clause` of its
+        clause, which a comma or a conjunction ends; the period of a number is no end: "Karel IV. byl"."""
+        words = tags.words
+        for i in range(bisect.bisect_left(tags.starts, pos), len(words)):
+            w, before = words[i], words[i - 1].text
+            if (w.text in ("!", "?", "…") or (clause and (w.text == "," or w.upos == "CCONJ"))
+                    or (w.text == "." and not (before.isdigit() or re.fullmatch(_ROMAN, before)))):
                 return False
             if (w.upos == "VERB" and w.feats.get("VerbForm") != "Inf") or w.upos == "AUX":
                 return True
@@ -2446,7 +2450,9 @@ class TextNormalizer:
                     or (word.upos == "NOUN" and not goes_on)
                     or (word.upos == "ADJ" and verb_follows and not goes_on)
                     or (word.upos == "PROPN" and name is not None and not _agree(name, word))
-                    or (word.upos == "PROPN" and verb_follows and predicate))
+                    or (word.upos == "PROPN" and predicate
+                        and (verb_follows or (oblique and word.feats.get("Case") == "Nom"
+                                              and self._verb_ahead(word.end, tags, True)))))
         return True
 
     def _feminine(self, word: str, suffix: str) -> str:
