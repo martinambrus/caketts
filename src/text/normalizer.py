@@ -1828,6 +1828,10 @@ class TextNormalizer:
                 case = context
             # a singular nominative or accusative is the subject ("Cíle dosáhl 2. muž"), and so is an agreeing
             # plural nominative ("Cíle dosáhli 2. muži")
+            elif (verb_case == GEN and plural and (gender, animacy) == ("masculine", "inanimate")
+                  and head.text.lower().endswith("y") and not self._subject(head, start, tags)):
+                verb = self._clause_verb(start, tags)  # no genitive plural ends in -y: "Dotkl se 2. prsty stolu"
+                case = NOM if verb is not None and verb.feats.get("Number") == "Plur" else INS
             elif verb_case == GEN and (plural or case not in (NOM, ACC, INS)) and not self._subject(head, start, tags):
                 case = GEN  # "Dosáhli 5. místa", "Bál se 2. dílu": a genitive singular that looks plural or dative
                 plural = plural and not head.text.lower().endswith(("a", "y", "e", "ě", "u"))

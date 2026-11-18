@@ -1070,6 +1070,11 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "sk", "Premiér bude hovoriť o 18 h.", "Premiér bude hovoriť o osemnástej.", "read as the hour"),
     "guard-sk-o-after-a-past-copula-and-no-word-of-change-is-the-hour": (
         "sk", "Stretnutie bolo o 5 h.", "Stretnutie bolo o piatej.", "read as the hour"),
+    "cs-plural-instrumental-after-an-ordinal": (
+        "cs", "Dotkl se 2. prsty stolu.", "Dotkl se druhými prsty stolu.", "ordinal agrees with a plural noun"),
+    "cs-plural-subject-of-a-genitive-verb-after-an-ordinal": (
+        "cs", "Soutěže se zúčastnily 2. ročníky.", "Soutěže se zúčastnily druhé ročníky.",
+        "ordinal agrees with a plural noun"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
