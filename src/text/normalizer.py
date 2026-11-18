@@ -285,6 +285,14 @@ NA_LEVEL_VERBS = ("zůst", "zost", "ostal", "ostáv", "ostan", "drž", "udrž", 
                   "lež")
 NA_AGREE_VERBS = ("dohod", "shod", "zhod")  # with "se": "Dohodli se na pěti procentech", but "dohodli cenu na 5 Kč"
 TIME_UNITS = ("h", "hod", "min", "s")
+# words of a difference, after which "o" and an amount is the accusative, which the taggers give the locative at times:
+# "Zpoždění o 2 h", sk "Meškanie o 2 h"
+O_DIFFERENCE_WORDS = ("zpožd", "zpozd", "opožd", "opozd", "prodlouž", "prodluž", "zkrát", "posun", "přesun", "mešk",
+                      "oneskor", "predĺž", "skrát", "presun", "zvýš", "zníž", "zdraž", "odchýl", "zrýchl")
+# words of speaking and writing about something, after which "o" and an amount is the locative: "Mluvili o 5 %"
+O_TOPIC_WORDS = re.compile(r"mluv|hovoř|povíd|vypráv|(?:na)?ps(?:al|á)|píš|četl|čte$|čtou$|slyš|vědě[lt]|vědí|ví$"
+                           r"|inform|zmín|zmiň|diskut|debat|jednal(?!o)|jedna[jt]|uvažuj|uvažov|přemýšl|hlasov|dozvěd"
+                           r"|řekl|říkal|říká|zpráv|článe|článk")
 # verbs of a span (trvat, čekat, spát), after which a time is the accusative: "Trvá to jednu hodinu"
 DURATION_VERBS = ("trv", "potrv", "ček", "počk", "vyčk", "spal", "spí", "spát", "vyspal", "vyspí")
 
@@ -2086,6 +2094,15 @@ class TextNormalizer:
             if ranged or (before[:1] and before[0].text.lower() == "až" and unit.rstrip(".").lower() not in TIME_UNITS):
                 return ACC  # "od 1 m po 5 m", "až po 5 km" (until)
             return LOC  # after or each, tagged accusative: "po pěti minutách", "po pěti korunách"
+        if prep.text.lower() == "o" and unit and end:
+            after, before = tags.after(end), tags.before(prep.start)
+            words = [before] if before is not None and before.upos == "NOUN" else [before, self._clause_verb(pos, tags)]
+            words = [_affirmative(w.text.lower()) for w in words if w is not None]
+            if (after is not None and after.feats.get("Degree") == "Cmp") or any(
+                    w.startswith(O_DIFFERENCE_WORDS) for w in words):
+                return ACC  # "o 2 h později", "Zpoždění o 2 h"
+            if any(O_TOPIC_WORDS.match(w) for w in words):
+                return LOC  # "Mluvili o pěti procentech"
         return _UD_CASES.get(prep.feats.get("Case"))
 
     def _shared_preposition(self, pos: int, tags: _Tags, end: Optional[int] = None) -> Optional[_Word]:

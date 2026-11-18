@@ -1189,6 +1189,21 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-na-after-dohodnout-se-a-time-is-the-accusative": ("cs", "Dohodli se na 2 h.", "Dohodli se na dvě hodiny."),
     "guard-na-after-trvat-a-time-is-the-accusative": ("cs", "Trvalo to na 2 h.", "Trvalo to na dvě hodiny."),
     "guard-sk-na-after-zostat-a-time-is-the-accusative": ("sk", "Zostal tam na 2 h.", "Zostal tam na dve hodiny."),
+    "o-after-a-noun-of-delay-is-the-difference": (
+        "cs", "Zpoždění o 2 h se nikomu nelíbilo.", "Zpoždění o dvě hodiny se nikomu nelíbilo."),
+    "o-before-a-reflexive-delay-verb-is-the-difference": ("cs", "O 2 h se zpozdil.", "O dvě hodiny se zpozdil."),
+    "o-before-a-comparative-is-the-difference": ("cs", "Mluvil o 2 h déle.", "Mluvil o dvě hodiny déle."),
+    "o-after-a-verb-of-speaking-is-the-topic": ("cs", "Mluvili o 5 %.", "Mluvili o pěti procentech."),
+    "o-after-a-verb-of-negotiating-is-the-topic": ("cs", "Jednali o 5 kg.", "Jednali o pěti kilogramech."),
+    "sk-o-after-a-noun-of-delay-is-the-difference": ("sk", "Meškanie o 2 h.", "Meškanie o dve hodiny."),
+    "sk-o-after-a-noun-of-increase-is-the-difference": (
+        "sk", "Zvýšenie o 5 % schválili.", "Zvýšenie o päť percent schválili."),
+    "sk-o-after-informovat-is-the-topic": ("sk", "Informovali o 5 %.", "Informovali o piatich percentách."),
+    "guard-o-after-jednat-se-is-the-accusative": ("cs", "Jednalo se o 5 %.", "Jednalo se o pět procent."),
+    "guard-o-after-a-noun-before-a-topic-verb-is-no-topic": (
+        "cs", "Informovali o růstu o 5 %.", "Informovali o růstu o pět procent."),
+    "guard-o-after-a-verb-of-growth-is-the-accusative": ("cs", "Vzrostl o 5 %.", "Vzrostl o pět procent."),
+    "guard-o-after-prosit-is-the-accusative": ("cs", "Prosil o 5 Kč.", "Prosil o pět korun."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
