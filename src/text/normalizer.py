@@ -1419,6 +1419,8 @@ class TextNormalizer:
                     rf"(?:(?i:{_APPROXIMATOR}){_HS}*)?(?P<later>[-−–+]?{_UNSIGNED})")  # "1 nebo asi 2 h"
             unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
             later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
+            if self.language == "sk" and od and re.match(rf"{_HS}+do{_HS}+(?={_TIME_AHEAD})", text[end:]):
+                return GEN, "feminine", CLOCK  # sk "od 8 do 17:30": the hour, as the time after it is
             if later_unit:  # "1 nebo 2 h", "od 1 do 2 °C": the unit after a later number counts this one too
                 clock = self._afternoon_hour(value, later_unit["unit"], start, end + later_unit.end("unit"), text, tags,
                                              log=False)

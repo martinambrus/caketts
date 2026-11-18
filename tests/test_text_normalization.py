@@ -1120,6 +1120,7 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-cs-clock-time-before-a-time-genitive": ("cs", "Přijdu v 8 h večera.", "Přijdu v osm hodin večera."),
     "guard-cs-clock-time-before-a-weekday-genitive": (
         "cs", "Sejdeme se ve 14 h pátku.", "Sejdeme se ve čtrnáct hodin pátku."),
+    "sk-hour-before-do-and-a-time": ("sk", "Otvorené od 8 do 17:30.", "Otvorené od ôsmej do sedemnástej tridsať."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
