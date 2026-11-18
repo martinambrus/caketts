@@ -227,6 +227,9 @@ FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"},
                         **dict.fromkeys(SK_MASCULINE_PLURALS, {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"}),
                         **dict.fromkeys(SK_FEMININE_PLURALS, {"Gender": "Fem"})}}
 
+# abbreviations the tagger reads as a name: it tags the word they stand for ("v 5. stol.")
+TAG_EXPANSIONS = {"cs": {"stol": "století"}, "sk": {}}
+
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}
 LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative plural ends so
@@ -928,7 +931,10 @@ class TextNormalizer:
         capitals = {i for i in letters if texts[i].isupper()}
         # the tagger reads every word of an all-caps run as a caseless proper noun; an acronym alone stays
         lowered = {i for pair in zip(letters, letters[1:]) if set(pair) <= capitals for i in pair}
-        sentence = _tagger(self.language)([[s.lower() if i in lowered else s for i, s in enumerate(texts)]]).sentences[0]
+        expand = TAG_EXPANSIONS[self.language]
+        expanded = {i for i, s in enumerate(texts) if s.lower() in expand and texts[i + 1:i + 2] == ["."]}
+        fed = [expand[s.lower()] if i in expanded else (s.lower() if i in lowered else s) for i, s in enumerate(texts)]
+        sentence = _tagger(self.language)([fed]).sentences[0]
         words = []
         for i, (t, token) in enumerate(zip(tokens, sentence.tokens)):
             for w in token.words:
@@ -942,7 +948,8 @@ class TextNormalizer:
                     feats["Case"] = "Ins"
                 # CAC tags "–" as a noun at times; "~" and "≈" read "přibližně", so a preposition reaches past them
                 upos = "ADV" if texts[i] in ("~", "≈") else (tagged if any(ch.isalnum() for ch in w.text) else "PUNCT")
-                words.append(_Word(t.start(), t.end(), texts[i] if i in lowered else w.text, upos, feats))
+                words.append(_Word(t.start(), t.end(), texts[i] if (i in lowered and i not in expanded) else w.text,
+                                   upos, feats))
         return words
 
     # ---- items -----------------------------------------------------------------------------

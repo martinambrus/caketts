@@ -1494,6 +1494,12 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "MĚL 3 MLD. DOLARŮ A ODEŠEL.", "MĚL tři miliardy DOLARŮ A ODEŠEL."),
     "capitals-unit-abbreviation-before-a-conjunction": (
         "cs", "PŘIŠEL V 5 HOD. A ODEŠEL.", "PŘIŠEL V pět hodin A ODEŠEL."),
+    "ordinal-before-the-century-abbreviation": (
+        "cs", "Stalo se to v 5. stol. v Řecku.", "Stalo se to v pátém století v Řecku."),
+    "ordinal-before-the-century-abbreviation-and-an-era": (
+        "cs", "Žil v 5. stol. př. n. l.", "Žil v pátém století před naším letopočtem."),
+    "ordinal-span-before-the-century-abbreviation": (
+        "cs", "Od 5. do 7. stol. vládli Řekové.", "Od pátého do sedmého století vládli Řekové."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
