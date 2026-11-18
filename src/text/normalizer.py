@@ -229,7 +229,8 @@ MEASURE_GENITIVES = frozenset({"věku", "stáří", "doby", "délky", "trvání"
                                "vzdálenosti", "rychlosti", "hodnoty", "teploty", "hmotnosti", "váhy", "ceny", "úrovně"})
 # genitives of time, which are no object: "Pěti vítězství dosáhla minulého roku"
 TIME_GENITIVES = frozenset({"dne", "dnu", "roku", "týdne", "měsíce", "večera", "rána", "dopoledne", "odpoledne", "léta",
-                            "jara", "podzimu", "zimy", "noci", "času", "víkendu", "chvíle", "doby"})
+                            "jara", "podzimu", "zimy", "noci", "času", "víkendu", "chvíle", "doby", "pondělí", "úterý", "středy",
+                            "čtvrtka", "pátku", "soboty", "neděle"})
 # events, which one takes part in, after a number: "Zúčastní se pěti závodů"
 EVENT_GENITIVES = frozenset({"akcí", "bitev", "debat", "diskusí", "etap", "festivalů", "her", "koncertů", "konferencí",
                              "kongresů", "kol", "kurzů", "mistrovství", "olympiád", "porad", "přednášek", "schůzí",
@@ -2011,7 +2012,10 @@ class TextNormalizer:
             return ACC  # "Teplota klesla pod pět stupňů", but "je pod pěti stupni"
         if (self.language == "cs" and prep.text.lower() in TIME_PREPOSITIONS["cs"] and unit
                 and re.fullmatch(_HOUR_WORD, unit.lower()) and _parse(amount)[0] in range(25)):
-            return ACC  # "ve 2 h" is a clock time, as "ve 2 hodiny"
+            after = tags.after(end)  # "ve 24 h provozu" counts hours, but "ve 2 h dne 5. 6." is a clock time
+            if not (after is not None and after.upos == "NOUN" and after.feats.get("Case") == "Gen"
+                    and after.text.lower() not in TIME_GENITIVES):
+                return ACC  # "ve 2 h" is a clock time, as "ve 2 hodiny"
         if self.language == "cs" and prep.text.lower() == "na" and unit:
             time, verb = unit.rstrip(".").lower() in TIME_UNITS, self._clause_verb(pos, tags)
             owner = tags.before(prep.start)  # "Zůstala mu faktura na 5 Kč": the subject after the verb owns the amount
