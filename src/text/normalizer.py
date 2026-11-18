@@ -1612,7 +1612,7 @@ class TextNormalizer:
                 # singular verb ("Zúčastnilo se padesát lidí"), any other is the verb's object ("Dosáhl pěti bodů")
                 case = self._genitive_verb_case(value, start, noun, text, m, tags)
             else:
-                case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal") else NOM
+                case = ACC if noun_case == ACC or (noun_case == GEN and animacy == "personal" and value != 0) else NOM
                 if (noun_case == NOM and animacy == "personal"
                         and getattr(tags.before(list_start), "upos", None) not in ("NOUN", "PROPN")):
                     animacy = AGREEING  # "Prišli piati muži", but "Prišlo päť mužov" and "V roku 2020 muži vyhrali"

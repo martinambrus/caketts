@@ -1295,6 +1295,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-sk-years-in-a-list-before-a-nominative-plural-keep-the-cardinal": (
         "sk", "V rokoch 2010 a 2011 študenti protestovali.",
         "V rokoch dvetisícdesať a dvetisícjedenásť študenti protestovali."),
+    "sk-zero-subject-of-a-neuter-verb": ("sk", "Prišlo 0 ľudí.", "Prišlo nula ľudí."),
+    "sk-zero-subject-of-a-copula": ("sk", "Bolo tam 0 ľudí.", "Bolo tam nula ľudí."),
+    "guard-sk-zero-things-in-the-genitive": ("sk", "Mal 0 bodov.", "Mal nula bodov."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
