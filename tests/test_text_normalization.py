@@ -826,6 +826,11 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-colon-time-as-the-upper-end-of-a-dash-range": (
         "sk", None, "Otvorené 8–17:30.", "Otvorené osem až sedemnásť tridsať."),
     "sk-hours-in-a-list-after-o-each-logged": ("sk", None, "Prídem o 5 h a 6 h.", "Prídem o piatej a šiestej."),
+    "sk-morning-span-before-an-afternoon-span": (
+        "sk", None, "Otvorené od 9 do 12 h a od 13 do 17 h.",
+        "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej."),
+    "sk-morning-dash-span-before-an-afternoon-span": (
+        "sk", None, "Otvorené 8–12 h a 13–17 h.", "Otvorené od ôsmej do dvanástej a od trinástej do sedemnástej."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),

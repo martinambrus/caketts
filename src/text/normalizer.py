@@ -384,6 +384,10 @@ _TIME_AHEAD = rf"(?:2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})[0-5]\d"
 _SPACES = re.compile(r"\s*")  # to the next item; inside a paragraph a line break is a space too
 _DECIMAL = r"\d+(?:,\d+|\.(?![0-5]\d(?!\d))\d+)"  # not "8.30", the time before an hour word
 _TIME_BEFORE = re.compile(rf"(?<![\d.,:])(?:2[0-4]|[01]?\d)[.:][0-5]\d{_HS}+$")  # sk "od 8:30 do 12 h": a time right before
+# sk "od 9 do 12 h a od 13 do 17 h": a later span that ends in the afternoon makes this one hours of the day too
+_LATER_SPAN = re.compile(rf"(?:{_HS}*{_HOUR_WORD})?(?:{_HS}*,{_HS}*|{_HS}+(?:a|alebo){_HS}+)(?:od{_HS}+)?\d+(?:[.:][0-5]\d)?"
+                         rf"(?:{_HS}*{_HOUR_WORD})?(?:{_HS}+do{_HS}+|{_HS}*[–—-]{_HS}*)(?:1[3-9]|2[0-3])(?:[.:][0-5]\d)?"
+                         rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER}")
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
@@ -1147,8 +1151,8 @@ class TextNormalizer:
                         log: bool = True) -> Optional[str]:
         """The case of sk "do 17 h" read as the hour of the day ("do sedemnástej"), or None. After od, do, po, pred,
         okolo, k or medzi only an afternoon hour (13 to 23) is one, and the "od" of a span that ends at one: "od 8 h
-        do 17 h"; any hour is one after a time ("od 8:30 do 12 h") and after o, unless it shifts: "o 2 h neskôr".
-        "do 17 h" may be a span, so the reading is logged."""
+        do 17 h"; any hour is one after a time ("od 8:30 do 12 h"), before an afternoon span ("od 9 do 12 h a od 13 do
+        17 h") and after o, unless it shifts: "o 2 h neskôr". "do 17 h" may be a span, so the reading is logged."""
         if (self.language != "sk" or not isinstance(value, int) or not unit
                 or not re.fullmatch(_HOUR_WORD, unit.lower())):
             return None
@@ -1158,7 +1162,8 @@ class TextNormalizer:
         until = (re.match(rf"\d+(?:{_HS}*{_HOUR_WORD})?{_HS}+(?i:{end_word}){_HS}+(\d+)", text[start:])
                  if end_word else None)
         hour, after = int(until[1]) if until else value, tags.after(end)  # a span decides at its end
-        any_hour = word == "o" or (word == "do" and _TIME_BEFORE.search(text[:prep.start]))  # "o 5 h": any hour is one
+        any_hour = (word == "o" or (word == "do" and _TIME_BEFORE.search(text[:prep.start]))
+                    or (word in ("od", "do") and _LATER_SPAN.match(text, start + until.end() if until else end)))
         if (word not in SK_CLOCK_CASES or not (hour in (range(25) if any_hour else range(13, 24)) and value <= hour)
                 or re.search(rf"(?<![\d.])(?<!\d,){_DECIMAL}(?![\d.])(?!,\d)", text[prep.end:end])
                 or (word == "do" and re.search(rf"{_DECIMAL}{_HS}+$", text[:prep.start]))
@@ -1199,7 +1204,7 @@ class TextNormalizer:
         word = getattr(prep, "text", "od").lower()
         if (self.language == "sk" and unit and not (scale or per or decimal) and re.fullmatch(_HOUR_WORD, unit.lower())
                 and 0 <= low <= value and not self._measured(after)
-                and ((word == "od" and 13 <= value <= 23)
+                and ((word == "od" and (13 <= value <= 23 or _LATER_SPAN.match(text, end)))
                      or (word == "o" and all(self._afternoon_hour(v, unit, start, end, text, tags, log=False)
                                              for v in (low, value))))):
             case, link = (GEN, "do") if word == "od" else (LOC, RANGE_WORD)  # sk "8–17 h": opening hours, "o 5–6 h"
