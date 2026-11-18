@@ -392,7 +392,9 @@ _TIME_BEFORE = re.compile(rf"(?<![\d.,:])(?:2[0-4]|[01]?\d)[.:][0-5]\d{_HS}+$") 
 # sk "od 9 do 12 h a od 13 do 17 h": a later span that ends in the afternoon makes this one hours of the day too
 _LATER_SPAN = re.compile(rf"(?:{_HS}*{_HOUR_WORD})?(?:{_HS}*,{_HS}*|{_HS}+(?:a|alebo){_HS}+)(?:od{_HS}+)?\d+(?:[.:][0-5]\d)?"
                          rf"(?:{_HS}*{_HOUR_WORD})?(?:{_HS}+do{_HS}+|{_HS}*[–—-]{_HS}*)(?:1[3-9]|2[0-3])(?:[.:][0-5]\d)?"
-                         rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER}")
+                         rf"{_HS}*(?:hod\.?|h\.?){_NOT_LETTER_AFTER}")
+_SPAN_BEFORE = re.compile(rf"od{_HS}+\d+(?:[.:][0-5]\d)?(?:{_HS}*{_HOUR_WORD})?{_HS}+do{_HS}+\d+(?:[.:][0-5]\d)?"
+                          rf"(?:{_HS}*{_HOUR_WORD})?(?:{_HS}*,{_HS}*|{_HS}+(?:a|alebo){_HS}+)(?:od{_HS}+)?$")  # sk "od 9 do 12 a "
 # a number glued to an adjective is its first part: "25letý", "3denní", sk "5-ročný"
 _ADJECTIVE_ENDINGS = "ieho|iemu|ého|ému|ých|ými|ími|ích|ém|ým|ím|om|ou|ej|ia|ie|iu|ý|á|é|í|ú"
 _LETTER_BEFORE = re.compile(rf"{_NOT_LETTER_BEFORE}([^\W\d_]){_HS}+$")  # "s 2", also with a no-break space
@@ -1179,8 +1181,8 @@ class TextNormalizer:
                 or not re.fullmatch(_HOUR_WORD, unit.lower())):
             return None
         prep = self._preposition(start, tags) or self._shared_preposition(start, tags, end)
-        if prep is None and self._time_span(text, start, tags):
-            return GEN  # "8:30–17 h", read at the time before it
+        if prep is None and (self._time_span(text, start, tags) or _SPAN_BEFORE.search(text, 0, start)):
+            return GEN  # "8:30–17 h", "od 9 do 12 a 13 do 17 h": read at the span before it
         word = getattr(prep, "text", "").lower()
         end_word = {"od": "do", "medzi": "a"}.get(word)
         until = (re.match(rf"\d+(?:{_HS}*{_HOUR_WORD})?{_HS}+(?i:{end_word}){_HS}+(\d+)", text[start:])
@@ -1447,9 +1449,12 @@ class TextNormalizer:
         prep_case = self._preposition_case(list_start, tags)
         own = noun = tags.head_after(end)
         if noun is None:
-            od = getattr(self._preposition(start, tags), "text", "").lower() in ("od", "ode")  # also "od asi 1 do 2 h"
-            link = (rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)"
-                    rf"(?:(?i:{_APPROXIMATOR}){_HS}*)?(?P<later>[-−–+]?{_UNSIGNED})")  # "1 nebo asi 2 h"
+            word = getattr(self._preposition(start, tags), "text", "").lower()
+            if self.language == "sk" and word == "do" and _LATER_SPAN.match(text, end):
+                return GEN, "feminine", CLOCK  # sk "od 9 do 12 a od 13 do 17 h": the end of a span, as the later one is
+            od = word in ("od", "ode") or (self.language == "sk" and _SPAN_BEFORE.search(text, 0, start) is not None)
+            link = (rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)(?:od{_HS}+)?"
+                    rf"(?:(?i:{_APPROXIMATOR}){_HS}*)?(?P<later>[-−–+]?{_UNSIGNED})")  # "1 nebo asi 2 h", "od 1 do 2 h"
             unit = _UNIT + (_CAPITAL_UNIT if tags.capitals else "")
             later_unit = re.match(rf"(?:{link})+{_HS}*(?P<unit>{unit}|{_CURRENCY}){_NOT_LETTER_AFTER}", text[end:])
             if self.language == "sk" and od and re.match(rf"{_HS}+do{_HS}+(?={_TIME_AHEAD})", text[end:]):

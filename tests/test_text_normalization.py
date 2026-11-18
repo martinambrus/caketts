@@ -1031,6 +1031,12 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "sk", "Otvorené 8:30–17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
     "sk-two-times-span-ending-before-six": (
         "sk", "Spal 22:00–6:00.", "Spal od dvadsiatej druhej do šiestej.", "read as the hour"),
+    "sk-afternoon-span-without-od-after-a-morning-span": (
+        "sk", "Otvorené od 9 do 12 a 13 do 17 h.", "Otvorené od deviatej do dvanástej a trinástej do sedemnástej.",
+        "read as the hour"),
+    "sk-spans-with-the-unit-once-at-the-end": (
+        "sk", "Otvorené od 9 do 12 a od 13 do 17 h.",
+        "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1152,6 +1158,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-cs-clock-time-before-a-weekday-genitive": (
         "cs", "Sejdeme se ve 14 h pátku.", "Sejdeme se ve čtrnáct hodin pátku."),
     "sk-hour-before-do-and-a-time": ("sk", "Otvorené od 8 do 17:30.", "Otvorené od ôsmej do sedemnástej tridsať."),
+    "sk-spans-with-the-long-hour-word-stay-counts": (
+        "sk", "Otvorené od 8 do 12 a 13 do 17 hodín.",
+        "Otvorené od ôsmich do dvanástich a trinástich do sedemnástich hodín."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
