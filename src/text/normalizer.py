@@ -185,6 +185,18 @@ NEUTER_PLURALS = {
     "sk": frozenset("deti detí deťom deťmi deťoch oči očí očiam očami očiach uši uší ušiam ušami ušiach".split()),
 }
 
+# Slovak plurals in -y and -e that the tagger often gives the other gender: masculine "dva hrady", feminine "dve zľavy"
+SK_MASCULINE_PLURALS = ("bary batohy centy doplnky gély hrady kotly krby matrace mobily moduly monitory "
+                        "notebooky nože náramky obedy oligosacharidy parky ploty plátky pomaranče "
+                        "počiatky prahy preddavky priečinky proteíny prípravky reproduktory rožky "
+                        "sacharidy senzory snímky statky stavy titulky tuky turnaje vitamíny vodopády "
+                        "vrhy výdaje výdavky výstupky zmätky zábery zákusky zásahy záväzky ústavy ústupky "
+                        "účinky čaje žĺtky").split()
+SK_FEMININE_PLURALS = ("buchty bábiky celebrity cievy cyklotrasy dámy etikety eurozóny hypotéky kocky "
+                       "kozy krivky medze miliardy nevýhody obete odrody opravovne plachty posily prehry "
+                       "priority procedúry prosby reťaze samice skratky tony výhody známky zľavy úspory "
+                       "šablóny šance žinky").split()
+
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone, and "neskôr", "skôr" (later, sooner) for positive adverbs;
 # an "upos" key sets the part of speech instead
@@ -205,7 +217,9 @@ FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"},
                         "diely": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
                         "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"},
                         "body": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
-                        "neskôr": {"Degree": "Cmp"}, "skôr": {"Degree": "Cmp"}}}
+                        "neskôr": {"Degree": "Cmp"}, "skôr": {"Degree": "Cmp"},
+                        **dict.fromkeys(SK_MASCULINE_PLURALS, {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"}),
+                        **dict.fromkeys(SK_FEMININE_PLURALS, {"Gender": "Fem"})}}
 
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}

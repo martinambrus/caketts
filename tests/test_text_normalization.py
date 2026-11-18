@@ -1326,6 +1326,18 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "cs-great-uncle-is-masculine-animate": ("cs", "Má 1 prastrýca.", "Má jednoho prastrýca."),
     "sk-great-uncle-after-a-verb-is-masculine-animate": ("sk", "Videl 1 prastrýca.", "Videl jedného prastrýca."),
     "guard-sk-great-uncle-is-read-right-already": ("sk", "Má 1 prastrýca.", "Má jedného prastrýca."),
+    "sk-misgendered-masculine-plural": ("sk", "Má 2 hrady.", "Má dva hrady."),
+    "sk-misgendered-masculine-plural-of-things": ("sk", "Kúpil 2 mobily.", "Kúpil dva mobily."),
+    "sk-misgendered-feminine-plural": ("sk", "Má 2 zľavy.", "Má dve zľavy."),
+    "sk-misgendered-feminine-plural-of-money": ("sk", "Dostal 2 miliardy dolárov.", "Dostal dve miliardy dolárov."),
+    "guard-sk-masculine-plural-tagged-right": ("sk", "Má 2 stromy.", "Má dva stromy."),
+    "guard-sk-feminine-plural-tagged-right": ("sk", "Má 2 ženy.", "Má dve ženy."),
+    "guard-sk-genitive-plural-of-a-listed-word": ("sk", "Má 5 hradov.", "Má päť hradov."),
+    "guard-sk-genitive-singular-after-one-keeps-its-gender": (
+        "sk", "Cena 1 kocky je 5 eur.", "Cena jednej kocky je päť eur."),
+    "guard-sk-genitive-singular-of-money-after-one": ("sk", "Hodnota 1 miliardy eur.", "Hodnota jednej miliardy eur."),
+    "guard-sk-feminine-homograph-of-a-masculine-plural-is-left-alone": (
+        "sk", "Cena 1 roboty je 5 eur.", "Cena jednej roboty je päť eur."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
