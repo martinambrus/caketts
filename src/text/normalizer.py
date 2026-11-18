@@ -383,6 +383,9 @@ _DOT_TIME = (rf"(?=[0-5]\d(?:(?:{_HS}*[–—,-]{_HS}*|{_HS}+(?:až{_HS}+do|do|a
              rf"{_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
 # a range ("1 až 2 °C", "1–2 °C"), but not before a time ("8 až 9.30 hod.", "8–17:30"), which the time item reads
 _TIME_AHEAD = rf"(?:2[0-4]|[01]?\d)(?::|\.{_DOT_TIME})[0-5]\d"
+_CLOCK = rf"(?:2[0-4]|[01]?\d)[.:][0-5]\d"
+_TIME_DASH = re.compile(rf"(?<![\d.,:]){_CLOCK}(?::[0-5]\d)?{_HS}*[–—-]{_HS}*$")  # sk "8:30–17:00": a time, then a dash
+_TIME_NEXT = re.compile(rf"{_HS}*[–—-]{_HS}*(?:{_CLOCK}(?![\d:])|(?:2[0-4]|[01]?\d){_HS}*{_HOUR_WORD}{_NOT_LETTER_AFTER})")
 _SPACES = re.compile(r"\s*")  # to the next item; inside a paragraph a line break is a space too
 _DECIMAL = r"\d+(?:,\d+|\.(?![0-5]\d(?!\d))\d+)"  # not "8.30", the time before an hour word
 _TIME_BEFORE = re.compile(rf"(?<![\d.,:])(?:2[0-4]|[01]?\d)[.:][0-5]\d{_HS}+$")  # sk "od 8:30 do 12 h": a time right before
@@ -878,7 +881,8 @@ class TextNormalizer:
             return start, self._verse(m)
         if kind == "dash":
             if _NUMBER_BEFORE.search(text[:start].rstrip()) and _NUMBER_AFTER.match(text[end:].lstrip()):
-                return start, _spaced(text, start, end, RANGE_WORD)  # "10:00–12:00", "XIX.–XX. století"
+                link = "do" if self.language == "sk" and self._time_span(text, end, tags) else RANGE_WORD
+                return start, _spaced(text, start, end, link)  # "10:00–12:00", "XIX.–XX. století"
             return start, "—"
         if kind == "ellipsis":
             return start, "…"
@@ -1122,18 +1126,25 @@ class TextNormalizer:
 
     def _time(self, m: re.Match, tags: _Tags) -> str:
         hour, minute, second = int(m["hour"]), int(m["minute"]), m["second"]
-        prep = self._preposition(m.start(), tags) or self._shared_preposition(m.start(), tags)
-        case = None
+        prep = self._time_preposition(m.start(), tags)
+        case, span = None, ""
         if prep:
             case = (TIME_PREPOSITIONS[self.language].get(prep.text.lower())
                     or _UD_CASES.get(prep.feats.get("Case")))
-        if self.language == "sk" and case and prep.text.lower() in SK_CLOCK_PREPOSITIONS:  # "o štrnástej tridsať"
+        elif self.language == "sk":
+            if self._time_span(m.string, m.start(), tags):
+                case = GEN
+            elif _TIME_NEXT.match(m.string, m.end()):
+                case, span = GEN, "od "  # sk "8:30–17:00": opening hours, "od ôsmej tridsať do sedemnástej"
+        if self.language == "sk" and case and (not prep or prep.text.lower() in SK_CLOCK_PREPOSITIONS):  # "o štrnástej tridsať"
             words = [self._clock_hour(hour, case)]  # "o jednej" (KSSJ), but "o druhej", "o nultej"
             if minute or second:
                 words.append(self._minutes(minute, NOM))
             if second:
                 words.append(self._minutes(int(second), NOM))
-            return " ".join(words)
+            if span:
+                self._warn(m.string, m, span + " ".join(words), "hour of the day or a span, read as the hour; check it")
+            return span + " ".join(words)
         case = case or NOM
         words = [self._cardinal(hour, self._count_case(hour, case), "feminine", "inanimate")
                  if hour or case not in (NOM, ACC) else "nula"]
@@ -1145,6 +1156,14 @@ class TextNormalizer:
         else:
             words.append(self._noun_phrase("hodina", hour, case))
         return " ".join(words)
+
+    def _time_preposition(self, pos: int, tags: _Tags) -> Optional[_Word]:
+        return self._preposition(pos, tags) or self._shared_preposition(pos, tags)
+
+    def _time_span(self, text: str, pos: int, tags: _Tags) -> bool:
+        """Whether sk text[:pos] ends in a time and a dash and no preposition governs that time: "8:30–17:00"."""
+        before = _TIME_DASH.search(text, 0, pos)
+        return before is not None and self._time_preposition(before.start(), tags) is None
 
     def _clock_hour(self, hour: int, case: str) -> str:
         """A Slovak hour of the day: an ordinal ("o piatej"), but one o'clock is "o jednej" (KSSJ: "príde o jednej")."""
@@ -1160,6 +1179,8 @@ class TextNormalizer:
                 or not re.fullmatch(_HOUR_WORD, unit.lower())):
             return None
         prep = self._preposition(start, tags) or self._shared_preposition(start, tags, end)
+        if prep is None and self._time_span(text, start, tags):
+            return GEN  # "8:30–17 h", read at the time before it
         word = getattr(prep, "text", "").lower()
         end_word = {"od": "do", "medzi": "a"}.get(word)
         until = (re.match(rf"\d+(?:{_HS}*{_HOUR_WORD})?{_HS}+(?i:{end_word}){_HS}+(\d+)", text[start:])

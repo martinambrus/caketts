@@ -842,6 +842,8 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-ordinal-hour-after-okolo": ("sk", None, "Prídem okolo 13. h.", "Prídem okolo trinástej hodiny."),
     "sk-ordinal-hours-after-od-and-do": (
         "sk", None, "Od 8. h do 17. h je otvorené.", "Od ôsmej hodiny do sedemnástej hodiny je otvorené."),
+    "cs-time-span-stays-until": ("cs", None, "Otevřeno 8:30–17:00.", "Otevřeno osm třicet až sedmnáct hodin."),
+    "sk-time-span-after-o-stays-until": ("sk", None, "Prídem o 8:30–9:00.", "Prídem o ôsmej tridsať až deviatej."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -1021,6 +1023,14 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "sk", "Prídem o 10 h dopoludnia.", "Prídem o desiatej dopoludnia.", "read as the hour"),
     "sk-ordinal-hour-with-no-preposition": (
         "sk", "Začiatok: 13. h.", "Začiatok: trinásta hodina.", "no preposition; nominative"),
+    "sk-time-span-without-od": (
+        "sk", "Otvorené 8:30–17:00.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-dotted-time-and-hour-span-without-od": (
+        "sk", "Otvorené 8.30–17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-colon-time-and-hour-span-without-od": (
+        "sk", "Otvorené 8:30–17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-two-times-span-ending-before-six": (
+        "sk", "Spal 22:00–6:00.", "Spal od dvadsiatej druhej do šiestej.", "read as the hour"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
