@@ -1124,6 +1124,12 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "guard-capitals-roman-numeral-after-an-initial-and-a-conjunction": (
         "cs", "ZA KARLA V. A FILIPA II. ZEMĚ VZKVÉTALA.", "ZA KARLA V. A FILIPA druhého. ZEMĚ VZKVÉTALA.",
         "kept as an initial"),
+    "capitals-roman-numeral-after-a-name-before-a-verb": (
+        "cs", "KAREL V. BYL KORUNOVÁN.", "KAREL pátý BYL KORUNOVÁN.", "read as the number"),
+    "guard-capitals-initial-before-a-surname": (
+        "cs", "KAREL V. HAVEL PŘIŠEL.", "KAREL V. HAVEL PŘIŠEL.", "kept as an initial"),
+    "guard-capitals-initial-before-a-surname-tagged-as-a-verb": (
+        "cs", "JAN V. POSPÍŠIL PŘIŠEL.", "JAN V. POSPÍŠIL PŘIŠEL.", "kept as an initial"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1520,6 +1526,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "NA 5. KVĚTNA BYLA SVOLÁNA SCHŮZE.", "NA pátého KVĚTNA BYLA SVOLÁNA SCHŮZE."),
     "guard-day-before-a-month-name-in-mixed-text": (
         "cs", "Bylo 5. července. Potom přišel.", "Bylo pátého července. Potom přišel."),
+    "capitals-roman-numeral-after-a-title-before-an-auxiliary": (
+        "cs", "CÍSAŘ V. BYL KORUNOVÁN.", "CÍSAŘ pátý BYL KORUNOVÁN."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

@@ -1173,7 +1173,8 @@ class TextNormalizer:
                 and subject is not None and subject.upos in ("NOUN", "PRON") and self._verb_follows(lead.start, tags))
             if (prev is None or prev.upos not in ("NOUN", "PROPN") or _roman_value(numeral) >= 400
                     or (len(numeral) == 1 and (numeral not in "IVX"
-                                               or (nxt and nxt.text[:1].isupper() and not numbers_a_thing and not ruler)))):
+                                               or (nxt and nxt.text[:1].isupper() and not numbers_a_thing and not ruler
+                                                    and not (tags.capitals and nxt.upos == "AUX"))))):
                 if name and not ruler:
                     self._warn(text, m, m.group(0), "initial or a ruler's number after a name, kept as an initial; check it")
                 return m.group(0)  # "V. Havel", "Washington DC.", "Příloha C.", "Velikost L.", or no noun to agree with
