@@ -2468,7 +2468,8 @@ class TextNormalizer:
             # patřilo Polsko") or has no verb after it ("Patřilo to Václavu II. Přemyslovci i jeho synovi.")
             oblique = name is not None and name.upos == "PROPN" and name.feats.get("Case") not in (None, "Nom")
             goes_on = (oblique and word is not None
-                       and (name.feats.get("Gender") == word.feats.get("Gender") if word.upos == "NOUN"
+                       and ((name.feats.get("Gender") == word.feats.get("Gender")
+                             and word.feats.get("Animacy") != "Inan") if word.upos == "NOUN"
                             else word.feats.get("Case") != "Nom")
                        and ((verb_follows and not predicate)
                             or (self._predicate_before(start, tags, False) and not self._verb_ahead(word.end, tags))))

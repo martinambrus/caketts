@@ -1502,6 +1502,14 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Od 5. do 7. stol. vládli Řekové.", "Od pátého do sedmého století vládli Řekové."),
     "capitals-century-abbreviation-and-an-era-stay-in-one-phrase": (
         "cs", "V 5. STOL. PŘ. N. L.", "V pátém století před naším letopočtem."),
+    "roman-numeral-before-an-inanimate-noun-ends-the-sentence": (
+        "cs", "Dal to Karlu IV. Dům.", "Dal to Karlu čtvrtému. Dům."),
+    "sk-roman-numeral-before-an-inanimate-noun-ends-the-sentence": (
+        "sk", "Dal to Karolovi IV. Dom.", "Dal to Karolovi štvrtému. Dom."),
+    "guard-roman-numeral-before-an-epithet-ending-the-sentence": (
+        "cs", "Dal to Karlu IV. Přemyslovci.", "Dal to Karlu čtvrtému Přemyslovci."),
+    "guard-roman-numeral-before-an-epithet-of-a-ruler": (
+        "cs", "Slíbil to Jindřichu VIII. Tudorovi.", "Slíbil to Jindřichu osmému Tudorovi."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
