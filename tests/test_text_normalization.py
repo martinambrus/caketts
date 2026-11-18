@@ -412,7 +412,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                               "století bylo bohaté."),
     "az-before-time-or-word": ("cs", None, "Otevřeno 8 až 9.30 hod. a 8 až 9:30. Opakuj to 2 až 3krát, byl to 2 až 3letý "
                                            "chlapec a zlepšení nastane 5 až 6. den.",
-                               "Otevřeno osm až devět třicet a osm až devět třicet. Opakuj to dvě až třikrát, byl to dva až "
+                               "Otevřeno osm až devět třicet a osm až devět třicet. Opakuj to dva až třikrát, byl to dva až "
                                "tříletý chlapec a zlepšení nastane pět až šestý den."),
     "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
     "comma-list-before-noun": ("cs", None, "Šel s 1,2,3 přáteli.", "Šel s jedním, dvěma, třemi přáteli."),
@@ -1298,6 +1298,9 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-zero-subject-of-a-neuter-verb": ("sk", "Prišlo 0 ľudí.", "Prišlo nula ľudí."),
     "sk-zero-subject-of-a-copula": ("sk", "Bolo tam 0 ľudí.", "Bolo tam nula ľudí."),
     "guard-sk-zero-things-in-the-genitive": ("sk", "Mal 0 bodov.", "Mal nula bodov."),
+    "cs-times-word-takes-the-masculine-count": ("cs", "Viděl ho 2 krát.", "Viděl ho dva krát."),
+    "guard-cs-times-word-from-five": ("cs", "Viděl ho 5 krát.", "Viděl ho pět krát."),
+    "guard-cs-times-glued-to-the-digit": ("cs", "Viděl ho 2krát.", "Viděl ho dvakrát."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
