@@ -668,11 +668,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "zero-before-a-written-noun": (
         "cs", None, "S 0 body skončil. Při 0 stupních Celsia. Za 0 bodů. S 0 bodů.",
         "S nula body skončil. Při nula stupních Celsia. Za nula bodů. S nulou bodů."),
-    "guard-zero-genitive-before-a-written-noun": ("cs", None, "Bez 0 bodů. Mám 0 bodů.", "Bez nuly bodů. Mám nula bodů."),
+    "zero-genitive-preposition-before-a-written-noun": (
+        "cs", None, "Bez 0 bodů. Mám 0 bodů.", "Bez nula bodů. Mám nula bodů."),
     "zero-before-a-unit": (
         "cs", None, "Při 0 °C voda mrzne. Koupil to za 0 Kč. Přijdu v 0 h. Po 0:00 odešel.",
         "Při nula stupních Celsia voda mrzne. Koupil to za nula korun. Přijdu v nula hodin. Po nula hodinách odešel."),
-    "guard-zero-genitive-before-a-unit": ("cs", None, "Do 0 °C. Bez 0 Kč.", "Do nuly stupňů Celsia. Bez nuly korun."),
+    "zero-genitive-preposition-before-a-unit": (
+        "cs", None, "Do 0 °C. Bez 0 Kč.", "Do nula stupňů Celsia. Bez nula korun."),
     "unit-after-a-written-scale-word": (
         "cs", None, "Mám 5 milionů Kč, 2 tisíce € a 5 tisíc m².",
         "Mám pět milionů korun, dva tisíce eur a pět tisíc metrů čtverečních."),
@@ -1373,6 +1375,25 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-zero-object-of-a-verb": ("sk", "Videl 0 mužov.", "Videl nula mužov."),
     "sk-zero-object-of-a-verb-with-a-subject-clitic": ("sk", "Pozvali sme 0 ľudí.", "Pozvali sme nula ľudí."),
     "guard-cs-zero-object-of-a-verb": ("cs", "Viděl 0 mužů.", "Viděl nula mužů."),
+    "sk-zero-after-s-before-a-written-noun": (
+        "sk", "Tím odišiel z turnaja s 0 bodmi.", "Tím odišiel z turnaja s nula bodmi."),
+    "sk-zero-after-za-before-a-unit": ("sk", "Kúpil to za 0 eur.", "Kúpil to za nula eur."),
+    "sk-zero-after-bez-before-a-written-noun": ("sk", "Odišiel bez 0 bodov.", "Odišiel bez nula bodov."),
+    "sk-zero-after-o-before-a-written-noun": ("sk", "Hovorili o 0 bodoch.", "Hovorili o nula bodoch."),
+    "sk-zero-after-k-before-a-written-noun": ("sk", "Teplota klesla k 0 stupňom.", "Teplota klesla k nula stupňom."),
+    "sk-zero-after-na-before-a-unit": ("sk", "Teplota klesla na 0 °C.", "Teplota klesla na nula stupňov Celzia."),
+    "cs-zero-after-bez-before-a-written-noun": ("cs", "Odešel bez 0 bodů.", "Odešel bez nula bodů."),
+    "guard-sk-bare-zero-after-na-is-declined": ("sk", "Teplota klesla na 0.", "Teplota klesla na nulu."),
+    "guard-sk-bare-zero-after-k-is-declined": ("sk", "Teplota klesla k 0.", "Teplota klesla k nule."),
+    "guard-sk-bare-zero-after-s-is-declined": ("sk", "Skončili s 0.", "Skončili s nulou."),
+    "guard-cs-bare-zero-after-na-is-declined": ("cs", "Teplota klesla na 0.", "Teplota klesla na nulu."),
+    "guard-cs-bare-zero-after-k-is-declined": ("cs", "Teplota klesla k 0.", "Teplota klesla k nule."),
+    "guard-cs-bare-zero-after-s-is-declined": ("cs", "Skončili s 0.", "Skončili s nulou."),
+    "sk-zero-before-a-unit-after-a-verb": ("sk", "Teplota dosiahla 0 °C.", "Teplota dosiahla nula stupňov Celzia."),
+    "sk-zero-hours-after-a-verb": ("sk", "Trvalo to 0 h.", "Trvalo to nula hodín."),
+    "guard-sk-zero-sharing-its-noun-with-a-later-number-is-declined": (
+        "sk", "Medzi 0 a 5 bodmi bol rozdiel.", "Medzi nulou a piatimi bodmi bol rozdiel."),
+    "guard-cs-zero-opening-a-range-keeps-the-genitive": ("cs", "Od 0 do 5 bodů.", "Od nuly do pěti bodů."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

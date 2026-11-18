@@ -1354,8 +1354,10 @@ class TextNormalizer:
         """comma: log a "2,000" read as a decimal (a range checks both ends itself); verb_log: log a genitive
         verb's doubt (a range logs it at its upper end only)."""
         value, integer, fraction = _parse(amount)
-        case = self._governing_case(start, tags, amount, unit, end) or self._unit_verb_case(
-            amount, unit, start, end, text, tags, log=verb_log)
+        governing = self._governing_case(start, tags, amount, unit, end)
+        case = governing or self._unit_verb_case(amount, unit, start, end, text, tags, log=verb_log)
+        if value == 0 and governing == GEN:
+            case = NOM  # "bez nula korun"
         word_after = unit.lower() == "s" and re.match(rf"{_HS}+[^\W\d_]", text[end:])
         unit = unit.rstrip(".")
         if unit.lower() in SCALES:  # also "5 TIS. Kč"
@@ -1364,7 +1366,8 @@ class TextNormalizer:
                 words = f"{self._cardinal(value, NOM, 'masculine', 'inanimate')} {SCALE_GENITIVES[self.language][unit]}"
             else:
                 count = value * 10 ** SCALES[unit]
-                words = self._cardinal(count, self._count_case(count, case or NOM), "masculine", "inanimate")
+                words = self._cardinal(count, self._count_case(count, case or NOM, direct=True), "masculine",
+                                       "inanimate")
             if scale_unit:  # "5 tis. km" -> "pět tisíc kilometrů": the noun follows tisíc, milion
                 noun, adjective, suffix = self._unit(scale_unit)
                 count = 1000 if fraction else integer * 10 ** SCALES[unit]
@@ -1428,7 +1431,8 @@ class TextNormalizer:
                 UNIT_SUFFIXES[self.language].get(base, ""))
 
     def _counted(self, value: int, noun: str, case: str, adjective: Optional[str] = None) -> str:
-        number = self._cardinal(value, self._count_case(value, case), NOUNS[self.language][noun][0], "inanimate")
+        number = self._cardinal(value, self._count_case(value, case, direct=True), NOUNS[self.language][noun][0],
+                                "inanimate")
         return f"{number} {self._noun_phrase(noun, abs(value), case, adjective)}"
 
     def _noun_phrase(self, noun: str, count: int, case: str, adjective: Optional[str] = None) -> str:
@@ -1664,9 +1668,11 @@ class TextNormalizer:
                     animacy = AGREEING  # "Prišli piati muži", but "Prišlo päť mužov" and "V roku 2020 muži vyhrali"
         if case == NOM and noun_case == GEN and animacy == "personal" and self._count_form(value) == "gen_pl":
             animacy = "inanimate"  # the subject of "Prišlo päť mužov" counts a genitive, whatever the construction
-        if (value == 0 and noun is not None and case in (ACC, DAT, LOC, INS)
+        if value == 0 and noun is not None and noun is own and case == GEN and prep_case == GEN:
+            case = NOM  # "bez nula bodů": the genitive of a preposition leaves an undeclined "nula" too
+        elif (value == 0 and noun is not None and case in (ACC, DAT, LOC, INS)
                 and not (case != ACC and tagged_case == GEN)):
-            case = self._count_case(value, case)  # "s nula body": an undeclined "nula" with a written noun in its case
+            case = self._count_case(value, case, direct=noun is own)  # "s nula body": "nula" with a written noun
         if case is None and noun is None:
             prev = tags.before(start)
             if prev is not None and prev.upos in ("NOUN", "PROPN"):
@@ -2451,10 +2457,11 @@ class TextNormalizer:
         return m.start(1), f"{_capitalise_like(m.group(1), rule[0])}{text[m.end(1):start]}{words}"
 
     # ---- num2words -------------------------------------------------------------------------
-    def _count_case(self, value, case: str) -> str:
-        """The case of a number before the noun it counts: a Czech "nula" stays undeclined but in the genitive ("za
-        nula korun", "při nula stupních", "v nula hodin"; "bez nuly bodů")."""
-        return NOM if value == 0 and case != GEN and self.language == "cs" else case
+    def _count_case(self, value, case: str, direct: bool = False) -> str:
+        """The case of a number before the noun it counts: "nula" stays undeclined but in the genitive ("za nula
+        korun", "při nula stupních", "v nula hodin"), a Slovak one only when the noun follows it right away
+        (`direct`): "s nula bodmi", but "medzi nulou a piatimi bodmi"."""
+        return NOM if value == 0 and case != GEN and (direct or self.language == "cs") else case
 
     def _cardinal(self, value, case: str, gender: str, animacy: str) -> str:
         if animacy == CLOCK:
