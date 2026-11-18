@@ -1161,6 +1161,14 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-spans-with-the-long-hour-word-stay-counts": (
         "sk", "Otvorené od 8 do 12 a 13 do 17 hodín.",
         "Otvorené od ôsmich do dvanástich a trinástich do sedemnástich hodín."),
+    "sk-spans-before-a-later-span-of-work-stay-counts": (
+        "sk", "Pracoval od 9 do 12 h a od 13 do 17 h práce.",
+        "Pracoval od deviatich do dvanástich hodín a od trinástich do sedemnástich hodín práce."),
+    "sk-dash-spans-before-a-later-span-of-work-stay-counts": (
+        "sk", "Pracoval 8–12 h a 13–17 h práce.", "Pracoval osem až dvanásť hodín a trinásť až sedemnásť hodín práce."),
+    "sk-spans-with-the-unit-once-before-work-stay-counts": (
+        "sk", "Pracoval od 9 do 12 a 13 do 17 h práce.",
+        "Pracoval od deviatich do dvanástich a trinástich do sedemnástich hodín práce."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

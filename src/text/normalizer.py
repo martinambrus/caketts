@@ -1189,7 +1189,7 @@ class TextNormalizer:
                  if end_word else None)
         hour, after = int(until[1]) if until else value, tags.after(end)  # a span decides at its end
         any_hour = (word == "o" or (word == "do" and _TIME_BEFORE.search(text[:prep.start]))
-                    or (word in ("od", "do") and _LATER_SPAN.match(text, start + until.end() if until else end)))
+                    or (word in ("od", "do") and self._later_span(text, start + until.end() if until else end, tags)))
         if (word not in SK_CLOCK_CASES or not (hour in (range(25) if any_hour else range(13, 24)) and value <= hour)
                 or re.search(rf"(?<![\d.])(?<!\d,){_DECIMAL}(?![\d.])(?!,\d)", text[prep.end:end])
                 or (word == "do" and re.search(rf"{_DECIMAL}{_HS}+$", text[:prep.start]))
@@ -1208,6 +1208,12 @@ class TextNormalizer:
         return (after is not None and after.upos in ("NOUN", "ADJ") and after.text.lower() not in TIME_GENITIVES
                 and (after.feats.get("Case") == "Gen"
                      or (after.feats.get("Case") == "Loc" and after.text.lower().endswith(("u", "ej", "y")))))
+
+    def _later_span(self, text: str, pos: int, tags: _Tags) -> bool:
+        """Whether a span of hours that ends in the afternoon follows at `pos` and its hours are no count: "od 9 do 12 h
+        a od 13 do 17 h", but "od 9 do 12 h a od 13 do 17 h práce"."""
+        later = _LATER_SPAN.match(text, pos)
+        return later is not None and not self._measured(tags.after(later.end()))
 
     def _shifts(self, start: int, prep: _Word, after: Optional[_Word], tags: _Tags) -> bool:
         """Whether sk "o 2 h" is a shift or the object of a word, no hour of the day: "o 2 h neskôr", "posunúť o 1 h",
@@ -1230,7 +1236,7 @@ class TextNormalizer:
         word = getattr(prep, "text", "od").lower()
         if (self.language == "sk" and unit and not (scale or per or decimal) and re.fullmatch(_HOUR_WORD, unit.lower())
                 and 0 <= low <= value and not self._measured(after)
-                and ((word == "od" and (13 <= value <= 23 or _LATER_SPAN.match(text, end)))
+                and ((word == "od" and (13 <= value <= 23 or self._later_span(text, end, tags)))
                      or (word == "o" and all(self._afternoon_hour(v, unit, start, end, text, tags, log=False)
                                              for v in (low, value))))):
             case, link = (GEN, "do") if word == "od" else (LOC, RANGE_WORD)  # sk "8–17 h": opening hours, "o 5–6 h"
@@ -1450,7 +1456,7 @@ class TextNormalizer:
         own = noun = tags.head_after(end)
         if noun is None:
             word = getattr(self._preposition(start, tags), "text", "").lower()
-            if self.language == "sk" and word == "do" and _LATER_SPAN.match(text, end):
+            if self.language == "sk" and word == "do" and self._later_span(text, end, tags):
                 return GEN, "feminine", CLOCK  # sk "od 9 do 12 a od 13 do 17 h": the end of a span, as the later one is
             od = word in ("od", "ode") or (self.language == "sk" and _SPAN_BEFORE.search(text, 0, start) is not None)
             link = (rf"(?:{_HS}*,{_HS}*|{_HS}+(?i:a|nebo|alebo{'|do' if od else ''}){_HS}+)(?:od{_HS}+)?"
