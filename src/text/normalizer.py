@@ -187,8 +187,13 @@ NEUTER_PLURALS = {
 
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone, and "neskôr", "skôr" (later, sooner) for positive adverbs
-FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"}},
-                 "sk": {"diel": {"Gender": "Masc", "Animacy": "Inan", "Number": "Sing", "Case": "Nom"},
+FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"},
+                        "pravnuka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
+                        "pravnuky": {"Gender": "Masc", "Animacy": "Anim"},
+                        "pradědečka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
+                        "pradědečky": {"Gender": "Masc", "Animacy": "Anim"}},
+                 "sk": {"pravnuka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
+                        "diel": {"Gender": "Masc", "Animacy": "Inan", "Number": "Sing", "Case": "Nom"},
                         "diely": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},
                         "dielov": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur", "Case": "Gen"},
                         "body": {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"},

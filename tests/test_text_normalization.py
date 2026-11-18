@@ -1305,6 +1305,12 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "cs-scaled-zero-of-millions-after-a-preposition": ("cs", "Za 0 mil. Kč.", "Za nula korun."),
     "guard-cs-scaled-amount-after-a-preposition": ("cs", "Za 5 tis. Kč.", "Za pět tisíc korun."),
     "guard-cs-scaled-zero-after-a-genitive-verb": ("cs", "Dosáhl 0 tis. bodů.", "Dosáhl nuly bodů."),
+    "cs-great-grandson-is-masculine-animate": ("cs", "Má 1 pravnuka.", "Má jednoho pravnuka."),
+    "cs-great-grandsons-are-masculine-animate": ("cs", "Má 2 pravnuky.", "Má dva pravnuky."),
+    "cs-great-grandfather-is-masculine-animate": ("cs", "Má 1 pradědečka.", "Má jednoho pradědečka."),
+    "sk-great-grandson-is-masculine-animate": ("sk", "Má 1 pravnuka.", "Má jedného pravnuka."),
+    "guard-cs-great-grandsons-in-the-instrumental": ("cs", "S 2 pravnuky.", "Se dvěma pravnuky."),
+    "guard-cs-great-grandsons-in-the-genitive-plural": ("cs", "Má 5 pravnuků.", "Má pět pravnuků."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
