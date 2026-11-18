@@ -1124,6 +1124,11 @@ class TextNormalizer:
                         else _UD_CASES.get(prep.feats.get("Case")))
                 if case:
                     words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
+        elif key == "stol.":  # "století" differs only in the instrumental, which the ordinal before it shows
+            i = bisect.bisect_left(tags.starts, m.start())
+            ordinal = tags.words[i - 2] if i >= 2 and tags.words[i - 1].text == "." else None
+            if ordinal is not None and self._agreement(tags.words[i], ordinal.start, tags)[0] == INS:
+                words = "stoletím"
         if not raw.isupper() or (_starts_sentence(text[:m.start()]) and key not in ("př.n.l.", "n.l.", "pred n.l.")
                                  and not re.search(rf"\d\.{_HS}*$", text[:m.start()])):
             words = _capitalise_like(raw, words)

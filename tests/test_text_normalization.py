@@ -1528,6 +1528,12 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Bylo 5. července. Potom přišel.", "Bylo pátého července. Potom přišel."),
     "capitals-roman-numeral-after-a-title-before-an-auxiliary": (
         "cs", "CÍSAŘ V. BYL KORUNOVÁN.", "CÍSAŘ pátý BYL KORUNOVÁN."),
+    "century-abbreviation-after-an-instrumental-ordinal": (
+        "cs", "Před 5. stol. to bylo jinak.", "Před pátým stoletím to bylo jinak."),
+    "century-abbreviation-after-an-instrumental-ordinal-chain": (
+        "cs", "Mezi 5. a 6. stol. vládli Řekové.", "Mezi pátým a šestým stoletím vládli Řekové."),
+    "guard-century-abbreviation-after-a-genitive-ordinal": (
+        "cs", "Ke konci 5. stol. se to změnilo.", "Ke konci pátého století se to změnilo."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
