@@ -1269,6 +1269,15 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-o-after-viac-keeps-the-span": ("sk", "Zostalo viac o 2 h.", "Zostalo viac o dve hodiny."),
     "guard-sk-o-after-a-comparative-and-a-count-keeps-the-accusative": (
         "sk", "Je starší o 5 rokov.", "Je starší o päť rokov."),
+    "sk-po-after-a-verb-of-reaching-is-up-to": (
+        "sk", "Voda siahala po 50 cm.", "Voda siahala po päťdesiat centimetrov."),
+    "po-after-a-verb-of-reaching-is-up-to": ("cs", "Voda sahala po 50 cm.", "Voda sahala po padesát centimetrů."),
+    "po-after-an-adjective-of-depth-is-up-to": (
+        "cs", "Sníh byl hluboký po 20 cm.", "Sníh byl hluboký po dvacet centimetrů."),
+    "guard-po-with-no-word-of-reaching-is-after": ("cs", "Po 5 km zastavil.", "Po pěti kilometrech zastavil."),
+    "guard-sk-po-after-a-verb-is-each": ("sk", "Dostal po 5 kg.", "Dostal po piatich kilogramoch."),
+    "guard-po-after-a-tall-subject-is-each": (
+        "cs", "Vysoký muž dostal po 5 Kč.", "Vysoký muž dostal po pěti korunách."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

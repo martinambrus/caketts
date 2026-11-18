@@ -296,6 +296,8 @@ O_DIFFERENCE_WORDS = ("zpožd", "zpozd", "opožd", "opozd", "prodlouž", "prodlu
 O_TOPIC_WORDS = re.compile(r"mluv|hovoř|povíd|vypráv|(?:na)?ps(?:al|á)|píš|četl|čte$|čtou$|slyš|vědě[lt]|vědí|ví$"
                            r"|inform|zmín|zmiň|diskut|debat|jednal(?!o)|jedna[jt]|uvažuj|uvažov|přemýšl|hlasov|dozvěd"
                            r"|řekl|říkal|říká|zpráv|článe|článk")
+# words of reaching, depth and height, after which "po" and an amount is "up to": "Voda sahala po 50 cm"
+PO_UP_TO_WORDS = ("sah", "sáh", "siah", "dosah", "dosiah", "hlubok", "hlbok", "vysok")
 # verbs of a span (trvat, čekat, spát), after which a time is the accusative: "Trvá to jednu hodinu"
 DURATION_VERBS = ("trv", "potrv", "ček", "čak", "počk", "vyčk", "vyčak", "spal", "spí", "spát", "spať", "vyspal",
                   "vyspí")
@@ -2124,8 +2126,11 @@ class TextNormalizer:
             ranged = any(w.text.lower() == "od" and all(
                 x.text.isdigit() or not x.text.isalnum() or x.text.lower() in UNIT_WORDS[self.language] | set(SCALES)
                 for x in before[:i]) for i, w in enumerate(before))
-            if ranged or (before[:1] and before[0].text.lower() == "až" and unit.rstrip(".").lower() not in TIME_UNITS):
-                return ACC  # "od 1 m po 5 m", "až po 5 km" (until)
+            if ranged or (unit.rstrip(".").lower() not in TIME_UNITS and (
+                    (before[:1] and before[0].text.lower() == "až")
+                    or any(w is not None and w.text.lower().startswith(PO_UP_TO_WORDS)
+                           for w in (*before[:1], self._clause_verb(pos, tags))))):
+                return ACC  # "od 1 m po 5 m", "až po 5 km" (until), "sahala po 50 cm"
             return LOC  # after or each, tagged accusative: "po pěti minutách", "po pěti korunách"
         if prep.text.lower() == "o" and unit and end:
             after, before = tags.after(end), tags.before(prep.start)
