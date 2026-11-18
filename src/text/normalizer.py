@@ -464,6 +464,7 @@ _NUMBER_BEFORE = re.compile(rf"(?:\d\.?|[IVXLCDM]\.|\d[:.]\d\d{_HS}*{_HOUR_WORD}
 _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
 _DATE_BEFORE = re.compile(rf"(?<![\d.])(?:3[01]|[12]\d|0?[1-9])\.{_HS}*(?:1[0-2]|0?[1-9])\.{_HS}+$")  # "5. 6. "
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–+]?\d|[IVXLCDM]+\.)")
+_ERA_AHEAD = re.compile(rf"(?:(?:př\.|pred){_HS}*)?n\.{_HS}*l\.", re.IGNORECASE)  # "5. STOL. PŘ. N. L."
 
 
 @lru_cache(maxsize=None)
@@ -1123,7 +1124,8 @@ class TextNormalizer:
                         else _UD_CASES.get(prep.feats.get("Case")))
                 if case:
                     words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
-        if not raw.isupper() or _starts_sentence(text[:m.start()]):
+        if not raw.isupper() or (_starts_sentence(text[:m.start()]) and key not in ("př.n.l.", "n.l.", "pred n.l.")
+                                 and not re.search(rf"\d\.{_HS}*$", text[:m.start()])):
             words = _capitalise_like(raw, words)
         if key.endswith(".") and self._ends_sentence(text, m.start(), m.end(), tags,
                                                      introduces=key in NON_FINAL_ABBREVIATIONS,
@@ -2442,7 +2444,7 @@ class TextNormalizer:
         nxt = rest.lstrip(" \t\n\r\u00a0\u202f\"'„“”‚‘’«»‹›()[]—–-")
         if not nxt:
             return True
-        if introduces or not nxt[:1].isupper():
+        if introduces or not nxt[:1].isupper() or _ERA_AHEAD.match(nxt):
             return False
         word, capitals = tags.after(end), _all_capitals(text)
         verb = next((w for w in tags.words[bisect.bisect_left(tags.starts, end):] if w.upos not in ("PRON", "ADV", "PART")),
