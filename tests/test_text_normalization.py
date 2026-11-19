@@ -1181,6 +1181,9 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "Měl jediný důvod: 1) neměl čas.", "Měl jediný důvod: jeden) neměl čas.", "no governing noun"),
     "guard-list-bracket-after-an-abbreviation": (
         "cs", "Viz obr. 1) dole.", "Viz obr. Jeden) dole.", "no governing noun"),
+    "title-oblique-form-in-a-read-as-nominative": (
+        "cs", "Zeptal se dr. Jekylla.", "Zeptal se doktor Jekylla.", "not clear"),
+    "title-oblique-form-in-u-read-as-nominative": ("cs", "Zavolal Mgr. Hálu.", "Zavolal magistr Hálu.", "not clear"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1779,6 +1782,13 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-list-lettered-labels": ("cs", "a) první bod\nb) druhý bod", "a) první bod\nb) druhý bod"),
     "guard-list-lettered-labels-in-a-sentence": (
         "cs", "Měl důvody: a) čas, b) peníze.", "Měl důvody: a) čas, b) peníze."),
+    "title-feminine-surname-in-ovou-tagged-masculine": (
+        "cs", "Na prof. Novákovou se zlobil.", "Na profesorku Novákovou se zlobil."),
+    "title-masculine-surname-in-a-locative": ("cs", "Slyšel o dr. Tůmovi.", "Slyšel o doktoru Tůmovi."),
+    "title-guard-oblique-form-the-tagger-reads-right": ("cs", "Zeptal se dr. Watsona.", "Zeptal se doktora Watsona."),
+    "title-guard-short-surname-in-ovou-is-no-feminine": ("cs", "Mluvil s doc. Sovou.", "Mluvil s docentem Sovou."),
+    "title-guard-vocative-after-pane-in-capitals": (
+        "cs", "PANE DR. NOVÁKU, POJĎTE DÁL.", "PANE doktore NOVÁKU, POJĎTE DÁL."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

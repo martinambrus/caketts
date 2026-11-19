@@ -1402,17 +1402,18 @@ class TextNormalizer:
                and tags.words[i + 1].text[:1].isupper()):
             i, head = i + 1, tags.words[i + 1]  # the surname: "Jan Novák", "Eva Horákovú"
         form, name_type, gender = head.text.lower(), head.feats.get("NameType"), head.feats.get("Gender")
-        tagged_case, ending = head.feats.get("Case"), re.search(r"(ou|[ayu])$", form)
+        tagged_case, ending = head.feats.get("Case"), re.search(r"(ou|ovi|[ayu])$", form)
         surname_in_a = bool(ending) and form[:ending.start()] + "a" in SURNAMES_IN_A
         if surname_in_a:  # the ending tells what the tagger misreads
-            gender, tagged_case = "Masc", {"a": "Nom", "y": "Gen", "u": "Acc", "ou": "Ins"}[ending.group()]
+            gender, tagged_case = "Masc", {"a": "Nom", "y": "Gen", "u": "Acc", "ou": "Ins",
+                                           "ovi": "Dat"}[ending.group()]
         # the tagger takes a masculine surname in -a for a feminine one in the accusative and the instrumental: the
         # first name tells, if there is one, else it is logged
         unsure = gender == "Fem" and name_type != "Giv" and form.endswith("ou") and not form.endswith("ovou")
         if unsure and first is not head and first.feats.get("Gender") in ("Masc", "Fem"):
             gender, unsure = first.feats["Gender"], False
         fem = ((gender == "Fem" and not (name_type != "Giv" and form.endswith("u") and not form.endswith("ou")))
-               or form.endswith(("é", "ej")))
+               or form.endswith(("é", "ej")) or (len(form) > 6 and form.endswith(("ovou", "ovú"))))
         start = m.start()
         while (earlier := self._titles_before.search(text, 0, start)):
             start = earlier.start()  # the first title of "s prof. MUDr. Evou": the word before it governs
@@ -1440,7 +1441,10 @@ class TextNormalizer:
                      and text[head.end:].lstrip(" \t")[:1] in ("", ",", "!", "?", "."))
             if vocative or guess:
                 words = masculine[6]
-        if case is None or shared or unsure or guess or gender not in ("Masc", "Fem"):
+        # the tagger reads a name it does not know as a nominative: "dr. Jekylla", "dr. Ozovi"
+        oblique = (not fem and not vocative and case == NOM and not surname_in_a
+                   and form.endswith(("a", "e", "u", "y", "ovi")))
+        if case is None or shared or unsure or guess or oblique or gender not in ("Masc", "Fem"):
             self._warn(text, m, words, "case or gender of the name after the title not clear; check it")
         return words
 
