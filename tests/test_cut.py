@@ -848,3 +848,168 @@ def test_over_cap_is_a_flag_only():
     assert (big.end_sample - big.start_sample) / SR > 20.0 and "over_cap" in big.flags
     assert [c.id for c in plan.clips if "over_cap" in c.flags] == [big.id]
     assert_holds_true_speech(plan, truth, units)
+
+
+# ---------------------------------------------------------------- 15 over-cap re-split
+
+def _timed_words(words, s, e):
+    step = (e - s) / len(words)
+    out = [{"text": w, "start": s + k * step, "end": s + (k + 0.95) * step, "score": 0.9} for k, w in enumerate(words)]
+    out[-1]["end"] = e
+    return out
+
+
+def split_case(items, a, b, seed, status="ok"):
+    """Speech units a..b of the part become ONE unit with one span and word timings that follow the audio."""
+    pcm, truth = make_part(items, seed)
+    units = make_units(items)
+    spans = stub_spans(units, truth, 0.02, 1, words=False)
+    group = units[a:b + 1]
+    words = []
+    for i in range(a, b + 1):
+        words += _timed_words(units[i]["words"], truth["speech"][i][0] / SR, truth["speech"][i][1] / SR)
+    merged = {**group[0], "text": " ".join(u["text"] for u in group), "words": [w for u in group for w in u["words"]],
+              "boundary": group[-1]["boundary"], "est_s": sum(u["est_s"] for u in group)}
+    span = {"id": merged["id"], "start_s": words[0]["start"], "end_s": words[-1]["end"], "status": status, "words": words}
+    return pcm, truth, units[:a] + [merged] + units[b + 1:], spans[:a] + [span] + spans[b + 1:], group
+
+
+def two_halves(pause, seed):
+    items = [pz(0.5), sp(1.5), pz(0.8), sp(11.0), pz(pause), sp(11.0, "para_end"), pz(0.8), sp(1.5), pz(0.5)]
+    return items, split_case(items, 1, 2, seed)
+
+
+def test_over_cap_unit_splits_at_the_longest_pause():
+    items, (pcm, truth, units, spans, group) = two_halves(0.6, 71)
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    parent = units[1]["id"]
+    ids = [c.id for c in sorted(plan.clips, key=lambda c: c.start_sample)]
+    assert ids == [units[0]["id"], f"{parent}.1", f"{parent}.2", units[2]["id"]] and not plan.rejects
+    c1, c2 = (next(c for c in plan.clips if c.id == f"{parent}.{j}") for j in (1, 2))
+    for c in (c1, c2):
+        assert (c.end_sample - c.start_sample) / SR <= 20.0 and "over_cap" not in c.flags
+    assert " ".join([c1.text, c2.text]) == units[1]["text"]
+    assert [c1.boundary, c2.boundary] == ["mid", units[1]["boundary"]]
+    for c, i in ((c1, 1), (c2, 2)):
+        s, e = truth["speech"][i]
+        assert c.start_sample <= s + F and c.end_sample >= e - F
+    pause = truth["pause_after"][1]
+    assert pause["start"] <= c1.end_sample <= pause["end"]
+    assert c1.text == group[0]["text"] and c2.text == group[1]["text"]
+
+
+def test_over_cap_pieces_are_not_merged_back_over_a_short_pause():
+    items, (pcm, truth, units, spans, group) = two_halves(0.2, 72)
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    parent = units[1]["id"]
+    pieces = [c for c in plan.clips if c.id.startswith(parent + ".")]
+    assert [c.id for c in pieces] == [f"{parent}.1", f"{parent}.2"] and all(len(c.units) == 1 for c in pieces)
+    assert all("short_pause" in c.flags and "over_cap" not in c.flags for c in pieces)
+
+
+def test_over_cap_unit_splits_into_three_at_both_pauses():
+    items = [pz(0.5), sp(15.0), pz(0.6), sp(15.0), pz(0.5), sp(15.0), pz(0.5)]
+    pcm, truth, units, spans, group = split_case(items, 0, 2, 73)
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    parent = units[0]["id"]
+    cl = sorted(plan.clips, key=lambda c: c.start_sample)
+    assert [c.id for c in cl] == [f"{parent}.{j}" for j in (1, 2, 3)]
+    assert [c.text for c in cl] == [u["text"] for u in group]
+    for i, c in enumerate(cl):
+        assert (c.end_sample - c.start_sample) / SR <= 20.0 and "over_cap" not in c.flags
+        assert c.start_sample <= truth["speech"][i][0] + F and c.end_sample >= truth["speech"][i][1] - F
+    for i in (0, 1):
+        assert truth["pause_after"][i]["start"] <= cl[i].end_sample <= truth["pause_after"][i]["end"]
+
+
+def _five_words(u, truth):
+    s, e = truth["speech"][1]
+    text = "Rain tapped on the roof"
+    return {**u, "text": text, "words": WORD_RE.findall(text)}, _timed_words(WORD_RE.findall(text), s / SR, e / SR)
+
+
+def _en_only(u, truth):
+    s, e = truth["speech"][1]
+    text = "<en>one two three four five six seven</en>"
+    words = WORD_RE.findall("one two three four five six seven")
+    return {**u, "text": text, "words": words}, _timed_words(words, s / SR, e / SR)
+
+
+def _count_differs(u, truth):
+    s, e = truth["speech"][1]
+    return u, _timed_words(u["words"][:-1], s / SR, e / SR)
+
+
+@pytest.mark.parametrize("variant", [_five_words, _en_only, _count_differs])
+def test_over_cap_without_a_valid_split_stays_one_flagged_clip(variant):
+    items = [pz(0.5), sp(1.5), pz(0.8), sp(21.0, est_s=21.0), pz(0.8), sp(1.5), pz(0.5)]
+    pcm, truth = make_part(items, 74)
+    units = make_units(items)
+    spans = stub_spans(units, truth, 0.02, 1, words=False)
+    units[1], spans[1]["words"] = variant(units[1], truth)
+    out_units, out_spans = cut.split_over_cap(units, spans, CutConfig(), SR)
+    assert out_units == units and out_spans == spans
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    big = clip_of(plan, units, 1)
+    assert big.id == units[1]["id"] and "over_cap" in big.flags and len(plan.clips) == 3
+
+
+def test_over_cap_low_conf_unit_is_rejected_not_split():
+    items, _ = two_halves(0.6, 75)
+    pcm, truth, units, spans, _ = split_case(items, 1, 2, 75, status="low_conf")
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    assert [(r["id"], r["reason"]) for r in plan.rejects] == [(units[1]["id"], "low_conf")]
+    assert not any("." in c.id for c in plan.clips)
+
+
+def test_unit_under_the_cap_is_untouched_by_the_split():
+    d = std()
+    spans = stub_spans(d["units"], d["truth"], 0.02, 5)
+    before = copy.deepcopy((d["units"], spans))
+    out_units, out_spans = cut.split_over_cap(d["units"], spans, CutConfig(), SR)
+    assert (out_units, out_spans) == before
+    assert all(a is b for a, b in zip(out_units, d["units"])) and all(a is b for a, b in zip(out_spans, spans))
+
+
+def test_split_leaves_its_inputs_untouched():
+    items, (pcm, truth, units, spans, group) = two_halves(0.6, 76)
+    before = copy.deepcopy((units, spans))
+    out_units, out_spans = cut.split_over_cap(units, spans, CutConfig(), SR)
+    assert (units, spans) == before
+    assert [u["id"] for u in out_units] == [units[0]["id"], units[1]["id"] + ".1", units[1]["id"] + ".2", units[2]["id"]]
+    assert [s["id"] for s in out_spans] == [u["id"] for u in out_units]
+    assert all(u.get("split_of") == units[1]["id"] for u in out_units[1:3])
+
+
+def test_run_cut_cuts_the_pieces_of_a_split_unit(tmp_path):
+    items, (pcm, truth, units, spans, group) = two_halves(0.6, 77)
+    write_work(tmp_path, {"pa": (pcm, units, spans)})
+    cut.run_cut(tmp_path, ["pa"], CutConfig())
+    out, parent = tmp_path / "cut", units[1]["id"]
+    assert (out / "clips" / f"{parent}.1.wav").is_file() and (out / "clips" / f"{parent}.2.wav").is_file()
+    recs = [json.loads(x) for x in (out / "pa.cuts.jsonl").read_text().splitlines()]
+    assert [r["units"] for r in recs] == [[units[0]["id"]], [f"{parent}.1"], [f"{parent}.2"], [units[2]["id"]]]
+    assert len({r["sha256"] for r in recs}) == len(recs)
+
+
+def test_words_of_an_en_span_count_without_the_tag_names():
+    unit = {"id": "u", "text": "Ráno <en>hello world</en>, otvoril okno."}
+    words = ["Ráno", "hello", "world", "otvoril", "okno"]
+    times = [(0.0, 0.3), (0.4, 0.7), (0.8, 1.1), (1.6, 2.0), (2.1, 2.4)]
+    span = {"id": "u", "start_s": 0.0, "end_s": 2.4, "words": _timed(words, times)}
+    assert cut.comma_gaps(unit, span) == pytest.approx([0.5], abs=1e-9)
+
+
+def test_over_cap_split_keeps_an_en_span_whole():
+    text = "alpha beta gamma <en>one two three</en> delta epsilon zeta eta theta iota"
+    words = ["alpha", "beta", "gamma", "one", "two", "three", "delta", "epsilon", "zeta", "eta", "theta", "iota"]
+    times = [(0.0, 1.0), (1.2, 2.2), (2.4, 3.4), (3.6, 4.6), (7.0, 8.0), (8.2, 9.2), (9.5, 10.5), (10.7, 11.7), (11.9, 12.9),
+             (13.1, 14.1), (14.3, 15.3), (23.0, 24.0)]
+    unit = {"id": "u", "text": text, "boundary": "para_end", "est_s": 20.0, "paragraph": 0, "chapter": 0, "heading": False, "words": words}
+    span = {"id": "u", "start_s": 0.0, "end_s": 24.0, "status": "ok", "words": _timed(words, times)}
+    out_units, out_spans = cut.split_over_cap([unit], [span], CutConfig(), SR)
+    assert [u["id"] for u in out_units] == ["u.1", "u.2"] and [s["id"] for s in out_spans] == ["u.1", "u.2"]
+    assert [u["text"] for u in out_units] == ["alpha beta gamma <en>one two three</en>", "delta epsilon zeta eta theta iota"]
+    assert [u["words"] for u in out_units] == [words[:6], words[6:]]
+    assert [u["boundary"] for u in out_units] == ["mid", "para_end"]
+    assert [(s["start_s"], s["end_s"]) for s in out_spans] == [(0.0, 9.2), (9.5, 24.0)]

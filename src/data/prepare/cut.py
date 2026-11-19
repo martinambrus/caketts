@@ -19,7 +19,7 @@ from typing import Iterable, Optional, Sequence
 import numpy as np
 import soundfile as sf
 
-from src.text.phonemizer import _WORD_RE
+from src.text.phonemizer import _SPAN_RE, _WORD_RE
 
 GAP_TYPES = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
 
@@ -205,6 +205,7 @@ def can_merge(a: SeqItem, b: SeqItem, gap: int, group_est_s: float, cfg: CutConf
     pad, window = to_sample(cfg.pad_s, sr), to_sample(cfg.search_s, sr)
     return bool(a.ok and b.ok and (b.pos - a.pos == 1) and gap < 2 * pad and (b.s - a.e) < 2 * (pad + window)
                 and ua.get("boundary") == "mid"
+                and not (ua.get("split_of") and ua.get("split_of") == ub.get("split_of"))
                 and ua.get("paragraph") == ub.get("paragraph") and ua.get("chapter") == ub.get("chapter")
                 and not ua.get("heading") and not ub.get("heading") and group_est_s <= cfg.max_est_s)
 
@@ -251,13 +252,68 @@ def check_unique_hashes(items: Iterable[tuple[str, str]]) -> None:
         seen[h] = cid
 
 
+def _num(x) -> bool:
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def _word_spans(text: str) -> list[tuple[int, int]]:
+    out, pos = [], 0
+    for s in _SPAN_RE.finditer(text):
+        out += [m.span() for m in _WORD_RE.finditer(text, pos, s.start())]
+        out += [m.span() for m in _WORD_RE.finditer(text, s.start(2), s.end(2))]
+        pos = s.end()
+    return out + [m.span() for m in _WORD_RE.finditer(text, pos, len(text))]
+
+
+def _cap_ranges(words: list, pos: list, tags: list, lo: int, hi: int, cfg: CutConfig) -> list[tuple[int, int]]:
+    if words[hi - 1]["end"] - words[lo]["start"] + 2 * cfg.pad_s <= cfg.max_clip_s:
+        return [(lo, hi)]
+    n, m = hi - lo, cfg.min_split_words
+    ks = [k for k in range(lo + m, hi - m + 1) if not any(a < pos[k][0] < b for a, b in tags)]
+    if not ks:
+        return [(lo, hi)]
+    k = max(ks, key=lambda k: (words[k]["start"] - words[k - 1]["end"], -abs(2 * (k - lo) - n), -k))
+    return _cap_ranges(words, pos, tags, lo, k, cfg) + _cap_ranges(words, pos, tags, k, hi, cfg)
+
+
 def split_over_cap(units: Sequence[dict], spans: Sequence[dict], cfg: CutConfig, sr: int) -> tuple[list[dict], list[dict]]:
-    return list(units), list(spans)
+    ids = Counter(s.get("id") for s in spans)
+    by_id = {s.get("id"): s for s in spans}
+    new_units: list[dict] = []
+    new_spans: dict = {}  # parent id -> its piece spans
+    for u in units:
+        span, text = by_id.get(u.get("id")), u.get("text") or ""
+        words = (span or {}).get("words")
+        pos = _word_spans(text)
+        if (ids[u.get("id")] != 1 or span.get("status", "ok") != "ok" or not _num(span.get("start_s"))
+                or not _num(span.get("end_s")) or not span["start_s"] < span["end_s"]
+                or (span["end_s"] - span["start_s"]) + 2 * cfg.pad_s <= cfg.max_clip_s
+                or not isinstance(words, list) or len(words) != len(pos)
+                or not all(isinstance(w, dict) and _num(w.get("start")) and _num(w.get("end")) for w in words)):
+            new_units.append(u)
+            continue
+        tags = [m.span() for m in _SPAN_RE.finditer(text)]
+        ranges = _cap_ranges(words, pos, tags, 0, len(words), cfg)
+        if len(ranges) == 1:
+            new_units.append(u)
+            continue
+        whole = words[-1]["end"] - words[0]["start"]
+        for j, (lo, hi) in enumerate(ranges):
+            last = j == len(ranges) - 1
+            ptext = text[0 if j == 0 else pos[lo][0]:len(text) if last else pos[hi][0]].strip()
+            pid = f"{u['id']}.{j + 1}"
+            piece = words[lo:hi]
+            new_units.append({**u, "id": pid, "text": ptext, "words": [ptext[x:y] for x, y in _word_spans(ptext)],
+                              "boundary": u.get("boundary") if last else "mid", "split_of": u["id"],
+                              "est_s": u.get("est_s", 0.0) * (piece[-1]["end"] - piece[0]["start"]) / whole if whole > 0 else u.get("est_s", 0.0)})
+            new_spans.setdefault(u["id"], []).append({"id": pid, "start_s": piece[0]["start"], "end_s": piece[-1]["end"], "words": piece, "status": "ok",
+                              **{k: span[k] for k in ("score_mean", "score_min") if k in span}})
+    return new_units, [x for s in spans for x in new_spans.get(s.get("id"), [s])]
 
 
 def comma_gaps(unit: dict, span: dict) -> list[float]:
     words = span.get("words") or []
-    pos = [m.span() for m in _WORD_RE.finditer(unit.get("text") or "")]
+    pos = _word_spans(unit.get("text") or "")
     if not words or len(pos) != len(words):
         return []
     text = unit["text"]
