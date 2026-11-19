@@ -1405,7 +1405,10 @@ class TextNormalizer:
             i, head = i + 1, tags.words[i + 1]  # the surname: "Jan Novák", "Eva Horákovú"
         form, name_type, gender = head.text.lower(), head.feats.get("NameType"), head.feats.get("Gender")
         tagged_case, ending = head.feats.get("Case"), re.search(r"(ou|ovi|[ayu])$", form)
-        surname_in_a = bool(ending) and form[:ending.start()] + "a" in SURNAMES_IN_A
+        # a woman's surname is derived (-ová, -á), so a lone one in -a that is no given name is a man's
+        surname_in_a = bool(ending) and (form[:ending.start()] + "a" in SURNAMES_IN_A or (
+            first is head and gender == "Fem" and name_type != "Giv" and ending.group() in ("a", "y", "u")
+            and not form.endswith(("ova", "ovy", "ovu"))))
         if surname_in_a:  # the ending tells what the tagger misreads
             gender, tagged_case = "Masc", {"a": "Nom", "y": "Gen", "u": "Acc", "ou": "Ins",
                                            "ovi": "Dat"}[ending.group()]

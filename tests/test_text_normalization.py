@@ -1186,6 +1186,10 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "title-oblique-form-in-u-read-as-nominative": ("cs", "Zavolal Mgr. Hálu.", "Zavolal magistr Hálu.", "not clear"),
     "guard-list-two-labels-joined-by-a-conjunction": (
         "cs", "Z důvodů 1) a 2) odešel.", "Z důvodů jedna) a dva) odešel.", "no governing noun"),
+    "guard-title-surname-in-ou-after-s": (
+        "cs", "Mluvil s Ing. Skálou.", "Mluvil s inženýrkou Skálou.", "not clear"),
+    "guard-title-feminine-surname-in-ou-after-mudr": (
+        "cs", "Mluvil s MUDr. Novotnou.", "Mluvil s doktorkou Novotnou.", "not clear"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1803,6 +1807,15 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-list-items-in-a-sentence-and-before-the-last": (
         "sk", "Mal tri dôvody: 1) nemal čas, 2) nemal peniaze a 3) nechcel.",
         "Mal tri dôvody: po prvé nemal čas, po druhé nemal peniaze a po tretie nechcel."),
+    "title-lone-surname-in-a-nominative": ("cs", "Přišel Ing. Skála.", "Přišel inženýr Skála."),
+    "title-lone-surname-in-a-genitive": ("cs", "Podle Ing. Vrby je to jasné.", "Podle inženýra Vrby je to jasné."),
+    "title-lone-surname-in-a-accusative": ("cs", "Viděl Ing. Vrbu.", "Viděl inženýra Vrbu."),
+    "sk-title-lone-surname-in-a": ("sk", "Prišiel Ing. Hlinka.", "Prišiel inžinier Hlinka."),
+    "guard-title-given-name-in-a": ("cs", "Přišla dr. Eva.", "Přišla doktorka Eva."),
+    "guard-title-feminine-surname-in-ova": ("cs", "Přišla Ing. Nováková.", "Přišla inženýrka Nováková."),
+    "guard-title-feminine-and-masculine-surname": (
+        "cs", "Dr. Novák a dr. Černá odešli.", "Doktor Novák a doktorka Černá odešli."),
+    "guard-title-given-name-before-a-surname-in-a": ("cs", "Přišla Ing. Jana Skála.", "Přišla inženýrka Jana Skála."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
