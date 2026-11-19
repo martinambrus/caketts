@@ -29,6 +29,7 @@ These parts are implemented and tested on CPU:
 - G2P: espeak-ng with post-rules, a lexicon and a strict vocabulary
 - Slovak and Czech number-to-words, with case, gender and animacy
 - Text normalization: numbers, dates, times, currency, units, Roman numerals, abbreviations and English spans, with a Stanza tagger for case, gender and animacy
+- Sentence segmentation with paragraph and chapter boundary labels
 - Audio preprocessing with BigVGAN's exact mel spectrogram
 - The data pipeline
 - The Matcha-TTS components: text encoder, duration predictor, MAS, OT-CFM decoder
@@ -38,7 +39,6 @@ These parts are implemented and tested on CPU:
 
 These are still prompts with acceptance criteria in the plan:
 
-- Sentence segmentation
 - The G2P review and vocabulary scripts
 - Corpus preparation and the tempo-labelling script
 - The vocoder wrapper
@@ -53,7 +53,7 @@ These are still prompts with acceptance criteria in the plan:
 uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv; uv: https://docs.astral.sh/uv/
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
 git -C "${BIGVGAN_DIR:-third_party/BigVGAN}" checkout 7d2b454     # the commit the tests ran with
-uv run pytest tests/ -q -m "not slow"   # 1919 tests, about 40 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 2105 tests, about 40 s on CPU
 uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 40 s
 ```
 
