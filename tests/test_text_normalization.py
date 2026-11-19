@@ -1816,6 +1816,10 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-title-feminine-and-masculine-surname": (
         "cs", "Dr. Novák a dr. Černá odešli.", "Doktor Novák a doktorka Černá odešli."),
     "guard-title-given-name-before-a-surname-in-a": ("cs", "Přišla Ing. Jana Skála.", "Přišla inženýrka Jana Skála."),
+    "title-list-second-item-after-a-name-accusative": (
+        "cs", "Pozval Ing. Nováka, Ing. Klímu.", "Pozval inženýra Nováka, inženýra Klímu."),
+    "title-list-second-item-after-a-name-locative": (
+        "cs", "Mluvili o Ing. Nováku, doc. Dvořáku.", "Mluvili o inženýru Nováku, docentu Dvořáku."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

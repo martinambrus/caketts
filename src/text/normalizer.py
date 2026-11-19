@@ -1381,7 +1381,8 @@ class TextNormalizer:
         """Whether `start` opens a sentence or follows a comma: "Dobrý den, ...", "Děkuji, ..."."""
         before = text[:start].rstrip()
         if before.endswith(","):
-            return True
+            word = tags.before(start, skip=("PUNCT",))  # a name before the comma: this is the next item of a list
+            return word is None or word.upos != "PROPN"
         if not _starts_sentence(before):
             return False
         for w in reversed(tags.words[:bisect.bisect_left(tags.starts, start)]):
