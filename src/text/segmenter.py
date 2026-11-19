@@ -44,7 +44,7 @@ def _paragraphs(text: str) -> Iterator[Tuple[bool, str]]:
     """The paragraphs of book text as (is_heading, text), the lines of a paragraph joined by one space. A heading line
     also ends the paragraph before it."""
     lines: List[str] = []
-    for line in [*text.split("\n"), ""]:
+    for line in [*text.splitlines(), ""]:
         if line.startswith("# ") or not line.strip():
             if lines:
                 yield False, " ".join(lines)

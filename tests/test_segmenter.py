@@ -103,6 +103,9 @@ STRUCTURE = {  # id: (book text, [(text, boundary, chapter, paragraph)])
         ("Přišel.", "mid", 0, 0), ("Odešel.", "para_end", 0, 0), ("Konec.", "chapter_end", 0, 1)]),
     "joined-lines-crlf": ("Přišel\r\nodešel. Potom\r\nšel spát.\r\n", [
         ("Přišel odešel.", "mid", 0, 0), ("Potom šel spát.", "chapter_end", 0, 0)]),
+    "lone-carriage-returns": ("Přišel\rodešel.\r\rKonec.", [
+        ("Přišel odešel.", "para_end", 0, 0), ("Konec.", "chapter_end", 0, 1)]),
+    "unicode-line-separator": ("Přišel\u2028odešel.", [("Přišel odešel.", "chapter_end", 0, 0)]),
     "indented-lines-joined-by-one-space": ("Přišel\n    odešel.\n", [("Přišel odešel.", "chapter_end", 0, 0)]),
     "blank-lines-with-spaces": ("Přišel.\n \n\n\nOdešel.", [
         ("Přišel.", "para_end", 0, 0), ("Odešel.", "chapter_end", 0, 1)]),
@@ -239,7 +242,7 @@ def test_every_label_occurs_and_is_a_known_id():
                          ids=[*SPLITS, *(f"structure-{key}" for key in STRUCTURE)])
 def test_sentences_are_clean_single_lines(text):
     for s in segment(text):
-        assert "\n" not in s.text and "\r" not in s.text
+        assert len(s.text.splitlines()) == 1
         assert not s.text.startswith("# ")
         assert s.text == s.text.strip()
 
