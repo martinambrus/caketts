@@ -1812,3 +1812,58 @@ def test_book_config_options_must_be_lists_of_strings(config):
                          + [(language, None, text) for language, text, _ in UNLOGGED.values()])
 def test_output_is_tokenizable(language, config, text):
     G2P[language].tokenize(TextNormalizer(language, config).normalize(text))
+
+
+# ---- batch 6, headings: Roman numerals in chapter headings ----------------------------------
+HEADING_ROWS = {  # id: (language, input, expected output); no WARNING allowed; "# " is no input of the G2P
+    "heading-number": ("cs", "# 5", "# Pět"),
+    "heading-number-one": ("cs", "# 1", "# Jedna"),
+    "heading-number-two": ("cs", "# 2", "# Dva"),
+    "heading-number-period": ("cs", "# 5.", "# Pět."),
+    "heading-roman": ("cs", "# XII", "# Dvanáct"),
+    "heading-roman-two": ("cs", "# II", "# Dva"),
+    "heading-label-roman": ("cs", "# Kapitola V", "# Kapitola pět"),
+    "heading-label-roman-one": ("cs", "# Kapitola I", "# Kapitola jedna"),
+    "heading-label-roman-part": ("cs", "# Díl II", "# Díl dva"),
+    "heading-label-roman-capitals": ("cs", "# KAPITOLA IX", "# KAPITOLA devět"),
+    "heading-label-roman-chapter-heading-word": ("cs", "# Hlava XL", "# Hlava čtyřicet"),
+    "heading-roman-sequence": ("cs", "# IV\n\nText.\n\n# V\n\nText.", "# Čtyři\n\nText.\n\n# Pět\n\nText."),
+    "heading-sk-roman": ("sk", "# II", "# Dva"),
+    "heading-sk-label-roman": ("sk", "# Kapitola I", "# Kapitola jeden"),
+    "heading-sk-label-digit-twin": ("sk", "# Kapitola 1", "# Kapitola jeden"),
+    "heading-guard-sentence-v": ("cs", "# V lese", "# V lese"),
+    "heading-guard-sentence-i": ("cs", "# I ty, Brute", "# I ty, Brute"),
+    "heading-guard-sentence-a": ("cs", "# A pak", "# A pak"),
+    "heading-guard-sk-sentence": ("sk", "# V horách", "# V horách"),
+    "heading-guard-name-and-numeral": ("cs", "# Karel IV.", "# Karel čtvrtý."),
+    "heading-guard-name-without-period": ("cs", "# Karel V", "# Karel V"),
+    "heading-guard-label-with-period": ("cs", "# Kapitola V.", "# Kapitola pátá."),
+    "heading-guard-numeral-before-label": ("cs", "# II. díl", "# Druhý díl"),
+    "heading-guard-letter-c": ("cs", "# C", "# C"),
+    "heading-guard-letter-l": ("cs", "# L", "# L"),
+    "heading-guard-number-and-noun": ("cs", "# 5 let", "# Pět let"),
+}
+HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING)
+    "heading-single-numeral": ("cs", "# V", "# Pět", "one Roman numeral"),
+    "heading-single-numeral-one": ("cs", "# I", "# Jedna", "one Roman numeral"),
+    "heading-single-numeral-period": ("cs", "# V.", "# Pět.", "one Roman numeral"),
+    "heading-sk-single-numeral": ("sk", "# I", "# Jeden", "one Roman numeral"),
+}
+
+
+@pytest.mark.parametrize("language,text,expected", HEADING_ROWS.values(), ids=list(HEADING_ROWS))
+def test_heading_reading(caplog, language, text, expected):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        out = TextNormalizer(language).normalize(text)
+    assert out == expected
+    assert not [r for r in caplog.records if r.name == "src.text.normalizer"]
+    G2P[language].tokenize(out.replace("# ", ""))
+
+
+@pytest.mark.parametrize("language,text,expected,warning", HEADING_LOGGED.values(), ids=list(HEADING_LOGGED))
+def test_heading_reading_is_logged(caplog, language, text, expected, warning):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        assert TextNormalizer(language).normalize(text) == expected
+    records = [r for r in caplog.records if r.name == "src.text.normalizer"]
+    assert [r.levelno for r in records] == [logging.WARNING]
+    assert warning in records[0].getMessage()

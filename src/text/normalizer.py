@@ -408,6 +408,9 @@ NUMBERED_BOOKS = {
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
 ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
+# label nouns that a Roman numeral may follow in a chapter heading without a period: "Kapitola V"
+HEADING_LABELS = {"cs": ROMAN_LABEL_NOUNS["cs"] | {"hlava", "zpěv", "příloha", "dějství"},
+                  "sk": ROMAN_LABEL_NOUNS["sk"] | {"hlava", "spev", "príloha", "dejstvo"}}
 # a label noun in any case, before a numeral that numbers the next one ("V KNIZE II. DÍL"); a name or a page is none
 ROMAN_LABEL_STEMS = {"cs": re.compile(r"kni[hz]|kapitol|čás|díl|svaz|oddíl|ročník|sešit"),
                      "sk": re.compile(r"kni[hz]|kapitol|časť|časti|častí|diel|zväz|oddiel|ročník|zošit")}
@@ -500,6 +503,9 @@ _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
+# Roman numerals of a chapter heading: I, V, X, L only, as C, D and M are letters too
+_HEADING_NUMERAL = r"(?=[IVXL])(?:XL|L?X{0,3})(?:IX|IV|V?I{0,3})"
+_HEADING_ROMAN = re.compile(rf"(?:(?P<label>[^\W\d_]+){_HS}+)?(?P<numeral>{_HEADING_NUMERAL})(?P<dot>\.)?")
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
@@ -927,10 +933,12 @@ class TextNormalizer:
     # ---- public API ----------------------------------------------------------------------
     def normalize(self, text: str) -> str:
         lines = _clean_typography(text).split("\n")
+        headings = [_HEADING_ROMAN.fullmatch(line[2:]) for line in lines if line.startswith("# ")]
+        numbers = {_roman_value(m["numeral"]) for m in headings if m and m["label"] is None}
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
-                lines[i] = "# " + self._paragraph(lines[i][2:], heading=True)
+                lines[i] = "# " + self._paragraph(self._heading_digits(lines[i][2:], numbers), heading=True)
                 i += 1
             elif not lines[i].strip():
                 i += 1
@@ -941,6 +949,22 @@ class TextNormalizer:
                 lines[i:j] = self._paragraph("\n".join(lines[i:j])).split("\n")
                 i = j
         return "\n".join(lines)
+
+    def _heading_digits(self, text: str, numbers: set) -> str:
+        """A Roman numeral that is a whole heading, or follows a label noun in one, as its digits: "V" like "5"."""
+        m = _HEADING_ROMAN.fullmatch(text)
+        if m is None:
+            return text
+        numeral, value = m["numeral"], _roman_value(m["numeral"])
+        if m["label"] is None:
+            if numeral == "L":
+                return text
+            if len(numeral) == 1 and not {value - 1, value + 1} & numbers:  # a letter heading, or a lone chapter
+                self._warn(text, (0, len(text)), self._cardinal(value, *self._label(value)),
+                           "heading that is one Roman numeral, read as the number; check it")
+        elif m["dot"] or m["label"].lower() not in HEADING_LABELS[self.language]:
+            return text
+        return f"{text[:m.start('numeral')]}{value}{m['dot'] or ''}"
 
     # ---- paragraphs ------------------------------------------------------------------------
     def _paragraph(self, text: str, heading: bool = False) -> str:
@@ -962,7 +986,7 @@ class TextNormalizer:
                                              and not (m.re is self._verses and m.start() <= s and e <= m.end())
                                              for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [], _all_capitals(text))
-        out, pos, after_label, goes_on = [], 0, -1, -1
+        out, pos, after_label, goes_on = [], 0, (0 if heading and re.fullmatch(r"\d+\.?", text) else -1), -1
         for m in items:
             start, words = self._resolve(m, text, tags, after_label == m.start(), heading)
             source_case = m.lastgroup == "abbreviation" and m.group(0)[0].isalpha()
