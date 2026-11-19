@@ -1029,7 +1029,7 @@ class TextNormalizer:
         if m is None:  # "Kapitola I. V lese" -> "Kapitola 1. V lese"
             t = _HEADING_LABEL_TITLE.match(text)
             if (t and t["label"].lower() in HEADING_LABELS[self.language] and t["numeral"] != "L"
-                    and text[t.end():].lstrip(" \t\u00a0\u202f")[:1].isupper()):
+                    and text[t.end():].lstrip(" \t\u00a0\u202f")[:1].isupper() and not _all_capitals(text)):
                 return f"{text[:t.start('numeral')]}{_roman_value(t['numeral'])}{text[t.end('numeral'):]}"
             return text
         numeral, value = m["numeral"], _roman_value(m["numeral"])
@@ -1851,8 +1851,11 @@ class TextNormalizer:
                 return self._ordinal(value, NOM, *self._gender(verb)) + "."  # "Skončil 2. Pak…"
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
+        # "# Kapitola 1. Příchod": the label's number, then the title; in capitals a genitive may be the number's own
+        # noun ("KAPITOLA 20. STOLETÍ")
         label = (heading and prev is not None and prev.text.lower() in HEADING_LABELS[self.language]
-                 and following[:1].isupper())  # "# Kapitola 1. Příchod": the label's number, then the title
+                 and following[:1].isupper()
+                 and not (_all_capitals(text) and nxt is not None and nxt.feats.get("Case") == "Gen"))
         head = prev if label else (tags.head_after(m.end()) or self._shared_head(m.end(), tags))
         case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags, following=not label)
         if month:  # "5. KVĚTNA": a date, whatever the tagger made of the month

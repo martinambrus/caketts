@@ -1990,6 +1990,10 @@ HEADING_ROWS = {  # id: (language, input, expected output); no WARNING allowed; 
     "heading-guard-roman-label-part-before-a-title": ("cs", "# Díl II. Návrat", "# Díl druhý. Návrat"),
     "heading-guard-roman-letter-c-after-a-label": ("cs", "# Příloha C. Návrat", "# Příloha stý Návrat"),
     "heading-guard-roman-label-in-a-sentence": ("cs", "Kapitola I. začíná.", "Kapitola první začíná."),
+    "heading-capitals-digit-label-before-a-title": ("cs", "# KAPITOLA 2. NÁVRAT", "# KAPITOLA druhá. NÁVRAT"),
+    "heading-guard-capitals-roman-label-before-a-title": ("cs", "# KAPITOLA V. NÁVRAT", "# KAPITOLA pátá. NÁVRAT"),
+    "heading-guard-capitals-digit-label-before-its-genitive": (
+        "cs", "# KAPITOLA 20. STOLETÍ", "# KAPITOLA dvacátého STOLETÍ"),
 }
 HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "heading-single-numeral": ("cs", "# V", "# Pět", "one Roman numeral"),
@@ -2005,6 +2009,8 @@ HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING
     "heading-lone-number-before-a-noun": ("cs", "# 3. Říše", "# Třetí Říše", "chapter label"),
     "heading-lone-single-numeral-before-an-initial": ("cs", "# V. I. Lenin", "# V. První Lenin", "chapter label"),
     "heading-sk-lone-number-before-a-noun": ("sk", "# 1. Príchod", "# Prvý Príchod", "chapter label"),
+    "heading-guard-capitals-roman-label-before-its-genitive": (
+        "cs", "# KAPITOLA XX. STOLETÍ", "# KAPITOLA dvacátého STOLETÍ", "may number it instead"),
 }
 
 
