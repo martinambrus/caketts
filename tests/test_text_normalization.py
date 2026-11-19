@@ -1130,6 +1130,66 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "KAREL V. HAVEL PŘIŠEL.", "KAREL V. HAVEL PŘIŠEL.", "kept as an initial"),
     "guard-capitals-initial-before-a-surname-tagged-as-a-verb": (
         "cs", "JAN V. POSPÍŠIL PŘIŠEL.", "JAN V. POSPÍŠIL PŘIŠEL.", "kept as an initial"),
+    "cs-weekday-from-its-hours": (
+        "cs", "So 8–12 h.", "Sobota osm až dvanáct hodin.",
+        "weekday abbreviation read from the opening hours after it"),
+    "cs-weekday-before-zavreno": (
+        "cs", "Ne zavřeno.", "Neděle zavřeno.", "weekday abbreviation read from the opening hours after it"),
+    "sk-weekday-before-zatvorene": (
+        "sk", "Ne zatvorené.", "Nedeľa zatvorené.", "weekday abbreviation read from the opening hours after it"),
+    "sk-weekday-from-its-hours": (
+        "sk", "So 8–12 h.", "Sobota osem až dvanásť hodín.",
+        "weekday abbreviation read from the opening hours after it"),
+    "title-vocative-without-a-governor": ("cs", "Dr. Nováku, pojďte dál.", "Doktore Nováku, pojďte dál.", "not clear"),
+    "title-vocative-after-a-greeting": ("cs", "Dobrý den, Ing. Nováku.", "Dobrý den, inženýre Nováku.", "not clear"),
+    "title-surname-in-ou-stays-feminine": (
+        "cs", "Mluvil s MUDr. Novotnou.", "Mluvil s doktorkou Novotnou.", "not clear"),
+    "title-no-name": ("cs", "Získal titul Ing.", "Získal titul inženýr.", "no name after the title"),
+    "title-no-name-before-a-sentence": (
+        "cs", "Získal titul Ing. Potom odešel.", "Získal titul inženýr. Potom odešel.", "no name after the title"),
+    "title-feminine-case-shared-by-three": (
+        "cs", "Děkuji prof. Dvořákové.", "Děkuji profesorce Dvořákové.", "not clear"),
+    "title-feminine-magistra-dative": (
+        "cs", "Pomohl Ing. Novákovi i Mgr. Dvořákové.", "Pomohl inženýru Novákovi i magistře Dvořákové.", "not clear"),
+    "title-feminine-surname-in-ou": ("cs", "Mluvil s Ing. Hrubou.", "Mluvil s inženýrkou Hrubou.", "not clear"),
+    "sk-title-feminine-case-shared-by-three": (
+        "sk", "Volali sme Ing. Kováčovej.", "Volali sme inžinierky Kováčovej.", "not clear"),
+    "title-vocative-after-a-comma-and-a-verb": ("cs", "Děkuji, Ing. Nováku.", "Děkuji, inženýre Nováku.", "not clear"),
+    "title-vocative-after-a-comma-in-a-question": (
+        "cs", "Co myslíte, dr. Nováku?", "Co myslíte, doktore Nováku?", "not clear"),
+    "title-vocative-of-a-surname-in-a-after-a-comma": (
+        "cs", "Pojďte dál, Ing. Svobodo.", "Pojďte dál, inženýre Svobodo.", "not clear"),
+    "guard-list-lone-item": ("cs", "Seznam:\n1. Petr přišel.", "Seznam:\njeden. Petr přišel.", "no governing noun"),
+    "guard-list-gap": (
+        "cs", "1. Petr přišel.\n3. Vrah utekl.", "Jeden. Petr přišel.\nTřetí Vrah utekl.", "no governing noun"),
+    "list-item-before-a-noun": (
+        "cs", "1. Petr přišel.\n2. Vrah utekl.", "Za prvé, Petr přišel.\nZa druhé, Vrah utekl.", "list item"),
+    "list-items-ending-in-a-noun": (
+        "cs", "1. Petr Berkovec — zavražděn;\n2. byl zavražděn kolem půlnoci;\n3. Vrah utekl oknem.",
+        "Za prvé, Petr Berkovec — zavražděn;\nZa druhé, byl zavražděn kolem půlnoci;\nZa třetí, Vrah utekl oknem.",
+        "list item"),
+    "list-items-in-a-sentence-after-a-verb": (
+        "cs", "Měl 1) nápad, 2) pak přišel.", "Měl za prvé nápad, za druhé pak přišel.", "list item"),
+    "guard-list-bracket-number": (
+        "cs", "Přišlo jich málo (5) a odešli.", "Přišlo jich málo (pět) a odešli.", "no governing noun"),
+    "guard-list-bracket-year": (
+        "cs", "Rok (1945) byl těžký.", "Rok (tisíc devět set čtyřicet pět) byl těžký.", "no governing noun"),
+    "guard-list-function-value": ("cs", "Hodnota x(1) je rovna.", "Hodnota x(jeden) je rovna.", "no governing noun"),
+    "guard-list-lone-bracket-item": ("cs", "1) první bod", "Jeden) první bod", "no governing noun"),
+    "guard-list-lone-bracketed-item": ("cs", "(1) první bod", "(Jeden) první bod", "no governing noun"),
+    "guard-list-lone-item-in-a-sentence": (
+        "cs", "Měl jediný důvod: 1) neměl čas.", "Měl jediný důvod: jeden) neměl čas.", "no governing noun"),
+    "guard-list-bracket-after-an-abbreviation": (
+        "cs", "Viz obr. 1) dole.", "Viz obr. Jeden) dole.", "no governing noun"),
+    "title-oblique-form-in-a-read-as-nominative": (
+        "cs", "Zeptal se dr. Jekylla.", "Zeptal se doktor Jekylla.", "not clear"),
+    "title-oblique-form-in-u-read-as-nominative": ("cs", "Zavolal Mgr. Hálu.", "Zavolal magistr Hálu.", "not clear"),
+    "guard-list-two-labels-joined-by-a-conjunction": (
+        "cs", "Z důvodů 1) a 2) odešel.", "Z důvodů jedna) a dva) odešel.", "no governing noun"),
+    "guard-title-surname-in-ou-after-s": (
+        "cs", "Mluvil s Ing. Skálou.", "Mluvil s inženýrkou Skálou.", "not clear"),
+    "guard-title-feminine-surname-in-ou-after-mudr": (
+        "cs", "Mluvil s MUDr. Novotnou.", "Mluvil s doktorkou Novotnou.", "not clear"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1534,6 +1594,232 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Mezi 5. a 6. stol. vládli Řekové.", "Mezi pátým a šestým stoletím vládli Řekové."),
     "guard-century-abbreviation-after-a-genitive-ordinal": (
         "cs", "Ke konci 5. stol. se to změnilo.", "Ke konci pátého století se to změnilo."),
+    "cs-misgendered-masculine-plural": ("cs", "Má 2 šálky.", "Má dva šálky."),
+    "cs-misgendered-masculine-plural-of-soft-stem": ("cs", "Má 2 nože.", "Má dva nože."),
+    "cs-misgendered-masculine-plural-of-things": ("cs", "Koupil 2 tagy a 2 párky.", "Koupil dva tagy a dva párky."),
+    "cs-misgendered-masculine-singular": ("cs", "Mám 1 esej.", "Mám jeden esej."),
+    "cs-misgendered-masculine-genitive-singular-after-one": (
+        "cs", "Cena 1 nože je 5 korun.", "Cena jednoho nože je pět korun."),
+    "cs-misgendered-feminine-plural": ("cs", "Má 2 bouřky.", "Má dvě bouřky."),
+    "cs-misgendered-feminine-plural-of-clothes": ("cs", "Má 2 mikiny.", "Má dvě mikiny."),
+    "cs-misgendered-feminine-plural-of-animals": ("cs", "Koupila 2 perly a 2 krysy.", "Koupila dvě perly a dvě krysy."),
+    "cs-misgendered-feminine-singular": ("cs", "Mám 1 slzu.", "Mám jednu slzu."),
+    "guard-cs-masculine-plural-tagged-right": ("cs", "Má 2 stromy.", "Má dva stromy."),
+    "guard-cs-feminine-plural-tagged-right": ("cs", "Má 2 ženy.", "Má dvě ženy."),
+    "guard-cs-genitive-plural-of-a-listed-word": ("cs", "Má 5 šálků.", "Má pět šálků."),
+    "guard-cs-genitive-plural-after-a-preposition": ("cs", "Bez 2 nožů.", "Bez dvou nožů."),
+    "guard-cs-nominative-singular-of-a-listed-word": ("cs", "Mám 1 šálek.", "Mám jeden šálek."),
+    "guard-cs-masculine-homograph-of-a-feminine-plural-is-left-alone": ("cs", "Má 2 sady.", "Má dvě sady."),
+    "cs-weekday-range-before-hours": (
+        "cs", "Otevřeno Po–Pá 8–17 h.", "Otevřeno pondělí až pátek osm až sedmnáct hodin."),
+    "cs-weekday-range-at-sentence-start": ("cs", "Po–Pá 8–17 h.", "Pondělí až pátek osm až sedmnáct hodin."),
+    "cs-weekday-range-with-a-hyphen": (
+        "cs", "Otevřeno Po-Pá 8:00–17:00.", "Otevřeno pondělí až pátek osm hodin až sedmnáct hodin."),
+    "cs-weekday-list": ("cs", "Zavřeno Po, St a Pá.", "Zavřeno pondělí, středa a pátek."),
+    "cs-weekday-pair": ("cs", "Zavřeno v So a Ne.", "Zavřeno v sobotu a neděli."),
+    "cs-weekday-from-to": ("cs", "Zavřeno od Po do Pá.", "Zavřeno od pondělí do pátku."),
+    "cs-weekday-after-v": ("cs", "Otevřeno v So.", "Otevřeno v sobotu."),
+    "cs-weekday-after-v-takes-ve": ("cs", "Otevřeno ve St.", "Otevřeno ve středu."),
+    "cs-weekday-that-is-no-other-word": ("cs", "Út 8–12 h.", "Úterý osm až dvanáct hodin."),
+    "sk-weekday-from-to": ("sk", "Zatvorené od Po do Pi.", "Zatvorené od pondelka do piatku."),
+    "sk-weekday-after-v": ("sk", "Otvorené v So.", "Otvorené v sobotu."),
+    "sk-weekday-after-v-takes-vo": ("sk", "Otvorené vo Št.", "Otvorené vo štvrtok."),
+    "sk-weekday-that-is-no-other-word": ("sk", "Št zatvorené.", "Štvrtok zatvorené."),
+    "sk-weekday-list": ("sk", "Zatvorené Po, St a Pia.", "Zatvorené pondelok, streda a piatok."),
+    "guard-cs-po-is-a-preposition": ("cs", "Po obědě spal.", "Po obědě spal."),
+    "guard-cs-po-before-an-hour": ("cs", "Po 8 h odešel.", "Po osmi hodinách odešel."),
+    "guard-cs-po-before-a-span-of-hours-and-a-verb": (
+        "cs", "Po 8–17 h odešel domů.", "Po osmi až sedmnácti hodinách odešel domů."),
+    "guard-cs-po-before-a-span-and-a-noun": (
+        "cs", "Po 8–10 h spánku byl odpočatý.", "Po osmi až deseti hodinách spánku byl odpočatý."),
+    "guard-cs-ne-is-no": ("cs", "Ne, to není pravda.", "Ne, to není pravda."),
+    "guard-cs-ne-before-a-number": ("cs", "Ne 8 h, ale 9 h.", "Ne osm hodin, ale devět hodin."),
+    "guard-cs-ne-comma-po": ("cs", "Ne, Po večeři se vrátím.", "Ne, Po večeři se vrátím."),
+    "guard-cs-ne-dash-po": ("cs", "Ne – Po večeři jsem nešel.", "Ne — Po večeři jsem nešel."),
+    "guard-cs-st-is-saint": ("cs", "Ve St. Louis se narodil.", "Ve St. Louis se narodil."),
+    "guard-cs-so-after-st": ("cs", "Jeli jsme do St. Gallenu.", "Jeli jsme do St. Gallenu."),
+    "guard-cs-pa-bye": ("cs", "Pá pá, uvidíme se.", "Pá pá, uvidíme se."),
+    "guard-sk-so-is-a-preposition": ("sk", "So ženou išiel domov.", "So ženou išiel domov."),
+    "guard-sk-so-before-a-number": ("sk", "So 5 deťmi išiel von.", "So piatimi deťmi išiel von."),
+    "guard-sk-po-is-a-preposition": ("sk", "Po obede spal.", "Po obede spal."),
+    "guard-sk-pi-is-a-number": (
+        "sk", "Hodnota Pi je približne 3,14.", "Hodnota Pi je približne tri celé štrnásť stotín."),
+    "guard-cs-pa-is-a-farewell": ("cs", "Pá, Karle, uvidíme se.", "Pá, Karle, uvidíme se."),
+    "title-nominative": ("cs", "Ing. Novák přišel.", "Inženýr Novák přišel."),
+    "title-two-titles-in-a-sentence": (
+        "cs", "Přišel MUDr. Jan Novák a prof. Dvořák.", "Přišel doktor Jan Novák a profesor Dvořák."),
+    "title-instrumental": (
+        "cs", "Mluvil s doc. Horákem a dr. Novákem.", "Mluvil s docentem Horákem a doktorem Novákem."),
+    "title-dative": ("cs", "Volali jsme Ing. Novákovi.", "Volali jsme inženýru Novákovi."),
+    "title-genitive": ("cs", "Nebylo tam Ing. Nováka.", "Nebylo tam inženýra Nováka."),
+    "title-accusative": ("cs", "Viděl Ing. Nováka.", "Viděl inženýra Nováka."),
+    "title-locative": ("cs", "Mluvili o Ing. Novákovi.", "Mluvili o inženýru Novákovi."),
+    "title-feminine-nominative": ("cs", "Mgr. Svobodová odešla.", "Magistra Svobodová odešla."),
+    "title-feminine-instrumental": ("cs", "Mluvil s Ing. Novákovou.", "Mluvil s inženýrkou Novákovou."),
+    "title-feminine-accusative-first-name": ("cs", "Pozval MUDr. Evu Horákovou.", "Pozval doktorku Evu Horákovou."),
+    "title-feminine-dative-first-name": ("cs", "Šla k MUDr. Evě Horákové.", "Šla k doktorce Evě Horákové."),
+    "title-masculine-surname-in-a-with-first-name": (
+        "cs", "Mluvil s Ing. Jiřím Procházkou.", "Mluvil s inženýrem Jiřím Procházkou."),
+    "title-two-words": ("cs", "Přišel Ing. arch. Novák.", "Přišel inženýr architekt Novák."),
+    "title-two-words-feminine-instrumental": (
+        "cs", "Mluvil s akad. soch. Evou Novákovou.", "Mluvil s akademickou sochařkou Evou Novákovou."),
+    "title-academic-painter": ("cs", "Přišel akad. mal. Jan Novák.", "Přišel akademický malíř Jan Novák."),
+    "title-lowercase-mid-sentence": (
+        "cs", "Prof. Jelínek a Ing. Král diskutují.", "Profesor Jelínek a inženýr Král diskutují."),
+    "title-capital-after-a-sentence": (
+        "cs", "Řekl to Ing. Novák. Prof. Dvořák souhlasil.", "Řekl to inženýr Novák. Profesor Dvořák souhlasil."),
+    "title-in-a-row": ("cs", "Prof. MUDr. Jan Novák, DrSc., přišel.", "Profesor doktor Jan Novák, DrSc., přišel."),
+    "title-in-a-row-feminine-instrumental": (
+        "cs", "Mluvil s prof. MUDr. Evou Horákovou, CSc.", "Mluvil s profesorkou doktorkou Evou Horákovou, CSc."),
+    "title-capitals": ("cs", "ING. NOVÁK PŘIŠEL.", "Inženýr NOVÁK PŘIŠEL."),
+    "title-capitals-instrumental": ("cs", "MLUVIL S DOC. HORÁKEM.", "MLUVIL S docentem HORÁKEM."),
+    "title-bachelor": ("cs", "Přišel Bc. Dvořák.", "Přišel bakalář Dvořák."),
+    "title-doctor-of-veterinary-medicine": ("cs", "Zavolal MVDr. Černému.", "Zavolal doktoru Černému."),
+    "title-doctor-abbreviated": ("cs", "Mluvil s dr. Novákem.", "Mluvil s doktorem Novákem."),
+    "title-pan-and-pani": ("cs", "Mluvil s p. Novákem a pí Novákovou.", "Mluvil s panem Novákem a paní Novákovou."),
+    "title-pani-before-a-feminine-name": ("cs", "Přišla p. Nováková.", "Přišla paní Nováková."),
+    "title-slecna": ("cs", "Mluvil se sl. Novákovou.", "Mluvil se slečnou Novákovou."),
+    "title-initial-after-a-title": ("cs", "Přišel Ing. A. Novák.", "Přišel inženýr A. Novák."),
+    "title-guard-initial": ("cs", "Přišel V. Havel.", "Přišel V. Havel."),
+    "title-guard-capital-p": ("cs", "Páter P. Novák přišel.", "Páter P. Novák přišel."),
+    "title-guard-without-a-period": ("cs", "Přišel doc Novák a prof Dvořák.", "Přišel doc Novák a prof Dvořák."),
+    "title-guard-tzv": ("cs", "MUDr. Dvořák tzv. léčitel přišel.", "Doktor Dvořák takzvaný léčitel přišel."),
+    "title-guard-after-the-name": ("cs", "Jan Novák, Ph.D., přišel.", "Jan Novák, Ph.D., přišel."),
+    "title-saint-dative": ("cs", "Pomohla sv. Anně.", "Pomohla svaté Anně."),
+    "title-saint-locative": ("cs", "Mluvil o sv. Václavovi.", "Mluvil o svatém Václavovi."),
+    "title-dative-of-a-first-name-and-surname": (
+        "cs", "Poděkoval Ing. Janu Svobodovi.", "Poděkoval inženýru Janu Svobodovi."),
+    "title-dative-two-words": ("cs", "Mluvili o Ing. arch. Novákovi.", "Mluvili o inženýru architektu Novákovi."),
+    "title-dative-soft-stem": ("cs", "Pomohl Bc. Novákovi.", "Pomohl bakaláři Novákovi."),
+    "title-dative-adjective-and-soft-stem": (
+        "cs", "Pomohl akad. mal. Novákovi.", "Pomohl akademickému malíři Novákovi."),
+    "title-masculine-surname-in-a-instrumental": ("cs", "Šel za dr. Svobodou.", "Šel za doktorem Svobodou."),
+    "title-masculine-surname-in-a-instrumental-2": (
+        "cs", "Mluvil s Ing. Procházkou.", "Mluvil s inženýrem Procházkou."),
+    "title-masculine-surname-in-a-accusative": ("cs", "Pozval prof. Růžičku.", "Pozval profesora Růžičku."),
+    "title-masculine-surname-in-a-genitive": ("cs", "Nebylo tam prof. Růžičky.", "Nebylo tam profesora Růžičky."),
+    "title-masculine-surname-in-a-nominative": ("cs", "Přišel doc. Růžička.", "Přišel docent Růžička."),
+    "title-masculine-surname-in-a-genitive-2": ("cs", "Nebylo tam doc. Hrušky.", "Nebylo tam docenta Hrušky."),
+    "title-masculine-surname-in-a-accusative-2": ("cs", "Pozval Mgr. Matějku.", "Pozval magistra Matějku."),
+    "title-masculine-surname-in-a-instrumental-3": ("cs", "Mluvil s doc. Říhou.", "Mluvil s docentem Říhou."),
+    "title-masculine-surname-in-a-instrumental-4": ("cs", "Mluvil s MUDr. Liškou.", "Mluvil s doktorem Liškou."),
+    "title-guard-masculine-surname-in-a-read-right": ("cs", "Mluvil s Ing. Kučerou.", "Mluvil s inženýrem Kučerou."),
+    "title-feminine-after-za": ("cs", "Šel za MUDr. Svobodovou.", "Šel za doktorkou Svobodovou."),
+    "title-vocative-after-pane": ("cs", "Pane dr. Nováku, pojďte dál.", "Pane doktore Nováku, pojďte dál."),
+    "title-vocative-of-a-surname-in-a": ("cs", "Dobrý den, pane Ing. Svobodo.", "Dobrý den, pane inženýre Svobodo."),
+    "title-vocative-magistr": ("cs", "Pane Mgr. Dvořáku, děkuji.", "Pane magistře Dvořáku, děkuji."),
+    "title-vocative-two-words": ("cs", "Pane Ing. arch. Nováku!", "Pane inženýre architekte Nováku!"),
+    "title-vocative-soft-stem": ("cs", "Pane Bc. Nováku!", "Pane bakaláři Nováku!"),
+    "title-vocative-in-a-row": (
+        "cs", "Pane prof. MUDr. Nováku, pojďte dál.", "Pane profesore doktore Nováku, pojďte dál."),
+    "title-vocative-feminine-stays-nominative": (
+        "cs", "Dobrý den, paní dr. Nováková.", "Dobrý den, paní doktorka Nováková."),
+    "title-guard-accusatives-in-a-list-are-no-vocative": (
+        "cs", "Pozval Mgr. Svobodu, Ing. Procházku.", "Pozval magistra Svobodu, inženýra Procházku."),
+    "title-guard-accusative-of-a-surname-in-a-after-a-comma": (
+        "cs", "Pozval Ing. Nováka, doc. Kučeru.", "Pozval inženýra Nováka, docenta Kučeru."),
+    "title-guard-the-noun-svoboda": ("cs", "Bojoval za svobodou.", "Bojoval za svobodou."),
+    "title-pi-at-a-sentence-start": ("cs", "Pí Nováková se usmála.", "Paní Nováková se usmála."),
+    "title-guard-pi-before-a-lowercase-word": ("cs", "Pí je číslo.", "Pí je číslo."),
+    "sk-title-dative-keeps-ovi": ("sk", "Pomohol Ing. Kováčovi.", "Pomohol inžinierovi Kováčovi."),
+    "sk-title-instrumental-surname-in-a": ("sk", "Hovoril s Ing. Hlinkom.", "Hovoril s inžinierom Hlinkom."),
+    "sk-title-nominative": ("sk", "Ing. Kováč prišiel.", "Inžinier Kováč prišiel."),
+    "sk-title-instrumental": ("sk", "Hovoril s Ing. Kováčom.", "Hovoril s inžinierom Kováčom."),
+    "sk-title-feminine-accusative": ("sk", "Videl Ing. Kováčovú.", "Videl inžinierku Kováčovú."),
+    "sk-title-feminine-instrumental-first-name": (
+        "sk", "Hovoril s MUDr. Evou Horákovou.", "Hovoril s doktorkou Evou Horákovou."),
+    "sk-title-two-words": ("sk", "Prišiel Ing. arch. Novák.", "Prišiel inžinier architekt Novák."),
+    "sk-title-academic-painter": ("sk", "Hovoril s akad. mal. Novákom.", "Hovoril s akademickým maliarom Novákom."),
+    "sk-title-pan-and-pani": ("sk", "Prišla p. Nováková.", "Prišla pani Nováková."),
+    "sk-title-lowercase-mid-sentence": (
+        "sk", "Prof. Horváth a Ing. Kráľ diskutujú.", "Profesor Horváth a inžinier Kráľ diskutujú."),
+    "list-items": ("cs", "1. Petr přišel.\n2. Jan odešel.", "Za prvé, Petr přišel.\nZa druhé, Jan odešel."),
+    "list-items-paragraphs": (
+        "cs", "Fakta:\n\n1. Petr přišel;\n\n2. odešel pryč;\n\n3. Karel zůstal.",
+        "Fakta:\n\nZa prvé, Petr přišel;\n\nZa druhé, odešel pryč;\n\nZa třetí, Karel zůstal."),
+    "list-items-verb-and-conjunction": (
+        "cs", "1. Přišel Petr.\n2. Ale odešel.", "Za prvé, Přišel Petr.\nZa druhé, Ale odešel."),
+    "list-items-from-two": (
+        "cs", "2. Petr přišel.\n3. Jan odešel.\n4. Karel zůstal.",
+        "Za druhé, Petr přišel.\nZa třetí, Jan odešel.\nZa čtvrté, Karel zůstal."),
+    "list-items-ten": ("cs", "9. Petr přišel.\n10. Jan odešel.", "Za deváté, Petr přišel.\nZa desáté, Jan odešel."),
+    "list-items-twenty": (
+        "cs", "19. Petr přišel.\n20. Jan odešel.\n21. Karel zůstal.",
+        "Za devatenácté, Petr přišel.\nZa dvacáté, Jan odešel.\nZa dvacáté první, Karel zůstal."),
+    "sk-list-items": (
+        "sk", "1. Peter prišiel.\n2. Ján odišiel.\n3. Mária zostala.",
+        "Po prvé, Peter prišiel.\nPo druhé, Ján odišiel.\nPo tretie, Mária zostala."),
+    "guard-list-dates": ("cs", "1. května přijel.\n2. května odjel.", "Prvního května přijel.\nDruhého května odjel."),
+    "guard-list-sk-dates": ("sk", "1. mája prišiel.\n2. mája odišiel.", "Prvého mája prišiel.\nDruhého mája odišiel."),
+    "guard-list-label-nouns": (
+        "cs", "1. kapitola\n2. kapitola\n3. kapitola", "První kapitola\ndruhá kapitola\ntřetí kapitola"),
+    "guard-list-numbered-dates": (
+        "cs", "1. 5. 1945\n2. 5. 1945",
+        "Prvního května tisíc devět set čtyřicet pět\ndruhého května tisíc devět set čtyřicet pět"),
+    "guard-list-ordinal-and-noun": (
+        "cs", "2. světová válka začala v roce 1939.",
+        "Druhá světová válka začala v roce tisíc devět set třicet devět."),
+    "list-bracket-items": (
+        "cs", "1) Petr přišel.\n2) Jan odešel.\n3) Karel zůstal.",
+        "Za prvé, Petr přišel.\nZa druhé, Jan odešel.\nZa třetí, Karel zůstal."),
+    "list-bracketed-items": ("cs", "(1) Petr přišel.\n(2) Jan odešel.", "Za prvé, Petr přišel.\nZa druhé, Jan odešel."),
+    "list-bracket-items-paragraphs": (
+        "cs", "Důvody:\n\n1) Petr přišel;\n\n2) odešel pryč;\n\n3) Karel zůstal.",
+        "Důvody:\n\nZa prvé, Petr přišel;\n\nZa druhé, odešel pryč;\n\nZa třetí, Karel zůstal."),
+    "list-items-in-a-sentence": (
+        "cs", "Měl tři důvody: 1) neměl čas, 2) neměl peníze, 3) nechtěl.",
+        "Měl tři důvody: za prvé neměl čas, za druhé neměl peníze, za třetí nechtěl."),
+    "list-bracketed-items-in-a-sentence": (
+        "cs", "Měl dva důvody: (1) neměl čas; (2) neměl peníze.",
+        "Měl dva důvody: za prvé neměl čas; za druhé neměl peníze."),
+    "sk-list-items-in-a-sentence": (
+        "sk", "Mal tri dôvody: 1) nemal čas, 2) nemal peniaze, 3) nechcel.",
+        "Mal tri dôvody: po prvé nemal čas, po druhé nemal peniaze, po tretie nechcel."),
+    "sk-list-bracket-items": (
+        "sk", "(1) Peter prišiel.\n(2) Ján odišiel.", "Po prvé, Peter prišiel.\nPo druhé, Ján odišiel."),
+    "guard-list-page-in-brackets": (
+        "cs", "Podívej se (viz str. 5) a (viz str. 6) a čti dál.",
+        "Podívej se (viz strana pět) a (viz strana šest) a čti dál."),
+    "guard-list-bracketed-times": (
+        "cs", "Začátek v (12:30) a konec ve (14:00) byl pozdě.",
+        "Začátek v (dvanáct třicet) a konec ve (čtrnáct hodin) byl pozdě."),
+    "guard-list-bracketed-dates": (
+        "cs", "Dne (1. 5.) a (2. 5.) bylo ticho.", "Dne (prvního května) a (druhého května) bylo ticho."),
+    "guard-list-lettered-labels": ("cs", "a) první bod\nb) druhý bod", "a) první bod\nb) druhý bod"),
+    "guard-list-lettered-labels-in-a-sentence": (
+        "cs", "Měl důvody: a) čas, b) peníze.", "Měl důvody: a) čas, b) peníze."),
+    "title-feminine-surname-in-ovou-tagged-masculine": (
+        "cs", "Na prof. Novákovou se zlobil.", "Na profesorku Novákovou se zlobil."),
+    "title-masculine-surname-in-a-locative": ("cs", "Slyšel o dr. Tůmovi.", "Slyšel o doktoru Tůmovi."),
+    "title-guard-oblique-form-the-tagger-reads-right": ("cs", "Zeptal se dr. Watsona.", "Zeptal se doktora Watsona."),
+    "title-guard-short-surname-in-ovou-is-no-feminine": ("cs", "Mluvil s doc. Sovou.", "Mluvil s docentem Sovou."),
+    "title-guard-vocative-after-pane-in-capitals": (
+        "cs", "PANE DR. NOVÁKU, POJĎTE DÁL.", "PANE doktore NOVÁKU, POJĎTE DÁL."),
+    "list-items-in-a-sentence-and-before-the-last": (
+        "cs", "Měl tři důvody: 1) neměl čas, 2) neměl peníze a 3) nechtěl.",
+        "Měl tři důvody: za prvé neměl čas, za druhé neměl peníze a za třetí nechtěl."),
+    "list-items-in-a-sentence-or-before-the-last": (
+        "cs", "Měl důvody: 1) neměl čas, 2) neměl peníze nebo 3) nechtěl.",
+        "Měl důvody: za prvé neměl čas, za druhé neměl peníze nebo za třetí nechtěl."),
+    "list-items-from-a-line-start-and-before-the-last": (
+        "cs", "1) Petr přišel, 2) Jan odešel a 3) Marie zůstala.",
+        "Za prvé, Petr přišel, za druhé Jan odešel a za třetí Marie zůstala."),
+    "sk-list-items-in-a-sentence-and-before-the-last": (
+        "sk", "Mal tri dôvody: 1) nemal čas, 2) nemal peniaze a 3) nechcel.",
+        "Mal tri dôvody: po prvé nemal čas, po druhé nemal peniaze a po tretie nechcel."),
+    "title-lone-surname-in-a-nominative": ("cs", "Přišel Ing. Skála.", "Přišel inženýr Skála."),
+    "title-lone-surname-in-a-genitive": ("cs", "Podle Ing. Vrby je to jasné.", "Podle inženýra Vrby je to jasné."),
+    "title-lone-surname-in-a-accusative": ("cs", "Viděl Ing. Vrbu.", "Viděl inženýra Vrbu."),
+    "sk-title-lone-surname-in-a": ("sk", "Prišiel Ing. Hlinka.", "Prišiel inžinier Hlinka."),
+    "guard-title-given-name-in-a": ("cs", "Přišla dr. Eva.", "Přišla doktorka Eva."),
+    "guard-title-feminine-surname-in-ova": ("cs", "Přišla Ing. Nováková.", "Přišla inženýrka Nováková."),
+    "guard-title-feminine-and-masculine-surname": (
+        "cs", "Dr. Novák a dr. Černá odešli.", "Doktor Novák a doktorka Černá odešli."),
+    "guard-title-given-name-before-a-surname-in-a": ("cs", "Přišla Ing. Jana Skála.", "Přišla inženýrka Jana Skála."),
+    "title-list-second-item-after-a-name-accusative": (
+        "cs", "Pozval Ing. Nováka, Ing. Klímu.", "Pozval inženýra Nováka, inženýra Klímu."),
+    "title-list-second-item-after-a-name-locative": (
+        "cs", "Mluvili o Ing. Nováku, doc. Dvořáku.", "Mluvili o inženýru Nováku, docentu Dvořáku."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -1644,3 +1930,103 @@ def test_book_config_options_must_be_lists_of_strings(config):
                          + [(language, None, text) for language, text, _ in UNLOGGED.values()])
 def test_output_is_tokenizable(language, config, text):
     G2P[language].tokenize(TextNormalizer(language, config).normalize(text))
+
+
+# ---- batch 6, headings: Roman numerals in chapter headings ----------------------------------
+HEADING_ROWS = {  # id: (language, input, expected output); no WARNING allowed; "# " is no input of the G2P
+    "heading-number": ("cs", "# 5", "# Pět"),
+    "heading-number-one": ("cs", "# 1", "# Jedna"),
+    "heading-number-two": ("cs", "# 2", "# Dva"),
+    "heading-number-period": ("cs", "# 5.", "# Pět."),
+    "heading-roman": ("cs", "# XII", "# Dvanáct"),
+    "heading-roman-two": ("cs", "# II", "# Dva"),
+    "heading-label-roman": ("cs", "# Kapitola V", "# Kapitola pět"),
+    "heading-label-roman-one": ("cs", "# Kapitola I", "# Kapitola jedna"),
+    "heading-label-roman-part": ("cs", "# Díl II", "# Díl dva"),
+    "heading-label-roman-capitals": ("cs", "# KAPITOLA IX", "# KAPITOLA devět"),
+    "heading-label-roman-chapter-heading-word": ("cs", "# Hlava XL", "# Hlava čtyřicet"),
+    "heading-roman-sequence": ("cs", "# IV\n\nText.\n\n# V\n\nText.", "# Čtyři\n\nText.\n\n# Pět\n\nText."),
+    "heading-sk-roman": ("sk", "# II", "# Dva"),
+    "heading-sk-label-roman": ("sk", "# Kapitola I", "# Kapitola jeden"),
+    "heading-sk-label-digit-twin": ("sk", "# Kapitola 1", "# Kapitola jeden"),
+    "heading-guard-sentence-v": ("cs", "# V lese", "# V lese"),
+    "heading-guard-sentence-i": ("cs", "# I ty, Brute", "# I ty, Brute"),
+    "heading-guard-sentence-a": ("cs", "# A pak", "# A pak"),
+    "heading-guard-sk-sentence": ("sk", "# V horách", "# V horách"),
+    "heading-guard-name-and-numeral": ("cs", "# Karel IV.", "# Karel čtvrtý."),
+    "heading-guard-name-without-period": ("cs", "# Karel V", "# Karel V"),
+    "heading-guard-label-with-period": ("cs", "# Kapitola V.", "# Kapitola pátá."),
+    "heading-guard-numeral-before-label": ("cs", "# II. díl", "# Druhý díl"),
+    "heading-guard-letter-c": ("cs", "# C", "# C"),
+    "heading-guard-letter-l": ("cs", "# L", "# L"),
+    "heading-guard-number-and-noun": ("cs", "# 5 let", "# Pět let"),
+    "heading-numbered-title": ("cs", "# 1. Příchod\n\n# 2. Odchod", "# Jedna. Příchod\n\n# Dva. Odchod"),
+    "heading-numbered-title-three": ("cs", "# 3. Vrah\n\n# 4. Soud", "# Tři. Vrah\n\n# Čtyři. Soud"),
+    "heading-numbered-title-preposition": ("cs", "# 1. V lese\n\n# 2. V poli", "# Jedna. V lese\n\n# Dva. V poli"),
+    "heading-numbered-title-twelve": (
+        "cs", "# 12. Jak to začalo\n\n# 13. Jak to skončilo", "# Dvanáct. Jak to začalo\n\n# Třináct. Jak to skončilo"),
+    "heading-numbered-title-capitals": ("cs", "# 1. PŘÍCHOD\n\n# 2. ODCHOD", "# Jedna. PŘÍCHOD\n\n# Dva. ODCHOD"),
+    "heading-roman-title": ("cs", "# I. Příchod\n\n# II. Odchod", "# Jedna. Příchod\n\n# Dva. Odchod"),
+    "heading-roman-title-fourteen": ("cs", "# XIV. Návrat\n\n# XV. Odchod", "# Čtrnáct. Návrat\n\n# Patnáct. Odchod"),
+    "heading-numbered-titles": (
+        "cs", "# 1. Příchod\n\nText.\n\n# 2. Odjezd", "# Jedna. Příchod\n\nText.\n\n# Dva. Odjezd"),
+    "heading-sk-numbered-title": ("sk", "# 1. Príchod\n\n# 2. Odchod", "# Jeden. Príchod\n\n# Dva. Odchod"),
+    "heading-sk-roman-title": ("sk", "# I. Príchod\n\n# II. Odchod", "# Jeden. Príchod\n\n# Dva. Odchod"),
+    "heading-guard-label-noun-after-number": ("cs", "# 2. Kapitola", "# Druhá Kapitola"),
+    "heading-guard-month-after-number": ("cs", "# 5. května 1945", "# Pátého května tisíc devět set čtyřicet pět"),
+    "heading-guard-lowercase-noun-after-number": ("cs", "# 19. století", "# Devatenácté století"),
+    "heading-guard-sk-label-noun-after-number": ("sk", "# II. diel", "# Druhý diel"),
+    "heading-digit-label-before-a-title": ("cs", "# Kapitola 1. Příchod", "# Kapitola první. Příchod"),
+    "heading-digit-label-part-before-a-title": ("cs", "# Díl 2. Návrat", "# Díl druhý. Návrat"),
+    "heading-sk-digit-label-before-a-title": ("sk", "# Kapitola 1. Príchod", "# Kapitola prvá. Príchod"),
+    "heading-guard-digit-label-without-a-period": ("cs", "# Kapitola 5", "# Kapitola pět"),
+    "heading-guard-digit-label-in-a-sentence": ("cs", "Kapitola 1 začíná.", "Kapitola jedna začíná."),
+    "heading-guard-digit-label-before-a-lowercase-word": ("cs", "# Kapitola 1. příchod", "# Kapitola první příchod"),
+    "heading-roman-label-hlava-before-a-title": ("cs", "# Hlava II. Návrat", "# Hlava druhá. Návrat"),
+    "heading-roman-label-before-a-preposition-title": ("cs", "# Kapitola I. V lese", "# Kapitola první. V lese"),
+    "heading-sk-roman-label-before-a-preposition-title": ("sk", "# Kapitola I. V horách", "# Kapitola prvá. V horách"),
+    "heading-guard-roman-label-before-a-title": ("cs", "# Kapitola I. Příchod", "# Kapitola první. Příchod"),
+    "heading-guard-roman-label-kniha-before-a-title": ("cs", "# Kniha II. Na cestě", "# Kniha druhá. Na cestě"),
+    "heading-guard-roman-label-part-before-a-title": ("cs", "# Díl II. Návrat", "# Díl druhý. Návrat"),
+    "heading-guard-roman-letter-c-after-a-label": ("cs", "# Příloha C. Návrat", "# Příloha stý Návrat"),
+    "heading-guard-roman-label-in-a-sentence": ("cs", "Kapitola I. začíná.", "Kapitola první začíná."),
+    "heading-capitals-digit-label-before-a-title": ("cs", "# KAPITOLA 2. NÁVRAT", "# KAPITOLA druhá. NÁVRAT"),
+    "heading-guard-capitals-roman-label-before-a-title": ("cs", "# KAPITOLA V. NÁVRAT", "# KAPITOLA pátá. NÁVRAT"),
+    "heading-guard-capitals-digit-label-before-its-genitive": (
+        "cs", "# KAPITOLA 20. STOLETÍ", "# KAPITOLA dvacátého STOLETÍ"),
+}
+HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING)
+    "heading-single-numeral": ("cs", "# V", "# Pět", "one Roman numeral"),
+    "heading-single-numeral-one": ("cs", "# I", "# Jedna", "one Roman numeral"),
+    "heading-single-numeral-period": ("cs", "# V.", "# Pět.", "one Roman numeral"),
+    "heading-sk-single-numeral": ("sk", "# I", "# Jeden", "one Roman numeral"),
+    "heading-number-before-adjective": ("cs", "# 2. Světová válka", "# Druhá Světová válka", "capitalised adjective"),
+    "heading-roman-before-adjective": ("cs", "# 1. Nový začátek", "# První Nový začátek", "capitalised adjective"),
+    "heading-sk-number-before-adjective": (
+        "sk", "# 2. Svetová vojna", "# Druhá Svetová vojna", "capitalised adjective"),
+    "heading-single-numeral-before-name": (
+        "cs", "# IV. Příchod\n\n# V. Havel", "# Čtyři. Příchod\n\n# Pět. Havel", "may be an initial"),
+    "heading-lone-number-before-a-noun": ("cs", "# 3. Říše", "# Třetí Říše", "chapter label"),
+    "heading-lone-single-numeral-before-an-initial": ("cs", "# V. I. Lenin", "# V. První Lenin", "chapter label"),
+    "heading-sk-lone-number-before-a-noun": ("sk", "# 1. Príchod", "# Prvý Príchod", "chapter label"),
+    "heading-guard-capitals-roman-label-before-its-genitive": (
+        "cs", "# KAPITOLA XX. STOLETÍ", "# KAPITOLA dvacátého STOLETÍ", "may number it instead"),
+}
+
+
+@pytest.mark.parametrize("language,text,expected", HEADING_ROWS.values(), ids=list(HEADING_ROWS))
+def test_heading_reading(caplog, language, text, expected):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        out = TextNormalizer(language).normalize(text)
+    assert out == expected
+    assert not [r for r in caplog.records if r.name == "src.text.normalizer"]
+    G2P[language].tokenize(out.replace("# ", ""))
+
+
+@pytest.mark.parametrize("language,text,expected,warning", HEADING_LOGGED.values(), ids=list(HEADING_LOGGED))
+def test_heading_reading_is_logged(caplog, language, text, expected, warning):
+    with caplog.at_level(logging.WARNING, logger="src.text.normalizer"):
+        assert TextNormalizer(language).normalize(text) == expected
+    records = [r for r in caplog.records if r.name == "src.text.normalizer"]
+    assert [r.levelno for r in records] == [logging.WARNING]
+    assert warning in records[0].getMessage()

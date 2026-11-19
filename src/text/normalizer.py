@@ -197,10 +197,24 @@ SK_FEMININE_PLURALS = ("buchty bábiky celebrity cievy cyklotrasy dámy etikety 
                        "priority procedúry prosby reťaze samice skratky tony výhody známky zľavy úspory "
                        "šablóny šance žinky").split()
 
+# Czech nouns that the tagger often gives the other gender, mostly plurals in -y and -e: masculine "dva nože",
+# feminine "dvě bouřky"; the gender alone is set, so the genitive singular "Cena 1 nože" keeps its number and case
+CS_MASCULINE_NOUNS = ("tagy nože transfery večírky ledovce eseje pupínky hostince lisy nepokoje parapety vitaminy "
+                      "muffiny střípky spreje screenshoty plusy pamlsky schůdky diáře stroužky trailery párky "
+                      "piškoty šálky žlaby balónky prstýnky výstřiky mlýnky dílce prstence alarmy padělky opiáty "
+                      "balzámy střepy videozáznamy gadgety lupínky hospice seniory pejsky alergiky diabetiky "
+                      "esej schůdek lupínek").split()
+CS_FEMININE_NOUNS = ("bouřky mikiny eurozóny priority slzy čtyřkolky perly túry cyklotrasy webkamery nástrahy "
+                     "membrány kolony fontány trampolíny víly vitríny paseky krytky mrtvoly kulisy videokamery "
+                     "penalty neshody elektrocentrály krysy hádky příšery výluky limuzíny balady kotlety úchytky "
+                     "tuniky bagety zátky vrby trafiky blechy přestřelky slzu blechu").split()
+
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone, and "neskôr", "skôr" (later, sooner) for positive adverbs;
 # an "upos" key sets the part of speech instead
-FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"},
+FEATURE_FIXES = {"cs": {**dict.fromkeys(CS_MASCULINE_NOUNS, {"Gender": "Masc"}),
+                        **dict.fromkeys(CS_FEMININE_NOUNS, {"Gender": "Fem"}),
+                        "krát": {"Gender": "Masc", "Animacy": "Inan"},
                         "pravnuka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
                         "pravnuky": {"Gender": "Masc", "Animacy": "Anim"},
                         "pravnuci": {"Gender": "Masc", "Animacy": "Anim", "Number": "Plur"},
@@ -227,8 +241,24 @@ FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"},
                         **dict.fromkeys(SK_MASCULINE_PLURALS, {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"}),
                         **dict.fromkeys(SK_FEMININE_PLURALS, {"Gender": "Fem"})}}
 
+# the masculine surnames in -a among the 100 commonest: the tagger reads some of their -y, -u and -ou forms as feminine
+SURNAMES_IN_A = frozenset(("svoboda procházka kučera růžička fiala sýkora valenta vávra říha bláha hruška janda liška "
+                           "bárta tůma matějka").split())
+
 # abbreviations the tagger reads as a name: it tags the word they stand for ("v 5. stol.")
 TAG_EXPANSIONS = {"cs": {"stol": "století"}, "sk": {}}
+
+# weekday abbreviations with their nominative, genitive (after od, do) and accusative (after v, na); alone only the
+# ones that are no other word are read: "Po" is a preposition, "Ne" is "no", "So" and "St" are other words
+WEEKDAYS = {"cs": {"Po": ("pondělí", "pondělí", "pondělí"), "Út": ("úterý", "úterý", "úterý"),
+                   "St": ("středa", "středy", "středu"), "Čt": ("čtvrtek", "čtvrtka", "čtvrtek"),
+                   "Pá": ("pátek", "pátku", "pátek"), "So": ("sobota", "soboty", "sobotu"),
+                   "Ne": ("neděle", "neděle", "neděli")},
+            "sk": {"Po": ("pondelok", "pondelka", "pondelok"), "Ut": ("utorok", "utorka", "utorok"),
+                   "St": ("streda", "stredy", "stredu"), "Št": ("štvrtok", "štvrtka", "štvrtok"),
+                   "Pi": ("piatok", "piatku", "piatok"), "Pia": ("piatok", "piatku", "piatok"),
+                   "So": ("sobota", "soboty", "sobotu"), "Ne": ("nedeľa", "nedele", "nedeľu")}}
+WEEKDAYS_ALONE = {"cs": ("Út", "Čt"), "sk": ("Ut", "Št")}
 
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}
@@ -378,6 +408,10 @@ NUMBERED_BOOKS = {
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
 ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
+LIST_ITEM_WORDS = {"cs": "za", "sk": "po"}  # "1. Petr přišel" in a list: "Za prvé, Petr přišel", sk "Po prvé, …"
+# label nouns that a Roman numeral may follow in a chapter heading without a period: "Kapitola V"
+HEADING_LABELS = {"cs": ROMAN_LABEL_NOUNS["cs"] | {"hlava", "zpěv", "příloha", "dějství"},
+                  "sk": ROMAN_LABEL_NOUNS["sk"] | {"hlava", "spev", "príloha", "dejstvo"}}
 # a label noun in any case, before a numeral that numbers the next one ("V KNIZE II. DÍL"); a name or a page is none
 ROMAN_LABEL_STEMS = {"cs": re.compile(r"kni[hz]|kapitol|čás|díl|svaz|oddíl|ročník|sešit"),
                      "sk": re.compile(r"kni[hz]|kapitol|časť|časti|častí|diel|zväz|oddiel|ročník|zošit")}
@@ -391,6 +425,7 @@ LABEL_ABBREVIATIONS = {"č.", "str.", "r.", "§", "odst.", "ods.", "písm."}  # 
 # prepositions with the accusative or the locative; before a page, number or year the locative
 # is meant: "na str. 45" -> "na straně"
 LOCATIVE_PREPOSITIONS = {"cs": {"v", "ve", "na", "o", "po"}, "sk": {"v", "vo", "na", "o", "po"}}
+INSTRUMENTAL_PREPOSITIONS = {"cs": {"za", "před", "pod", "nad", "mezi"}, "sk": {"za", "pred", "pod", "nad", "medzi"}}
 DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" -> "v roce"
     "cs": {"č.": _forms("čísl", "o,a,u,o,em,e"), "str.": _forms("stran", "a,y,ě,u,ou,ě"),
            "r.": _forms("ro", "k,ku,ku,k,kem,ce"), "§": _forms("paragraf", ",u,u,,em,u"),
@@ -399,6 +434,65 @@ DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" ->
            "§": _forms("paragraf", ",u,u,,om,e"), "ods.": _forms("odsek", ",u,u,,om,u"),
            "písm.": _forms("písmen", "o,a,u,o,om,e")},
 }
+
+
+def _words(*parts: Tuple[str, ...]) -> Tuple[str, ...]:
+    """Forms of a phrase whose words all decline: ("inženýr", "architekt") in each case."""
+    return tuple(" ".join(forms) for forms in zip(*parts))
+
+
+_CS_PAN, _CS_ZENA_KA = ",a,u,a,em,u,e", "ka,ky,ce,ku,kou,ce,ko"  # the vocative is the last form
+_CS_PAN_SOFT = ",e,i,e,em,i,i"
+_CS_ADJECTIVE = ("ý,ého,ému,ého,ým,ém,ý", "á,é,é,ou,ou,é,á")
+_CS_PANI = ("paní",) * 7
+_SK_PAN, _SK_ZENA_KA = ",a,ovi,a,om,ovi", "ka,ky,ke,ku,kou,ke"
+# a title before a name: its (masculine, feminine) forms in CASES order, declined with the name (a Czech one has the
+# vocative last); every doctor degree is "doktor"
+_CS_DOKTOR = (_forms("doktor", _CS_PAN), _forms("doktor", _CS_ZENA_KA))
+_SK_DOKTOR = (_forms("doktor", _SK_PAN), _forms("doktor", _SK_ZENA_KA))
+TITLES = {
+    "cs": {
+        "ing.": (_forms("inženýr", _CS_PAN), _forms("inženýr", _CS_ZENA_KA)),
+        "ing.arch.": (_words(_forms("inženýr", _CS_PAN), _forms("architekt", _CS_PAN)),
+                      _words(_forms("inženýr", _CS_ZENA_KA), _forms("architekt", _CS_ZENA_KA))),
+        "mgr.": (_forms("magist", "r,ra,ru,ra,rem,ru,ře"), _forms("magist", "ra,ry,ře,ru,rou,ře,ro")),
+        "bc.": (_forms("bakalář", _CS_PAN_SOFT), _forms("bakalář", _CS_ZENA_KA)),
+        **dict.fromkeys(("mudr.", "judr.", "phdr.", "rndr.", "thdr.", "paeddr.", "mvdr.", "dr."), _CS_DOKTOR),
+        "doc.": (_forms("docent", _CS_PAN), _forms("docent", _CS_ZENA_KA)),
+        "prof.": (_forms("profesor", _CS_PAN), _forms("profesor", _CS_ZENA_KA)),
+        "akad.": (_forms("akademik", ",a,u,a,em,u,u"), _forms("akademič", _CS_ZENA_KA)),
+        "akad.mal.": (_words(_forms("akademick", _CS_ADJECTIVE[0]), _forms("malíř", _CS_PAN_SOFT)),
+                      _words(_forms("akademick", _CS_ADJECTIVE[1]), _forms("malíř", _CS_ZENA_KA))),
+        "akad.soch.": (_words(_forms("akademick", _CS_ADJECTIVE[0]), _forms("sochař", _CS_PAN_SOFT)),
+                       _words(_forms("akademick", _CS_ADJECTIVE[1]), _forms("sochař", _CS_ZENA_KA))),
+        "akad.arch.": (_words(_forms("akademick", _CS_ADJECTIVE[0]), _forms("architekt", _CS_PAN)),
+                       _words(_forms("akademick", _CS_ADJECTIVE[1]), _forms("architekt", _CS_ZENA_KA))),
+        "p.": (_forms("pan", ",a,u,a,em,u,e"), _CS_PANI),
+        **dict.fromkeys(("pí", "pí."), (_CS_PANI, _CS_PANI)),
+        "sl.": (_forms("slečn", "a,y,ě,u,ou,ě,o"),) * 2,
+    },
+    "sk": {
+        "ing.": (_forms("inžinier", _SK_PAN), _forms("inžinier", _SK_ZENA_KA)),
+        "ing.arch.": (_words(_forms("inžinier", _SK_PAN), _forms("architekt", _SK_PAN)),
+                      _words(_forms("inžinier", _SK_ZENA_KA), _forms("architekt", _SK_ZENA_KA))),
+        "mgr.": (_forms("magist", "er,ra,rovi,ra,rom,rovi"), _forms("magistr", "a,y,e,u,ou,e")),
+        "bc.": (_forms("bakalár", _SK_PAN), _forms("bakalár", _SK_ZENA_KA)),
+        **dict.fromkeys(("mudr.", "judr.", "phdr.", "rndr.", "thdr.", "paeddr.", "mvdr.", "dr."), _SK_DOKTOR),
+        "doc.": (_forms("docent", _SK_PAN), _forms("docent", _SK_ZENA_KA)),
+        "prof.": (_forms("profesor", _SK_PAN), _forms("profesor", _SK_ZENA_KA)),
+        "akad.": (_forms("akademik", _SK_PAN), _forms("akademič", _SK_ZENA_KA)),
+        "akad.mal.": (_words(_forms("akademick", "ý,ého,ému,ého,ým,om"), _forms("maliar", _SK_PAN)),
+                      _words(_forms("akademick", "á,ej,ej,ú,ou,ej"), _forms("maliar", _SK_ZENA_KA))),
+        "akad.soch.": (_words(_forms("akademick", "ý,ého,ému,ého,ým,om"), _forms("sochár", _SK_PAN)),
+                       _words(_forms("akademick", "á,ej,ej,ú,ou,ej"), _forms("sochár", _SK_ZENA_KA))),
+        "akad.arch.": (_words(_forms("akademick", "ý,ého,ému,ého,ým,om"), _forms("architekt", _SK_PAN)),
+                       _words(_forms("akademick", "á,ej,ej,ú,ou,ej"), _forms("architekt", _SK_ZENA_KA))),
+        "p.": (_forms("pán", _SK_PAN), ("pani",) * 6),
+        "sl.": (_forms("slečn", "a,y,e,u,ou,e"),) * 2,
+    },
+}
+# titles that are also other words or abbreviations ("p. 5", "sl." for a column) are read only before a capital
+AMBIGUOUS_TITLES = {"p.", "pí", "sl."}
 
 _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹›`´*_~")
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
@@ -410,7 +504,15 @@ _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
 _ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
 _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
-_INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
+# Roman numerals of a chapter heading: I, V, X, L only, as C, D and M are letters too
+_HEADING_NUMERAL = r"(?=[IVXL])(?:XL|L?X{0,3})(?:IX|IV|V?I{0,3})"
+_HEADING_ROMAN = re.compile(rf"(?:(?P<label>[^\W\d_]+){_HS}+)?(?P<numeral>{_HEADING_NUMERAL})(?P<dot>\.)?")
+_HEADING_LABEL_TITLE = re.compile(rf"(?P<label>[^\W\d_]+){_HS}+(?P<numeral>{_HEADING_NUMERAL})\.(?={_HS}+[^\W\d_])")
+_HEADING_TITLE = re.compile(rf"(?:(?P<arabic>\d{{1,3}})|(?P<roman>{_HEADING_NUMERAL}))\.{_HS}+(?=[^\W\d_])")
+_LIST_ITEM = re.compile(rf"(?<![\w.,(])(?<!\.{_HS})(?P<open>\()?(?P<number>\d{{1,2}})(?(open)\)|(?P<mark>[.)]))"
+                        rf"{_HS}+(?=[^\W\d_])")
+_LIST_AND = re.compile(r"\b(?:a|i|nebo|anebo|či|alebo)$")  # before the last label of a run: "2) peníze a 3) chuť"
+_INT =r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
 _SIGN_START = r"(?:(?<=\dx)|(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×*~≈/+]))"  # also "3x-4", "3*-4", "~-5", but not "Max-5"
@@ -465,6 +567,15 @@ _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
 _DATE_BEFORE = re.compile(rf"(?<![\d.])(?:3[01]|[12]\d|0?[1-9])\.{_HS}*(?:1[0-2]|0?[1-9])\.{_HS}+$")  # "5. 6. "
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–+]?\d|[IVXLCDM]+\.)")
 _ERA_AHEAD = re.compile(rf"(?:(?:př\.|pred){_HS}*)?n\.{_HS}*l\.", re.IGNORECASE)  # "5. STOL. PŘ. N. L."
+_WEEKDAY_PREPOSITION = re.compile(rf"{_NOT_LETTER_BEFORE}(?i:(od|do)|v|ve|vo|na){_HS}+$")  # "od Po do Pá", "v So"
+_WEEKDAY_NAME_AFTER = re.compile(rf"\.?{_HS}+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]")  # "St. Louis"
+_LOWERCASE_AFTER = re.compile(rf"{_HS}+[a-záäčďéěíĺľňóôŕřšťúůýž]")
+_HOURS = r"\d{1,2}(?:[.:]\d\d)?"
+# what follows a doubtful weekday abbreviation that makes it one: "Ne zavřeno", "So 8–12 h", not "Po 8–17 h odešel"
+_WEEKDAY_AHEAD = re.compile(rf":?{_HS}+(?:(?i:zavřen[oé]|otevřen[oé]|zatvorené|otvorené){_NOT_LETTER_AFTER}"
+                            rf"|(?:{_HOURS}(?:{_HS}*{_HOUR_WORD})?{_HS}*[–—-]{_HS}*{_HOURS}{_HS}*{_HOUR_WORD}"
+                            rf"|\d{{1,2}}[.:]\d\d{_HS}*[–—-]{_HS}*\d{{1,2}}[.:]\d\d(?:{_HS}*{_HOUR_WORD})?)"
+                            rf"(?![\d:]|[^\W\d_]|\.?{_LOWERCASE_AFTER.pattern}))")
 
 
 @lru_cache(maxsize=None)
@@ -495,7 +606,7 @@ def _abbreviation_pattern(key: str) -> str:
             out.append(f"{_HS}+")
         elif ch == "." and i < len(key) - 1:
             out.append(rf"\.{_HS}*")
-        elif len(key) > 2 and ch.isalpha():
+        elif (len(key) > 2 or key[-1] != ".") and ch.isalpha():
             out.append(f"[{ch}{ch.upper()}]")
         elif i == 0 and ch.isalpha():
             out.append(rf"(?:{ch}|{ch.upper()}(?={re.escape(key[1:])}{_HS}*\d))")  # "Č. 5", but "Č. Novák"
@@ -784,8 +895,18 @@ class TextNormalizer:
                 raise ValueError(f"book_config['num2words'][{key!r}] must be one of {list(allowed)}, got {value!r}")
         self._numbers = num2words_cs if language == "cs" else num2words_sk
         table = self.ABBREVIATIONS_CS if language == "cs" else self.ABBREVIATIONS_SK
-        self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}
+        self.abbreviations = {**{_abbreviation_key(k): v for k, v in table.items()},
+                              **{k: forms[0][0] for k, forms in TITLES[language].items()}}
+        titles = "|".join(_abbreviation_pattern(k) for k in sorted(TITLES[language], key=len, reverse=True))
+        initial = r"(?-i:[ABCČDĎEFGHIJKLMNOPQRŘSŠTŤUVWXYZŽ]\.)"
+        self._titles_after = re.compile(rf"{_HS}*(?:(?:{titles}|{initial}){_HS}*)*")  # "MUDr. Jan Novák" after "prof."
+        self._titles_before = re.compile(rf"(?:{titles}){_HS}*$")
         self._items = _items_pattern(self.abbreviations)
+        days = "|".join(sorted(WEEKDAYS[language], key=len, reverse=True))
+        day = rf"{_NOT_LETTER_BEFORE}(?:{days}){_NOT_LETTER_AFTER}"
+        # "Po–Pá", "Po, St", "So a Ne"; not the answer "Ne, Po večeři"
+        self._weekday_link = re.compile(rf"({_HS}*[–—-]{_HS}*|{_HS}*,{_HS}+|{_HS}+a{_HS}+)")
+        self._weekday = re.compile(rf"(?>(?!Ne{_HS}*,{_HS}+{day}){day}(?:{self._weekday_link.pattern}{day})*)")
         self._items_in_capitals = _items_pattern(self.abbreviations, capitals=True)
         books = sorted(filter(None, _string_list(config, "verse_references")), key=len, reverse=True)
         numbered = [book for book in books if re.search(r"\d", book)]
@@ -818,10 +939,15 @@ class TextNormalizer:
     # ---- public API ----------------------------------------------------------------------
     def normalize(self, text: str) -> str:
         lines = _clean_typography(text).split("\n")
+        lines = self._list_items(lines)
+        headings = [_HEADING_ROMAN.fullmatch(line[2:]) for line in lines if line.startswith("# ")]
+        numbers = {_roman_value(m["numeral"]) for m in headings if m and m["label"] is None}
+        titled = [_HEADING_TITLE.match(line[2:]) for line in lines if line.startswith("# ")]
+        titled = numbers | {int(m["arabic"]) if m["arabic"] else _roman_value(m["roman"]) for m in titled if m}
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
-                lines[i] = "# " + self._paragraph(lines[i][2:], heading=True)
+                lines[i] = "# " + self._heading(self._heading_digits(lines[i][2:], numbers), titled)
                 i += 1
             elif not lines[i].strip():
                 i += 1
@@ -833,10 +959,95 @@ class TextNormalizer:
                 i = j
         return "\n".join(lines)
 
+    def _heading(self, text: str, numbers: set) -> str:
+        """A number and a period before a capitalised noun in a heading number the chapter when another heading
+        carries the next or the previous number: "1. Příchod" is "Jedna. Příchod", not "První Příchod"; a label
+        noun, a month or an adjective keeps its ordinal."""
+        m = _HEADING_TITLE.match(text)
+        if m is None or not text[m.end():m.end() + 1].isupper():
+            return self._paragraph(text, heading=True)
+        rest, value = text[m.end():], int(m["arabic"]) if m["arabic"] else _roman_value(m["roman"])
+        word = re.match(r"[^\W\d_]+", rest).group().lower()
+        if (ROMAN_LABEL_STEMS[self.language].match(word) or word in HEADING_LABELS[self.language]
+                or word in MONTHS_GENITIVE[self.language]):
+            return self._paragraph(text, heading=True)
+        tag = self._tag(rest)[0].upos
+        if tag == "ADJ":
+            words = self._paragraph(text, heading=True)
+            self._warn(text, (0, m.end() - 1), words.split(" ")[0],
+                       "number before a capitalised adjective in a heading, read as its ordinal; a chapter number fits "
+                       "too; check it")
+            return words
+        if not {value - 1, value + 1} & numbers:
+            words = self._paragraph(text, heading=True)
+            self._warn(text, (0, m.end() - 1), words.split(" ")[0],
+                       "number before a capitalised word in a heading, read as its ordinal; it may be a chapter "
+                       "label; check it")
+            return words
+        lead = self._cardinal(value, *self._label(value))
+        lead = f"{lead[:1].upper()}{lead[1:]}."
+        if tag == "PROPN" and m["roman"] and len(m["roman"]) == 1:
+            self._warn(text, (0, m.end() - 1), lead,
+                       "one Roman numeral before a name, read as the chapter number; it may be an initial; check it")
+        return f"{lead} {self._paragraph(rest, heading=True)}"
+
+    def _list_items(self, lines: List[str]) -> List[str]:
+        """Labels "1.", "2." at line starts, and "1)", "(1)" anywhere, that follow each other are a list: "Za prvé, …"
+        at a line start, "za prvé …" inside a sentence, where a run starts at 1 and goes on after a comma, colon,
+        semicolon or conjunction (no comma after the label: "důvody: za prvé neměl čas, za druhé …")."""
+        items = []
+        for i, line in enumerate(lines):
+            for m in ([] if line.startswith("# ") else _LIST_ITEM.finditer(line)):
+                before = line[:m.start()].rstrip()
+                first = not before
+                word = re.match(r"[^\W\d_]+", line[m.end():]).group().lower()
+                if (first or m["mark"] != ".") and not (ROMAN_LABEL_STEMS[self.language].match(word)
+                                                        or word in MONTHS_GENITIVE[self.language]):
+                    items.append((i, int(m["number"]), m.start(), m.end(), first, before[-1:] in (":", ";", ","),
+                                  bool(_LIST_AND.search(before))))
+        confirmed = []
+        for k, (i, number, start, end, first, after_mark, after_and) in enumerate(items):
+            follows = k + 1 < len(items) and items[k + 1][1] == number + 1
+            confirmed.append(bool(confirmed and confirmed[-1] and items[k - 1][1] == number - 1
+                                  and (first or after_mark or after_and))
+                             or (follows and (first or (number == 1 and items[k + 1][5]))))
+        for k, (i, number, start, end, first, after_mark, after_and) in reversed(list(enumerate(items))):
+            if confirmed[k]:
+                ordinal = "prvé" if number == 1 else self._ordinal(number, NOM, "neuter", "inanimate")
+                lead = f"{LIST_ITEM_WORDS[self.language]} {ordinal}"
+                if first:
+                    lead = f"{lead.capitalize()},"
+                if self._tag(lines[i][end:])[0].upos in ("NOUN", "ADJ"):
+                    self._warn(lines[i], (0, end), lead,
+                               "numbered item before a noun that an ordinal fits, read as a list item; check it")
+                lines[i] = f"{lines[i][:start]}{lead} {lines[i][end:]}"
+        return lines
+
+    def _heading_digits(self, text: str, numbers: set) -> str:
+        """A Roman numeral that is a whole heading, or follows a label noun in one, as its digits: "V" like "5"."""
+        m = _HEADING_ROMAN.fullmatch(text)
+        if m is None:  # "Kapitola I. V lese" -> "Kapitola 1. V lese"
+            t = _HEADING_LABEL_TITLE.match(text)
+            if (t and t["label"].lower() in HEADING_LABELS[self.language] and t["numeral"] != "L"
+                    and text[t.end():].lstrip(" \t\u00a0\u202f")[:1].isupper() and not _all_capitals(text)):
+                return f"{text[:t.start('numeral')]}{_roman_value(t['numeral'])}{text[t.end('numeral'):]}"
+            return text
+        numeral, value = m["numeral"], _roman_value(m["numeral"])
+        if m["label"] is None:
+            if numeral == "L":
+                return text
+            if len(numeral) == 1 and not {value - 1, value + 1} & numbers:  # a letter heading, or a lone chapter
+                self._warn(text, (0, len(text)), self._cardinal(value, *self._label(value)),
+                           "heading that is one Roman numeral, read as the number; check it")
+        elif m["dot"] or m["label"].lower() not in HEADING_LABELS[self.language]:
+            return text
+        return f"{text[:m.start('numeral')]}{value}{m['dot'] or ''}"
+
     # ---- paragraphs ------------------------------------------------------------------------
     def _paragraph(self, text: str, heading: bool = False) -> str:
         if self._english:
             text = self._wrap_english(text)
+        text = self._weekdays(text)
         spans = []
         for s in _SPAN_RE.finditer(text):
             bad = _unspeakable(s.group(2))
@@ -852,7 +1063,7 @@ class TextNormalizer:
                                              and not (m.re is self._verses and m.start() <= s and e <= m.end())
                                              for s, e in spans)]
         tags = _Tags(self._tag(text) if any(self._needs_tags(m) for m in items) else [], _all_capitals(text))
-        out, pos, after_label, goes_on = [], 0, -1, -1
+        out, pos, after_label, goes_on = [], 0, (0 if heading and re.fullmatch(r"\d+\.?", text) else -1), -1
         for m in items:
             start, words = self._resolve(m, text, tags, after_label == m.start(), heading)
             source_case = m.lastgroup == "abbreviation" and m.group(0)[0].isalpha()
@@ -878,6 +1089,34 @@ class TextNormalizer:
         if bad:
             raise ValueError(f"no reading for {bad!r} in {text!r}")
         return result
+
+    def _weekdays(self, text: str) -> str:
+        """"Po–Pá 8–17 h" -> "pondělí až pátek 8–17 h", "od Po do Pá" -> "od pondělí do pátku", "v So" -> "v sobotu"."""
+        spans = [s.span() for s in _SPAN_RE.finditer(text)]
+        names, out, pos = WEEKDAYS[self.language], [], 0
+        for m in self._weekday.finditer(text):
+            days = self._weekday_link.split(m.group())  # the abbreviations at the even places, the links between them
+            before = _WEEKDAY_PREPOSITION.search(text[:m.start()])
+            ahead = _WEEKDAY_AHEAD.match(text, m.end())
+            sure = before or days[0] in WEEKDAYS_ALONE[self.language]
+            if (any(s < m.end() and m.start() < e for s, e in spans)
+                    or (len(days) == 1 and not (sure or ahead))
+                    or (len(days) == 1 and days[0] == "St" and _WEEKDAY_NAME_AFTER.match(text, m.end()))
+                    or (len(days) > 1 and days[-1] == "Po" and not ahead and _LOWERCASE_AFTER.match(text, m.end()))):
+                continue
+            case = (1 if before.group(1) else 2) if before else 0
+            until = " do " if (before and before.group().lower().startswith("od")) else " až "
+            words = names[days[0]][case]
+            for link, day in zip(days[1::2], days[2::2]):
+                words += (", " if "," in link else " a " if "a" in link else until) + names[day][case]
+            if len(days) == 1 and not sure:
+                self._warn(text, m, words, "weekday abbreviation read from the opening hours after it")
+            if _starts_sentence(text[:m.start()]):
+                words = words[0].upper() + words[1:]
+            start, words = self._vocalise(text, m.start(), words)
+            out += [text[pos:start], words]
+            pos = m.end()
+        return "".join(out) + text[pos:]
 
     def _wrap_english(self, text: str) -> str:
         spans = [s.span() for s in _SPAN_RE.finditer(text)]
@@ -915,7 +1154,8 @@ class TextNormalizer:
         if m.lastgroup in ("abbreviation", "date") and m.group(0).endswith(".") and _all_capitals(m.string):
             return True  # in capitals only the tags tell whether the period ends the sentence: "ATD. ODEŠEL"
         if m.lastgroup == "abbreviation":
-            return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
+            return (_key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
+                    or _key_of(m) in TITLES[self.language])
         if m.lastgroup == "commas":
             # the case of "s 1,2,3 kg", and the noun of "s 1,2,3 přáteli"
             return bool(m["commaunit"] or m["commascale"] or re.match(rf"{_HS}*[^\W\d_]", m.string[m.end():]))
@@ -1124,18 +1364,108 @@ class TextNormalizer:
                         else _UD_CASES.get(prep.feats.get("Case")))
                 if case:
                     words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
+        elif key in TITLES[self.language]:
+            if key in AMBIGUOUS_TITLES and not text[m.end():].lstrip(" \t\u00a0\u202f")[:1].isupper():
+                return raw
+            words = self._title(m, key, text, tags)
         elif key == "stol.":  # "století" differs only in the instrumental, which the ordinal before it shows
             i = bisect.bisect_left(tags.starts, m.start())
             ordinal = tags.words[i - 2] if i >= 2 and tags.words[i - 1].text == "." else None
             if ordinal is not None and self._agreement(tags.words[i], ordinal.start, tags)[0] == INS:
                 words = "stoletím"
-        if not raw.isupper() or (_starts_sentence(text[:m.start()]) and key not in ("př.n.l.", "n.l.", "pred n.l.")
-                                 and not re.search(rf"\d\.{_HS}*$", text[:m.start()])):
+        if ((not raw.isupper() and key not in TITLES[self.language])
+                or (_starts_sentence(text[:m.start()]) and key not in ("př.n.l.", "n.l.", "pred n.l.")
+                    and not re.search(rf"\d\.{_HS}*$", text[:m.start()])
+                    and not self._titles_before.search(text, 0, m.start()))):
             words = _capitalise_like(raw, words)
         if key.endswith(".") and self._ends_sentence(text, m.start(), m.end(), tags,
-                                                     introduces=key in NON_FINAL_ABBREVIATIONS,
+                                                     introduces=(key in NON_FINAL_ABBREVIATIONS
+                                                                 or (key in TITLES[self.language]
+                                                                     and self._title_head(m, text, tags) is not None)),
                                                      list_end=key in LIST_END_ABBREVIATIONS):
             words += "."
+        return words
+
+    def _title_head(self, m: re.Match, text: str, tags: _Tags) -> Optional[_Word]:
+        """The name after a title and the titles that follow it, or None when a word of another kind comes."""
+        head = tags.after(self._titles_after.match(text, m.end()).end())
+        return head if head is not None and head.upos in ("PROPN", "NOUN", "ADJ", "X") else None
+
+    def _opens(self, text: str, start: int, tags: _Tags) -> bool:
+        """Whether `start` opens a sentence or follows a comma: "Dobrý den, ...", "Děkuji, ..."."""
+        before = text[:start].rstrip()
+        if before.endswith(","):
+            word = tags.before(start, skip=("PUNCT",))  # a name before the comma: this is the next item of a list
+            return word is None or word.upos != "PROPN"
+        if not _starts_sentence(before):
+            return False
+        for w in reversed(tags.words[:bisect.bisect_left(tags.starts, start)]):
+            if (w.text in _QUOTES or w.text in (".", "!", "?", "…")) and not self._titles_before.search(text, 0, w.end):
+                break
+            if w.upos in ("VERB", "AUX"):
+                return False
+        return True
+
+    def _title(self, m: re.Match, key: str, text: str, tags: _Tags) -> str:
+        """A title in the case and gender of the name after it: "s doc. Horákovou" -> "s docentkou"; the nominative
+        when no name follows, and a doubt is logged where the name's form fits more than one case or gender."""
+        masculine, feminine = TITLES[self.language][key]
+        first = head = self._title_head(m, text, tags)
+        if head is None:
+            self._warn(text, m, masculine[0], "no name after the title, read as the nominative; check it")
+            return masculine[0]
+        i = bisect.bisect_left(tags.starts, head.start)
+        while (i + 1 < len(tags.words) and tags.words[i + 1].upos in ("PROPN", "ADJ", "NOUN")
+               and tags.words[i + 1].text[:1].isupper()):
+            i, head = i + 1, tags.words[i + 1]  # the surname: "Jan Novák", "Eva Horákovú"
+        form, name_type, gender = head.text.lower(), head.feats.get("NameType"), head.feats.get("Gender")
+        tagged_case, ending = head.feats.get("Case"), re.search(r"(ou|ovi|[ayu])$", form)
+        # a woman's surname is derived (-ová, -á), so a lone one in -a that is no given name is a man's
+        surname_in_a = bool(ending) and (form[:ending.start()] + "a" in SURNAMES_IN_A or (
+            first is head and gender == "Fem" and name_type != "Giv" and ending.group() in ("a", "y", "u")
+            and not form.endswith(("ova", "ovy", "ovu"))))
+        if surname_in_a:  # the ending tells what the tagger misreads
+            gender, tagged_case = "Masc", {"a": "Nom", "y": "Gen", "u": "Acc", "ou": "Ins",
+                                           "ovi": "Dat"}[ending.group()]
+        # the tagger takes a masculine surname in -a for a feminine one in the accusative and the instrumental: the
+        # first name tells, if there is one, else it is logged
+        unsure = gender == "Fem" and name_type != "Giv" and form.endswith("ou") and not form.endswith("ovou")
+        if unsure and first is not head and first.feats.get("Gender") in ("Masc", "Fem"):
+            gender, unsure = first.feats["Gender"], False
+        fem = ((gender == "Fem" and not (name_type != "Giv" and form.endswith("u") and not form.endswith("ou")))
+               or form.endswith(("é", "ej")) or (len(form) > 6 and form.endswith(("ovou", "ovú"))))
+        start = m.start()
+        while (earlier := self._titles_before.search(text, 0, start)):
+            start = earlier.start()  # the first title of "s prof. MUDr. Evou": the word before it governs
+        case, prev = _UD_CASES.get(tagged_case), tags.before(start, skip=("PUNCT",))
+        prepositional = prev is not None and prev.upos == "ADP"
+        if prepositional:  # "v", "na", "o" go with the accusative or the locative: the name's form tells
+            if prev.text.lower() in LOCATIVE_PREPOSITIONS[self.language]:
+                case = case if case in (ACC, LOC) else LOC
+            elif prev.text.lower() in INSTRUMENTAL_PREPOSITIONS[self.language]:  # "-ou" is both, for a woman
+                case = case if case in (ACC, INS) and not fem else INS
+            else:
+                case = _UD_CASES.get(prev.feats.get("Case"), case)
+        # a feminine name in -é or -ej is the genitive, dative or locative, whatever the tagger says
+        shared = fem and form.endswith(("é", "ej")) and not prepositional
+        if shared and case not in (GEN, DAT, LOC):
+            case = DAT
+        words = (feminine if fem else masculine)[CASES.index(case or NOM)]
+        vocative = guess = False
+        if self.language == "cs" and not fem:
+            vocative = prev is not None and prev.text.lower() == "pane"
+            # no word governs a title that opens a sentence or follows a comma, and a comma or the end sets it off: a name
+            # in -u or -o (not -ou) is then a vocative, unless it is the accusative of a surname in -a
+            guess = (not vocative and not prepositional and self._opens(text, start, tags)
+                     and form.endswith(("u", "o")) and not form.endswith("ou") and not surname_in_a
+                     and text[head.end:].lstrip(" \t")[:1] in ("", ",", "!", "?", "."))
+            if vocative or guess:
+                words = masculine[6]
+        # the tagger reads a name it does not know as a nominative: "dr. Jekylla", "dr. Ozovi"
+        oblique = (not fem and not vocative and case == NOM and not surname_in_a
+                   and form.endswith(("a", "e", "u", "y", "ovi")))
+        if case is None or shared or unsure or guess or oblique or gender not in ("Masc", "Fem"):
+            self._warn(text, m, words, "case or gender of the name after the title not clear; check it")
         return words
 
     def _roman(self, m: re.Match, text: str, tags: _Tags, heading: bool) -> str:
@@ -1521,8 +1851,13 @@ class TextNormalizer:
                 return self._ordinal(value, NOM, *self._gender(verb)) + "."  # "Skončil 2. Pak…"
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
-        head = tags.head_after(m.end()) or self._shared_head(m.end(), tags)
-        case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags)
+        # "# Kapitola 1. Příchod": the label's number, then the title; in capitals a genitive may be the number's own
+        # noun ("KAPITOLA 20. STOLETÍ")
+        label = (heading and prev is not None and prev.text.lower() in HEADING_LABELS[self.language]
+                 and following[:1].isupper()
+                 and not (_all_capitals(text) and nxt is not None and nxt.feats.get("Case") == "Gen"))
+        head = prev if label else (tags.head_after(m.end()) or self._shared_head(m.end(), tags))
+        case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags, following=not label)
         if month:  # "5. KVĚTNA": a date, whatever the tagger made of the month
             case, gender, animacy, plural, doubt = GEN, "masculine", "inanimate", False, None
         words = self._ordinal(value, case or NOM, gender or "masculine", animacy or "inanimate", plural)
@@ -1532,7 +1867,7 @@ class TextNormalizer:
             self._warn(text, m, words, f"{doubt}; check it")
         elif until and self._verb_follows(m.end(), tags):
             self._warn(text, m, words, "ordinal after až before a time; a count ending the sentence fits too; check it")
-        return words
+        return f"{words}." if label else words
 
     def _number(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
         value, _, fraction = _parse(m["value"])
