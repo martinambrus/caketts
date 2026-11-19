@@ -241,6 +241,10 @@ FEATURE_FIXES = {"cs": {**dict.fromkeys(CS_MASCULINE_NOUNS, {"Gender": "Masc"}),
                         **dict.fromkeys(SK_MASCULINE_PLURALS, {"Gender": "Masc", "Animacy": "Inan", "Number": "Plur"}),
                         **dict.fromkeys(SK_FEMININE_PLURALS, {"Gender": "Fem"})}}
 
+# the masculine surnames in -a among the 100 commonest: the tagger reads some of their -y, -u and -ou forms as feminine
+SURNAMES_IN_A = frozenset(("svoboda procházka kučera růžička fiala sýkora valenta vávra říha bláha hruška janda liška "
+                           "bárta tůma matějka").split())
+
 # abbreviations the tagger reads as a name: it tags the word they stand for ("v 5. stol.")
 TAG_EXPANSIONS = {"cs": {"stol": "století"}, "sk": {}}
 
@@ -417,6 +421,7 @@ LABEL_ABBREVIATIONS = {"č.", "str.", "r.", "§", "odst.", "ods.", "písm."}  # 
 # prepositions with the accusative or the locative; before a page, number or year the locative
 # is meant: "na str. 45" -> "na straně"
 LOCATIVE_PREPOSITIONS = {"cs": {"v", "ve", "na", "o", "po"}, "sk": {"v", "vo", "na", "o", "po"}}
+INSTRUMENTAL_PREPOSITIONS = {"cs": {"za", "před", "pod", "nad", "mezi"}, "sk": {"za", "pred", "pod", "nad", "medzi"}}
 DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" -> "v roce"
     "cs": {"č.": _forms("čísl", "o,a,u,o,em,e"), "str.": _forms("stran", "a,y,ě,u,ou,ě"),
            "r.": _forms("ro", "k,ku,ku,k,kem,ce"), "§": _forms("paragraf", ",u,u,,em,u"),
@@ -425,6 +430,65 @@ DECLINED_ABBREVIATIONS = {  # nouns declined after a preposition: "v r. 1990" ->
            "§": _forms("paragraf", ",u,u,,om,e"), "ods.": _forms("odsek", ",u,u,,om,u"),
            "písm.": _forms("písmen", "o,a,u,o,om,e")},
 }
+
+
+def _words(*parts: Tuple[str, ...]) -> Tuple[str, ...]:
+    """Forms of a phrase whose words all decline: ("inženýr", "architekt") in each case."""
+    return tuple(" ".join(forms) for forms in zip(*parts))
+
+
+_CS_PAN, _CS_ZENA_KA = ",a,u,a,em,u,e", "ka,ky,ce,ku,kou,ce,ko"  # the vocative is the last form
+_CS_PAN_SOFT = ",e,i,e,em,i,i"
+_CS_ADJECTIVE = ("ý,ého,ému,ého,ým,ém,ý", "á,é,é,ou,ou,é,á")
+_CS_PANI = ("paní",) * 7
+_SK_PAN, _SK_ZENA_KA = ",a,ovi,a,om,ovi", "ka,ky,ke,ku,kou,ke"
+# a title before a name: its (masculine, feminine) forms in CASES order, declined with the name (a Czech one has the
+# vocative last); every doctor degree is "doktor"
+_CS_DOKTOR = (_forms("doktor", _CS_PAN), _forms("doktor", _CS_ZENA_KA))
+_SK_DOKTOR = (_forms("doktor", _SK_PAN), _forms("doktor", _SK_ZENA_KA))
+TITLES = {
+    "cs": {
+        "ing.": (_forms("inženýr", _CS_PAN), _forms("inženýr", _CS_ZENA_KA)),
+        "ing.arch.": (_words(_forms("inženýr", _CS_PAN), _forms("architekt", _CS_PAN)),
+                      _words(_forms("inženýr", _CS_ZENA_KA), _forms("architekt", _CS_ZENA_KA))),
+        "mgr.": (_forms("magist", "r,ra,ru,ra,rem,ru,ře"), _forms("magist", "ra,ry,ře,ru,rou,ře,ro")),
+        "bc.": (_forms("bakalář", _CS_PAN_SOFT), _forms("bakalář", _CS_ZENA_KA)),
+        **dict.fromkeys(("mudr.", "judr.", "phdr.", "rndr.", "thdr.", "paeddr.", "mvdr.", "dr."), _CS_DOKTOR),
+        "doc.": (_forms("docent", _CS_PAN), _forms("docent", _CS_ZENA_KA)),
+        "prof.": (_forms("profesor", _CS_PAN), _forms("profesor", _CS_ZENA_KA)),
+        "akad.": (_forms("akademik", ",a,u,a,em,u,u"), _forms("akademič", _CS_ZENA_KA)),
+        "akad.mal.": (_words(_forms("akademick", _CS_ADJECTIVE[0]), _forms("malíř", _CS_PAN_SOFT)),
+                      _words(_forms("akademick", _CS_ADJECTIVE[1]), _forms("malíř", _CS_ZENA_KA))),
+        "akad.soch.": (_words(_forms("akademick", _CS_ADJECTIVE[0]), _forms("sochař", _CS_PAN_SOFT)),
+                       _words(_forms("akademick", _CS_ADJECTIVE[1]), _forms("sochař", _CS_ZENA_KA))),
+        "akad.arch.": (_words(_forms("akademick", _CS_ADJECTIVE[0]), _forms("architekt", _CS_PAN)),
+                       _words(_forms("akademick", _CS_ADJECTIVE[1]), _forms("architekt", _CS_ZENA_KA))),
+        "p.": (_forms("pan", ",a,u,a,em,u,e"), _CS_PANI),
+        **dict.fromkeys(("pí", "pí."), (_CS_PANI, _CS_PANI)),
+        "sl.": (_forms("slečn", "a,y,ě,u,ou,ě,o"),) * 2,
+    },
+    "sk": {
+        "ing.": (_forms("inžinier", _SK_PAN), _forms("inžinier", _SK_ZENA_KA)),
+        "ing.arch.": (_words(_forms("inžinier", _SK_PAN), _forms("architekt", _SK_PAN)),
+                      _words(_forms("inžinier", _SK_ZENA_KA), _forms("architekt", _SK_ZENA_KA))),
+        "mgr.": (_forms("magist", "er,ra,rovi,ra,rom,rovi"), _forms("magistr", "a,y,e,u,ou,e")),
+        "bc.": (_forms("bakalár", _SK_PAN), _forms("bakalár", _SK_ZENA_KA)),
+        **dict.fromkeys(("mudr.", "judr.", "phdr.", "rndr.", "thdr.", "paeddr.", "mvdr.", "dr."), _SK_DOKTOR),
+        "doc.": (_forms("docent", _SK_PAN), _forms("docent", _SK_ZENA_KA)),
+        "prof.": (_forms("profesor", _SK_PAN), _forms("profesor", _SK_ZENA_KA)),
+        "akad.": (_forms("akademik", _SK_PAN), _forms("akademič", _SK_ZENA_KA)),
+        "akad.mal.": (_words(_forms("akademick", "ý,ého,ému,ého,ým,om"), _forms("maliar", _SK_PAN)),
+                      _words(_forms("akademick", "á,ej,ej,ú,ou,ej"), _forms("maliar", _SK_ZENA_KA))),
+        "akad.soch.": (_words(_forms("akademick", "ý,ého,ému,ého,ým,om"), _forms("sochár", _SK_PAN)),
+                       _words(_forms("akademick", "á,ej,ej,ú,ou,ej"), _forms("sochár", _SK_ZENA_KA))),
+        "akad.arch.": (_words(_forms("akademick", "ý,ého,ému,ého,ým,om"), _forms("architekt", _SK_PAN)),
+                       _words(_forms("akademick", "á,ej,ej,ú,ou,ej"), _forms("architekt", _SK_ZENA_KA))),
+        "p.": (_forms("pán", _SK_PAN), ("pani",) * 6),
+        "sl.": (_forms("slečn", "a,y,e,u,ou,e"),) * 2,
+    },
+}
+# titles that are also other words or abbreviations ("p. 5", "sl." for a column) are read only before a capital
+AMBIGUOUS_TITLES = {"p.", "pí", "sl."}
 
 _SPEAKABLE_PUNCT = frozenset(",.!?:;…—–-()[]\"'„“”‚‘’«»‹›`´*_~")
 _QUOTES = frozenset("\"'„“”‚‘’«»‹›")
@@ -530,7 +594,7 @@ def _abbreviation_pattern(key: str) -> str:
             out.append(f"{_HS}+")
         elif ch == "." and i < len(key) - 1:
             out.append(rf"\.{_HS}*")
-        elif len(key) > 2 and ch.isalpha():
+        elif (len(key) > 2 or key[-1] != ".") and ch.isalpha():
             out.append(f"[{ch}{ch.upper()}]")
         elif i == 0 and ch.isalpha():
             out.append(rf"(?:{ch}|{ch.upper()}(?={re.escape(key[1:])}{_HS}*\d))")  # "Č. 5", but "Č. Novák"
@@ -819,7 +883,12 @@ class TextNormalizer:
                 raise ValueError(f"book_config['num2words'][{key!r}] must be one of {list(allowed)}, got {value!r}")
         self._numbers = num2words_cs if language == "cs" else num2words_sk
         table = self.ABBREVIATIONS_CS if language == "cs" else self.ABBREVIATIONS_SK
-        self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}
+        self.abbreviations = {**{_abbreviation_key(k): v for k, v in table.items()},
+                              **{k: forms[0][0] for k, forms in TITLES[language].items()}}
+        titles = "|".join(_abbreviation_pattern(k) for k in sorted(TITLES[language], key=len, reverse=True))
+        initial = r"(?-i:[ABCČDĎEFGHIJKLMNOPQRŘSŠTŤUVWXYZŽ]\.)"
+        self._titles_after = re.compile(rf"{_HS}*(?:(?:{titles}|{initial}){_HS}*)*")  # "MUDr. Jan Novák" after "prof."
+        self._titles_before = re.compile(rf"(?:{titles}){_HS}*$")
         self._items = _items_pattern(self.abbreviations)
         days = "|".join(sorted(WEEKDAYS[language], key=len, reverse=True))
         day = rf"{_NOT_LETTER_BEFORE}(?:{days}){_NOT_LETTER_AFTER}"
@@ -984,7 +1053,8 @@ class TextNormalizer:
         if m.lastgroup in ("abbreviation", "date") and m.group(0).endswith(".") and _all_capitals(m.string):
             return True  # in capitals only the tags tell whether the period ends the sentence: "ATD. ODEŠEL"
         if m.lastgroup == "abbreviation":
-            return _key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
+            return (_key_of(m) in AGREEING_ABBREVIATIONS or _key_of(m) in DECLINED_ABBREVIATIONS[self.language]
+                    or _key_of(m) in TITLES[self.language])
         if m.lastgroup == "commas":
             # the case of "s 1,2,3 kg", and the noun of "s 1,2,3 přáteli"
             return bool(m["commaunit"] or m["commascale"] or re.match(rf"{_HS}*[^\W\d_]", m.string[m.end():]))
@@ -1193,18 +1263,97 @@ class TextNormalizer:
                         else _UD_CASES.get(prep.feats.get("Case")))
                 if case:
                     words = DECLINED_ABBREVIATIONS[self.language][key][CASES.index(case)]
+        elif key in TITLES[self.language]:
+            if key in AMBIGUOUS_TITLES and not text[m.end():].lstrip(" \t\u00a0\u202f")[:1].isupper():
+                return raw
+            words = self._title(m, key, text, tags)
         elif key == "stol.":  # "století" differs only in the instrumental, which the ordinal before it shows
             i = bisect.bisect_left(tags.starts, m.start())
             ordinal = tags.words[i - 2] if i >= 2 and tags.words[i - 1].text == "." else None
             if ordinal is not None and self._agreement(tags.words[i], ordinal.start, tags)[0] == INS:
                 words = "stoletím"
-        if not raw.isupper() or (_starts_sentence(text[:m.start()]) and key not in ("př.n.l.", "n.l.", "pred n.l.")
-                                 and not re.search(rf"\d\.{_HS}*$", text[:m.start()])):
+        if ((not raw.isupper() and key not in TITLES[self.language])
+                or (_starts_sentence(text[:m.start()]) and key not in ("př.n.l.", "n.l.", "pred n.l.")
+                    and not re.search(rf"\d\.{_HS}*$", text[:m.start()])
+                    and not self._titles_before.search(text, 0, m.start()))):
             words = _capitalise_like(raw, words)
         if key.endswith(".") and self._ends_sentence(text, m.start(), m.end(), tags,
-                                                     introduces=key in NON_FINAL_ABBREVIATIONS,
+                                                     introduces=(key in NON_FINAL_ABBREVIATIONS
+                                                                 or (key in TITLES[self.language]
+                                                                     and self._title_head(m, text, tags) is not None)),
                                                      list_end=key in LIST_END_ABBREVIATIONS):
             words += "."
+        return words
+
+    def _title_head(self, m: re.Match, text: str, tags: _Tags) -> Optional[_Word]:
+        """The name after a title and the titles that follow it, or None when a word of another kind comes."""
+        head = tags.after(self._titles_after.match(text, m.end()).end())
+        return head if head is not None and head.upos in ("PROPN", "NOUN", "ADJ", "X") else None
+
+    def _opens(self, text: str, start: int, tags: _Tags) -> bool:
+        """Whether `start` opens a sentence, or follows a comma with no verb since the sentence began: "Dobrý den, ..."."""
+        before = text[:start].rstrip()
+        if not (_starts_sentence(before) or before.endswith(",")):
+            return False
+        for w in reversed(tags.words[:bisect.bisect_left(tags.starts, start)]):
+            if (w.text in _QUOTES or w.text in (".", "!", "?", "…")) and not self._titles_before.search(text, 0, w.end):
+                break
+            if w.upos in ("VERB", "AUX"):
+                return False
+        return True
+
+    def _title(self, m: re.Match, key: str, text: str, tags: _Tags) -> str:
+        """A title in the case and gender of the name after it: "s doc. Horákovou" -> "s docentkou"; the nominative
+        when no name follows, and a doubt is logged where the name's form fits more than one case or gender."""
+        masculine, feminine = TITLES[self.language][key]
+        first = head = self._title_head(m, text, tags)
+        if head is None:
+            self._warn(text, m, masculine[0], "no name after the title, read as the nominative; check it")
+            return masculine[0]
+        i = bisect.bisect_left(tags.starts, head.start)
+        while (i + 1 < len(tags.words) and tags.words[i + 1].upos in ("PROPN", "ADJ", "NOUN")
+               and tags.words[i + 1].text[:1].isupper()):
+            i, head = i + 1, tags.words[i + 1]  # the surname: "Jan Novák", "Eva Horákovú"
+        form, name_type, gender = head.text.lower(), head.feats.get("NameType"), head.feats.get("Gender")
+        tagged_case, ending = head.feats.get("Case"), re.search(r"(ou|[ayu])$", form)
+        if ending and form[:ending.start()] + "a" in SURNAMES_IN_A:  # the ending tells what the tagger misreads
+            gender, tagged_case = "Masc", {"a": "Nom", "y": "Gen", "u": "Acc", "ou": "Ins"}[ending.group()]
+        # the tagger takes a masculine surname in -a for a feminine one in the accusative and the instrumental: the
+        # first name tells, if there is one, else it is logged
+        unsure = gender == "Fem" and name_type != "Giv" and form.endswith("ou") and not form.endswith("ovou")
+        if unsure and first is not head and first.feats.get("Gender") in ("Masc", "Fem"):
+            gender, unsure = first.feats["Gender"], False
+        fem = ((gender == "Fem" and not (name_type != "Giv" and form.endswith("u") and not form.endswith("ou")))
+               or form.endswith(("é", "ej")))
+        start = m.start()
+        while (earlier := self._titles_before.search(text, 0, start)):
+            start = earlier.start()  # the first title of "s prof. MUDr. Evou": the word before it governs
+        case, prev = _UD_CASES.get(tagged_case), tags.before(start, skip=("PUNCT",))
+        prepositional = prev is not None and prev.upos == "ADP"
+        if prepositional:  # "v", "na", "o" go with the accusative or the locative: the name's form tells
+            if prev.text.lower() in LOCATIVE_PREPOSITIONS[self.language]:
+                case = case if case in (ACC, LOC) else LOC
+            elif prev.text.lower() in INSTRUMENTAL_PREPOSITIONS[self.language]:  # "-ou" is both, for a woman
+                case = case if case in (ACC, INS) and not fem else INS
+            else:
+                case = _UD_CASES.get(prev.feats.get("Case"), case)
+        # a feminine name in -é or -ej is the genitive, dative or locative, whatever the tagger says
+        shared = fem and form.endswith(("é", "ej")) and not prepositional
+        if shared and case not in (GEN, DAT, LOC):
+            case = DAT
+        words = (feminine if fem else masculine)[CASES.index(case or NOM)]
+        vocative = guess = False
+        if self.language == "cs" and not fem:
+            vocative = prev is not None and prev.text.lower() == "pane"
+            # no word governs a title that opens a sentence, or follows a greeting, and a comma or the end sets it off: a
+            # name in -u or -o (not -ou) is then a vocative; "Pozval Ing. Svobodu, Mgr. Nováka" has its verb before
+            guess = (not vocative and not prepositional and self._opens(text, start, tags)
+                     and form.endswith(("u", "o")) and not form.endswith("ou")
+                     and text[head.end:].lstrip(" \t")[:1] in ("", ",", "!", "?", "."))
+            if vocative or guess:
+                words = masculine[6]
+        if case is None or shared or unsure or guess or gender not in ("Masc", "Fem"):
+            self._warn(text, m, words, "case or gender of the name after the title not clear; check it")
         return words
 
     def _roman(self, m: re.Match, text: str, tags: _Tags, heading: bool) -> str:

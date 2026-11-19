@@ -1140,6 +1140,20 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "sk-weekday-from-its-hours": (
         "sk", "So 8–12 h.", "Sobota osem až dvanásť hodín.",
         "weekday abbreviation read from the opening hours after it"),
+    "title-vocative-without-a-governor": ("cs", "Dr. Nováku, pojďte dál.", "Doktore Nováku, pojďte dál.", "not clear"),
+    "title-vocative-after-a-greeting": ("cs", "Dobrý den, Ing. Nováku.", "Dobrý den, inženýre Nováku.", "not clear"),
+    "title-surname-in-ou-stays-feminine": (
+        "cs", "Mluvil s MUDr. Novotnou.", "Mluvil s doktorkou Novotnou.", "not clear"),
+    "title-no-name": ("cs", "Získal titul Ing.", "Získal titul inženýr.", "no name after the title"),
+    "title-no-name-before-a-sentence": (
+        "cs", "Získal titul Ing. Potom odešel.", "Získal titul inženýr. Potom odešel.", "no name after the title"),
+    "title-feminine-case-shared-by-three": (
+        "cs", "Děkuji prof. Dvořákové.", "Děkuji profesorce Dvořákové.", "not clear"),
+    "title-feminine-magistra-dative": (
+        "cs", "Pomohl Ing. Novákovi i Mgr. Dvořákové.", "Pomohl inženýru Novákovi i magistře Dvořákové.", "not clear"),
+    "title-feminine-surname-in-ou": ("cs", "Mluvil s Ing. Hrubou.", "Mluvil s inženýrkou Hrubou.", "not clear"),
+    "sk-title-feminine-case-shared-by-three": (
+        "sk", "Volali sme Ing. Kováčovej.", "Volali sme inžinierky Kováčovej.", "not clear"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1595,6 +1609,92 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-sk-pi-is-a-number": (
         "sk", "Hodnota Pi je približne 3,14.", "Hodnota Pi je približne tri celé štrnásť stotín."),
     "guard-cs-pa-is-a-farewell": ("cs", "Pá, Karle, uvidíme se.", "Pá, Karle, uvidíme se."),
+    "title-nominative": ("cs", "Ing. Novák přišel.", "Inženýr Novák přišel."),
+    "title-two-titles-in-a-sentence": (
+        "cs", "Přišel MUDr. Jan Novák a prof. Dvořák.", "Přišel doktor Jan Novák a profesor Dvořák."),
+    "title-instrumental": (
+        "cs", "Mluvil s doc. Horákem a dr. Novákem.", "Mluvil s docentem Horákem a doktorem Novákem."),
+    "title-dative": ("cs", "Volali jsme Ing. Novákovi.", "Volali jsme inženýru Novákovi."),
+    "title-genitive": ("cs", "Nebylo tam Ing. Nováka.", "Nebylo tam inženýra Nováka."),
+    "title-accusative": ("cs", "Viděl Ing. Nováka.", "Viděl inženýra Nováka."),
+    "title-locative": ("cs", "Mluvili o Ing. Novákovi.", "Mluvili o inženýru Novákovi."),
+    "title-feminine-nominative": ("cs", "Mgr. Svobodová odešla.", "Magistra Svobodová odešla."),
+    "title-feminine-instrumental": ("cs", "Mluvil s Ing. Novákovou.", "Mluvil s inženýrkou Novákovou."),
+    "title-feminine-accusative-first-name": ("cs", "Pozval MUDr. Evu Horákovou.", "Pozval doktorku Evu Horákovou."),
+    "title-feminine-dative-first-name": ("cs", "Šla k MUDr. Evě Horákové.", "Šla k doktorce Evě Horákové."),
+    "title-masculine-surname-in-a-with-first-name": (
+        "cs", "Mluvil s Ing. Jiřím Procházkou.", "Mluvil s inženýrem Jiřím Procházkou."),
+    "title-two-words": ("cs", "Přišel Ing. arch. Novák.", "Přišel inženýr architekt Novák."),
+    "title-two-words-feminine-instrumental": (
+        "cs", "Mluvil s akad. soch. Evou Novákovou.", "Mluvil s akademickou sochařkou Evou Novákovou."),
+    "title-academic-painter": ("cs", "Přišel akad. mal. Jan Novák.", "Přišel akademický malíř Jan Novák."),
+    "title-lowercase-mid-sentence": (
+        "cs", "Prof. Jelínek a Ing. Král diskutují.", "Profesor Jelínek a inženýr Král diskutují."),
+    "title-capital-after-a-sentence": (
+        "cs", "Řekl to Ing. Novák. Prof. Dvořák souhlasil.", "Řekl to inženýr Novák. Profesor Dvořák souhlasil."),
+    "title-in-a-row": ("cs", "Prof. MUDr. Jan Novák, DrSc., přišel.", "Profesor doktor Jan Novák, DrSc., přišel."),
+    "title-in-a-row-feminine-instrumental": (
+        "cs", "Mluvil s prof. MUDr. Evou Horákovou, CSc.", "Mluvil s profesorkou doktorkou Evou Horákovou, CSc."),
+    "title-capitals": ("cs", "ING. NOVÁK PŘIŠEL.", "Inženýr NOVÁK PŘIŠEL."),
+    "title-capitals-instrumental": ("cs", "MLUVIL S DOC. HORÁKEM.", "MLUVIL S docentem HORÁKEM."),
+    "title-bachelor": ("cs", "Přišel Bc. Dvořák.", "Přišel bakalář Dvořák."),
+    "title-doctor-of-veterinary-medicine": ("cs", "Zavolal MVDr. Černému.", "Zavolal doktoru Černému."),
+    "title-doctor-abbreviated": ("cs", "Mluvil s dr. Novákem.", "Mluvil s doktorem Novákem."),
+    "title-pan-and-pani": ("cs", "Mluvil s p. Novákem a pí Novákovou.", "Mluvil s panem Novákem a paní Novákovou."),
+    "title-pani-before-a-feminine-name": ("cs", "Přišla p. Nováková.", "Přišla paní Nováková."),
+    "title-slecna": ("cs", "Mluvil se sl. Novákovou.", "Mluvil se slečnou Novákovou."),
+    "title-initial-after-a-title": ("cs", "Přišel Ing. A. Novák.", "Přišel inženýr A. Novák."),
+    "title-guard-initial": ("cs", "Přišel V. Havel.", "Přišel V. Havel."),
+    "title-guard-capital-p": ("cs", "Páter P. Novák přišel.", "Páter P. Novák přišel."),
+    "title-guard-without-a-period": ("cs", "Přišel doc Novák a prof Dvořák.", "Přišel doc Novák a prof Dvořák."),
+    "title-guard-tzv": ("cs", "MUDr. Dvořák tzv. léčitel přišel.", "Doktor Dvořák takzvaný léčitel přišel."),
+    "title-guard-after-the-name": ("cs", "Jan Novák, Ph.D., přišel.", "Jan Novák, Ph.D., přišel."),
+    "title-saint-dative": ("cs", "Pomohla sv. Anně.", "Pomohla svaté Anně."),
+    "title-saint-locative": ("cs", "Mluvil o sv. Václavovi.", "Mluvil o svatém Václavovi."),
+    "title-dative-of-a-first-name-and-surname": (
+        "cs", "Poděkoval Ing. Janu Svobodovi.", "Poděkoval inženýru Janu Svobodovi."),
+    "title-dative-two-words": ("cs", "Mluvili o Ing. arch. Novákovi.", "Mluvili o inženýru architektu Novákovi."),
+    "title-dative-soft-stem": ("cs", "Pomohl Bc. Novákovi.", "Pomohl bakaláři Novákovi."),
+    "title-dative-adjective-and-soft-stem": (
+        "cs", "Pomohl akad. mal. Novákovi.", "Pomohl akademickému malíři Novákovi."),
+    "title-masculine-surname-in-a-instrumental": ("cs", "Šel za dr. Svobodou.", "Šel za doktorem Svobodou."),
+    "title-masculine-surname-in-a-instrumental-2": (
+        "cs", "Mluvil s Ing. Procházkou.", "Mluvil s inženýrem Procházkou."),
+    "title-masculine-surname-in-a-accusative": ("cs", "Pozval prof. Růžičku.", "Pozval profesora Růžičku."),
+    "title-masculine-surname-in-a-genitive": ("cs", "Nebylo tam prof. Růžičky.", "Nebylo tam profesora Růžičky."),
+    "title-masculine-surname-in-a-nominative": ("cs", "Přišel doc. Růžička.", "Přišel docent Růžička."),
+    "title-masculine-surname-in-a-genitive-2": ("cs", "Nebylo tam doc. Hrušky.", "Nebylo tam docenta Hrušky."),
+    "title-masculine-surname-in-a-accusative-2": ("cs", "Pozval Mgr. Matějku.", "Pozval magistra Matějku."),
+    "title-masculine-surname-in-a-instrumental-3": ("cs", "Mluvil s doc. Říhou.", "Mluvil s docentem Říhou."),
+    "title-masculine-surname-in-a-instrumental-4": ("cs", "Mluvil s MUDr. Liškou.", "Mluvil s doktorem Liškou."),
+    "title-guard-masculine-surname-in-a-read-right": ("cs", "Mluvil s Ing. Kučerou.", "Mluvil s inženýrem Kučerou."),
+    "title-feminine-after-za": ("cs", "Šel za MUDr. Svobodovou.", "Šel za doktorkou Svobodovou."),
+    "title-vocative-after-pane": ("cs", "Pane dr. Nováku, pojďte dál.", "Pane doktore Nováku, pojďte dál."),
+    "title-vocative-of-a-surname-in-a": ("cs", "Dobrý den, pane Ing. Svobodo.", "Dobrý den, pane inženýre Svobodo."),
+    "title-vocative-magistr": ("cs", "Pane Mgr. Dvořáku, děkuji.", "Pane magistře Dvořáku, děkuji."),
+    "title-vocative-two-words": ("cs", "Pane Ing. arch. Nováku!", "Pane inženýre architekte Nováku!"),
+    "title-vocative-soft-stem": ("cs", "Pane Bc. Nováku!", "Pane bakaláři Nováku!"),
+    "title-vocative-in-a-row": (
+        "cs", "Pane prof. MUDr. Nováku, pojďte dál.", "Pane profesore doktore Nováku, pojďte dál."),
+    "title-vocative-feminine-stays-nominative": (
+        "cs", "Dobrý den, paní dr. Nováková.", "Dobrý den, paní doktorka Nováková."),
+    "title-guard-accusatives-in-a-list-are-no-vocative": (
+        "cs", "Pozval Mgr. Svobodu, Ing. Procházku.", "Pozval magistra Svobodu, inženýra Procházku."),
+    "title-guard-the-noun-svoboda": ("cs", "Bojoval za svobodou.", "Bojoval za svobodou."),
+    "title-pi-at-a-sentence-start": ("cs", "Pí Nováková se usmála.", "Paní Nováková se usmála."),
+    "title-guard-pi-before-a-lowercase-word": ("cs", "Pí je číslo.", "Pí je číslo."),
+    "sk-title-dative-keeps-ovi": ("sk", "Pomohol Ing. Kováčovi.", "Pomohol inžinierovi Kováčovi."),
+    "sk-title-instrumental-surname-in-a": ("sk", "Hovoril s Ing. Hlinkom.", "Hovoril s inžinierom Hlinkom."),
+    "sk-title-nominative": ("sk", "Ing. Kováč prišiel.", "Inžinier Kováč prišiel."),
+    "sk-title-instrumental": ("sk", "Hovoril s Ing. Kováčom.", "Hovoril s inžinierom Kováčom."),
+    "sk-title-feminine-accusative": ("sk", "Videl Ing. Kováčovú.", "Videl inžinierku Kováčovú."),
+    "sk-title-feminine-instrumental-first-name": (
+        "sk", "Hovoril s MUDr. Evou Horákovou.", "Hovoril s doktorkou Evou Horákovou."),
+    "sk-title-two-words": ("sk", "Prišiel Ing. arch. Novák.", "Prišiel inžinier architekt Novák."),
+    "sk-title-academic-painter": ("sk", "Hovoril s akad. mal. Novákom.", "Hovoril s akademickým maliarom Novákom."),
+    "sk-title-pan-and-pani": ("sk", "Prišla p. Nováková.", "Prišla pani Nováková."),
+    "sk-title-lowercase-mid-sentence": (
+        "sk", "Prof. Horváth a Ing. Kráľ diskutujú.", "Profesor Horváth a inžinier Kráľ diskutujú."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
