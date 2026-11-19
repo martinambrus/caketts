@@ -1,4 +1,5 @@
-"""Alignment tests: the long-form logic (pure functions on stub data)."""
+"""Alignment tests: the long-form logic (pure functions on stub data), the CTC backends and the align() pipeline."""
+import json
 import subprocess
 import sys
 import time
@@ -6,10 +7,12 @@ import time
 import numpy as np
 import pytest
 
+from src.data.prepare.align.ctc import BACKENDS, CtcAligner, NoRoomError, forced_spans
+from src.data.prepare.align.interface import align, check_distinct_models, validate_config
 from src.data.prepare.align.longform import (OVERLAP_MAX_S, SUSPECT_MARGIN_S, Block, assign_status, fold,
                                              match_words, plan_blocks, resolve_monotonic, skipped_gaps, word_times)
 from src.data.prepare.align.types import AlignConfig, Gap, UnitSpan, WordSpan
-from src.data.prepare.asr import AsrWord
+from src.data.prepare.asr import ASR_BACKENDS, AsrConfig, AsrSpec, AsrWord
 
 
 # ---- longform ----
@@ -371,6 +374,391 @@ def test_skipped_gaps_ignores_empty_units():
 
 def test_longform_import_is_light():
     code = ("import sys; import src.data.prepare.align.longform; "
+            "bad = [m for m in ('torch', 'transformers', 'uroman') if m in sys.modules]; "
+            "sys.exit(1 if bad else 0)")
+    assert subprocess.run([sys.executable, "-c", code]).returncode == 0
+
+
+# ---- backend and pipeline ----
+
+SR = 16000
+STRIDE = 0.02
+
+
+def _be_emissions(frames, spikes, speech=(), vocab=8, blank=0, speech_token=7):
+    import torch
+
+    p = np.full((frames, vocab), 1e-3)
+    p[:, blank] = 0.9
+    for f in speech:
+        p[f] = 1e-3
+        p[f, blank] = 1e-5
+        p[f, speech_token] = 1.0
+    for f, tok in spikes:
+        p[f] = 1e-3
+        p[f, tok] = 1.0
+    p /= p.sum(1, keepdims=True)
+    return torch.log(torch.from_numpy(p).float())
+
+
+def _be_close(span, start, end, frames=1):
+    assert abs(span[0] - start) <= frames and abs(span[1] - end) <= frames, (span, start, end)
+
+
+def test_forced_spans_layout_with_speech_around():
+    spikes = [(45, 1), (48, 2), (55, 3), (60, 4), (63, 5), (66, 6)]
+    em = _be_emissions(160, spikes, speech=list(range(0, 40)) + list(range(80, 150)))
+    spans = forced_spans(em, [[1, 2], [3], [4, 5, 6]], blank=0)
+    _be_close(spans[0], 45, 49)
+    _be_close(spans[1], 55, 56)
+    _be_close(spans[2], 60, 67)
+    assert all(s[2] > 0.9 for s in spans)
+
+
+def test_forced_spans_repeated_letter_needs_blank():
+    em = _be_emissions(30, [(10, 1), (12, 1)])
+    _be_close(forced_spans(em, [[1, 1]], blank=0)[0], 10, 13)
+    assert len(forced_spans(_be_emissions(5, []), [[1, 1]], blank=0)) == 1
+    with pytest.raises(NoRoomError):
+        forced_spans(_be_emissions(4, []), [[1, 1]], blank=0)
+
+
+def test_forced_spans_no_room_is_a_value_error():
+    with pytest.raises(ValueError):
+        forced_spans(_be_emissions(3, []), [[1, 2]], blank=0)
+
+
+def test_forced_spans_word_without_tokens():
+    em = _be_emissions(60, [(10, 1), (12, 2), (30, 3)])
+    spans = forced_spans(em, [[], [1, 2], [], [3], []], blank=0)
+    assert spans[0] == (0, 0, 0.0)
+    assert spans[2] == (spans[1][1], spans[1][1], 0.0)
+    assert spans[4] == (spans[3][1], spans[3][1], 0.0)
+    _be_close(spans[1], 10, 13)
+    _be_close(spans[3], 30, 31)
+
+
+def test_forced_spans_delimiter_variant():
+    em = _be_emissions(60, [(10, 1), (12, 2), (20, 6), (30, 3), (32, 1)])
+    spans = forced_spans(em, [[1, 2], [3, 1]], blank=0, delimiter=6)
+    assert len(spans) == 2
+    _be_close(spans[0], 10, 13)
+    _be_close(spans[1], 30, 33)
+    assert spans[0][2] > 0.9
+
+
+def test_forced_spans_equal_letters_across_words_with_delimiter_need_no_blank():
+    spans = forced_spans(_be_emissions(5, []), [[1], [1]], blank=0, delimiter=6)
+    assert len(spans) == 2
+    with pytest.raises(NoRoomError):
+        forced_spans(_be_emissions(4, []), [[1], [1]], blank=0, delimiter=6)
+
+
+def test_native_tokenisation_with_fake_vocab():
+    aligner = CtcAligner(BACKENDS["xls-r-cs"])
+    aligner._vocab = {"[PAD]": 0, "a": 1, "b": 2, "č": 3, "|": 4, "[UNK]": 5}
+    aligner._blank, aligner._delimiter = 0, 4
+    assert aligner.tokens("Bač!") == [2, 1, 3]
+    assert aligner.tokens("|x") == []
+    assert aligner.blank == 0 and aligner.delimiter == 4
+
+
+def test_backends_registry():
+    assert BACKENDS["mms-300m"].model_id == "MahmoudAshraf/mms-300m-1130-forced-aligner"
+    assert BACKENDS["mms-300m"].tokenizer == "uroman"
+    assert BACKENDS["xls-r-cs"].model_id == "comodoro/wav2vec2-xls-r-300m-cs-250"
+    assert BACKENDS["xls-r-cs"].tokenizer == "native"
+    assert BACKENDS["mms-1b-all"].model_id == "facebook/mms-1b-all"
+    assert BACKENDS["mms-1b-all"].licence == "CC-BY-NC-4.0"
+
+
+def test_validate_config_lists_valid_values():
+    validate_config(AlignConfig())
+    with pytest.raises(ValueError, match="mms-1b-all.*mms-300m.*xls-r-cs"):
+        validate_config(AlignConfig(backend="nope"))
+    with pytest.raises(ValueError, match="auto.*always"):
+        validate_config(AlignConfig(longform="never"))
+
+
+def test_check_distinct_models():
+    check_distinct_models("a/b", "c/d")
+    with pytest.raises(ValueError):
+        check_distinct_models("a/b", "a/b")
+
+
+def test_validate_config_rejects_judge_equal_to_aligner(monkeypatch):
+    monkeypatch.setitem(ASR_BACKENDS, "same", AsrSpec(BACKENDS["mms-300m"].model_id, "tdt", "x", True))
+    with pytest.raises(ValueError):
+        validate_config(AlignConfig(asr=AsrConfig(backend="same")))
+
+
+def _be_word(k):
+    return "".join(chr(97 + (k // 26 ** p) % 26) for p in (2, 1, 0))
+
+
+def _be_scene(n_units=12, per_unit=5):
+    units, truth, asr, k = [], {}, [], 0
+    for u in range(n_units):
+        spans = []
+        for _ in range(per_unit):
+            start = 0.5 + k * 0.6 + u * 0.4
+            text = _be_word(k)
+            spans.append(WordSpan(text, start, start + 0.45, 0.9))
+            if k % 7 != 3:
+                asr.append(AsrWord("qqq" if k % 11 == 5 else text, start + 0.02, start + 0.43))
+            k += 1
+        units.append({"id": f"u{u}", "words": [s.text for s in spans]})
+        truth[f"u{u}"] = spans
+    duration = spans[-1].end + 1.0
+    return units, truth, asr, np.arange(int(round(duration * SR)), dtype=np.float32)
+
+
+class _BeStub:
+    model_id = "stub/aligner"
+    stride_s = STRIDE
+
+    def __init__(self, truth, fail_ids=()):
+        self.truth, self.fail_ids, self.calls = truth, set(fail_ids), []
+
+    def align_block(self, audio, t0, ids, words_per_unit):
+        assert int(audio[0]) == int(round(t0 * SR))
+        self.calls.append((t0, t0 + len(audio) / SR, list(ids)))
+        if self.fail_ids & set(ids):
+            raise NoRoomError("stub")
+        return [list(self.truth[i]) for i in ids]
+
+
+class _BeAsr:
+    model_id = "stub/asr"
+
+    def __init__(self, words):
+        self.words, self.calls = words, 0
+
+    def transcribe_words(self, audio):
+        self.calls += 1
+        return self.words
+
+
+def _be_cfg(**kw):
+    return AlignConfig(**{"block_max_s": 15.0, "margin_s": 1.5, **kw})
+
+
+def _be_view(result, skip=()):
+    return {u.id: (u.status, u.start_s, u.end_s, [(w.text, w.start, w.end, w.score) for w in u.words], u.flags)
+            for u in result.units if u.id not in skip}
+
+
+def _be_invariants(result, units):
+    assert [u.id for u in result.units] == [u["id"] for u in units]
+    json.dumps(result.to_dict())
+    prev_end = 0.0
+    for u in result.units:
+        if u.start_s is None:
+            assert (u.end_s is None) and (u.words == []) and (u.status == "unmatched")
+            continue
+        assert u.start_s < u.end_s
+        assert u.start_s >= prev_end - 1e-9
+        prev_end = u.end_s
+        assert u.words[0].start >= u.start_s - 1e-9 and u.words[-1].end <= u.end_s + 1e-9
+        assert all(a.end <= b.start + 1e-9 for a, b in zip(u.words, u.words[1:]))
+    assert all(g.start <= g.end for g in result.gaps)
+
+
+def test_pipeline_short_audio_single_block_without_asr():
+    units, truth, asr, audio = _be_scene()
+    stub, runner = _BeStub(truth), _BeAsr(asr)
+    result = align(audio, units, AlignConfig(), backend=stub, asr=runner)
+    assert runner.calls == 0
+    assert len(stub.calls) == 1 and stub.calls[0][0] == 0.0
+    assert stub.calls[0][1] == pytest.approx(len(audio) / SR)
+    assert all(u.status == "ok" for u in result.units)
+    assert result.gaps == []
+    assert result.meta["n_blocks"] == 1 and result.meta["asr_model_id"] is None
+    assert result.meta["rate_s_per_word"] is None and result.meta["stride_ms"] == 20.0
+    _be_invariants(result, units)
+
+
+def test_pipeline_long_audio_runs_asr_and_blocks():
+    units, truth, asr, audio = _be_scene()
+    stub, runner = _BeStub(truth), _BeAsr(asr)
+    result = align(audio, units, _be_cfg(), backend=stub, asr=runner)
+    duration = len(audio) / SR
+    assert runner.calls == 1 and result.meta["asr_model_id"] == "stub/asr"
+    assert len(stub.calls) >= 3 and result.meta["n_blocks"] == len(stub.calls)
+    seen = [i for _, _, ids in stub.calls for i in ids]
+    assert sorted(seen) == sorted(u["id"] for u in units) and len(seen) == len(set(seen))
+    for t0, t1, ids in stub.calls:
+        assert (t0 >= 0.0) and (t1 <= duration + 1e-6)
+        assert all((truth[i][0].start >= t0) and (truth[i][-1].end <= t1) for i in ids)
+    assert all(u.status == "ok" for u in result.units)
+    assert result.meta["rate_s_per_word"] == pytest.approx(0.6, abs=0.1)
+    _be_invariants(result, units)
+
+
+def test_pipeline_rejects_the_same_model_as_aligner_and_judge():
+    units, truth, asr, audio = _be_scene()
+    stub, runner = _BeStub(truth), _BeAsr(asr)
+    runner.model_id = stub.model_id
+    with pytest.raises(ValueError, match="different models"):
+        align(audio, units, _be_cfg(), backend=stub, asr=runner)
+    assert stub.calls == [] and runner.calls == 0
+
+
+def test_pipeline_longform_always_and_given_words():
+    units, truth, asr, audio = _be_scene()
+    runner = _BeAsr(asr)
+    result = align(audio, units, AlignConfig(longform="always"), backend=_BeStub(truth), asr=runner)
+    assert runner.calls == 1 and result.meta["asr_model_id"] == "stub/asr"
+    runner = _BeAsr(asr)
+    result = align(audio, units, AlignConfig(), asr_words=asr, backend=_BeStub(truth), asr=runner)
+    assert runner.calls == 0 and result.meta["asr_model_id"] == "stub/asr"
+
+
+def test_pipeline_closes_the_runner_it_created(monkeypatch):
+    import src.data.prepare.align.interface as interface
+
+    units, truth, asr, audio = _be_scene()
+    made = []
+
+    class FakeRunner(_BeAsr):
+        def __init__(self, cfg):
+            super().__init__(asr)
+            self.closed = False
+            made.append(self)
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(interface, "AsrRunner", FakeRunner)
+    align(audio, units, _be_cfg(), backend=_BeStub(truth))
+    assert len(made) == 1 and made[0].calls == 1 and made[0].closed
+
+
+def test_pipeline_deleted_unit_text_leaves_neighbours_and_marks_gap():
+    units, truth, asr, audio = _be_scene()
+    base = align(audio, units, _be_cfg(), asr_words=asr, backend=_BeStub(truth))
+    fewer = [u for u in units if u["id"] != "u5"]
+    result = align(audio, fewer, _be_cfg(), asr_words=asr, backend=_BeStub(truth))
+    assert _be_view(result) == _be_view(base, skip=("u5",))
+    assert [g.kind for g in result.gaps] == ["extra_speech"]
+    _be_invariants(result, fewer)
+
+
+def test_pipeline_duplicated_unit_keeps_one_copy():
+    units, truth, asr, audio = _be_scene()
+    base = align(audio, units, _be_cfg(), asr_words=asr, backend=_BeStub(truth))
+    twice = units[:5] + [{"id": "dup4", "words": units[4]["words"]}] + units[5:]
+    result = align(audio, twice, _be_cfg(), asr_words=asr, backend=_BeStub({**truth, "dup4": truth["u4"]}))
+    by_id = {u.id: u for u in result.units}
+    assert sorted([by_id["u4"].status, by_id["dup4"].status]) == ["ok", "unmatched"]
+    assert (by_id["u4"].start_s is None) != (by_id["dup4"].start_s is None)
+    assert _be_view(result, skip=("u4", "dup4")) == _be_view(base, skip=("u4",))
+    assert [g.kind for g in result.gaps] == ["skipped_text"]
+    _be_invariants(result, twice)
+
+
+def test_pipeline_no_room_block_leaves_its_units_unmatched():
+    units, truth, asr, audio = _be_scene()
+    result = align(audio, units, _be_cfg(), asr_words=asr, backend=_BeStub(truth, fail_ids={"u5"}))
+    by_id = {u.id: u for u in result.units}
+    assert by_id["u5"].status == "unmatched" and "no_room" in by_id["u5"].flags
+    bad = [u for u in result.units if u.status == "unmatched"]
+    assert all("no_room" in u.flags for u in bad)
+    assert len(bad) < len(units) and any(u.status == "ok" for u in result.units)
+    _be_invariants(result, units)
+
+
+def test_pipeline_empty_unit_is_unmatched_without_gap():
+    units, truth, asr, audio = _be_scene()
+    with_empty = units[:3] + [{"id": "e", "words": []}] + units[3:]
+    for cfg, kw in ((AlignConfig(), {}), (_be_cfg(), {"asr_words": asr})):
+        result = align(audio, with_empty, cfg, backend=_BeStub(truth), **kw)
+        by_id = {u.id: u for u in result.units}
+        assert by_id["e"].status == "unmatched" and by_id["e"].flags == ["empty"]
+        assert result.gaps == []
+        assert all(u.status == "ok" for u in result.units if u.id != "e")
+        _be_invariants(result, with_empty)
+
+
+def test_pipeline_word_without_tokens_is_flagged():
+    units, truth, asr, audio = _be_scene()
+    words = list(truth["u2"])
+    words[1] = WordSpan(words[1].text, words[0].end, words[0].end, 0.0)
+    result = align(audio, units, AlignConfig(), backend=_BeStub({**truth, "u2": words}))
+    assert "no_tokens" in {u.id: u for u in result.units}["u2"].flags
+
+
+def test_pipeline_accepts_torch_audio():
+    torch = pytest.importorskip("torch")
+    units, truth, _, audio = _be_scene()
+    stub = _BeStub(truth)
+    align(torch.from_numpy(audio)[None], units, AlignConfig(), backend=stub)
+    assert stub.calls[0][1] == pytest.approx(len(audio) / SR)
+
+
+class _BeSynth(CtcAligner):
+    blank = 0
+    delimiter = None
+
+    def __init__(self, words):
+        super().__init__(BACKENDS["xls-r-cs"], device="cpu")
+        self.words = words
+
+    def tokens(self, word):
+        return [ord(c) - 96 for c in word]
+
+    def emissions(self, audio):
+        t0 = float(audio[0]) / SR
+        frames = len(audio) // 320
+        spikes = []
+        for w in self.words:
+            f0 = round((w.start - t0) / STRIDE)
+            if (f0 >= 0) and (f0 + 15 < frames):
+                spikes += [(f0 + 7 * j, ord(c) - 96) for j, c in enumerate(w.text)]
+        return _be_emissions(frames, spikes, vocab=27)
+
+
+def test_pipeline_end_to_end_real_forced_spans_three_blocks():
+    units, truth, asr, audio = _be_scene()
+    backend = _BeSynth([w for spans in truth.values() for w in spans])
+    result = align(audio, units, _be_cfg(), asr_words=asr, backend=backend)
+    assert result.meta["n_blocks"] >= 3
+    assert all(u.status == "ok" for u in result.units)
+    for u in result.units:
+        for got, want in zip(u.words, truth[u.id]):
+            assert abs(got.start - want.start) <= 0.031 and abs(got.end - (want.start + 0.3)) <= 0.031
+    _be_invariants(result, units)
+
+
+def _be_cached(repo):
+    hf = pytest.importorskip("huggingface_hub")
+    if not isinstance(hf.try_to_load_from_cache(repo, "config.json"), str):
+        pytest.skip(f"{repo} is not in the HF cache")
+
+
+def test_real_mms_emissions_shape_and_normalisation():
+    pytest.importorskip("torch")
+    _be_cached(BACKENDS["mms-300m"].model_id)
+    rng = np.random.default_rng(0)
+    t = np.arange(5 * SR) / SR
+    audio = (np.sin(2 * np.pi * 220 * t) * (1 + np.sin(2 * np.pi * 3 * t)) + 0.1 * rng.standard_normal(len(t)))
+    em = CtcAligner(BACKENDS["mms-300m"], device="cpu").emissions(audio.astype(np.float32))
+    assert em.shape[1] == 31 and abs(em.shape[0] - len(audio) // 320) <= 1
+    assert np.allclose(em.exp().sum(1).numpy(), 1.0, atol=1e-3)
+
+
+def test_real_mms_tokens_need_uroman():
+    pytest.importorskip("uroman")
+    _be_cached(BACKENDS["mms-300m"].model_id)
+    aligner = CtcAligner(BACKENDS["mms-300m"], device="cpu")
+    ids = aligner.tokens("Příliš")
+    assert ids == [aligner._vocab[c] for c in "prilis"]
+
+
+def test_align_package_import_is_light():
+    code = ("import sys; import src.data.prepare.align as a; "
+            "assert a.align and a.AlignConfig and a.AlignResult and a.UnitSpan and a.WordSpan and a.Gap "
+            "and a.check_distinct_models; "
             "bad = [m for m in ('torch', 'transformers', 'uroman') if m in sys.modules]; "
             "sys.exit(1 if bad else 0)")
     assert subprocess.run([sys.executable, "-c", code]).returncode == 0
