@@ -1130,6 +1130,16 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "KAREL V. HAVEL PŘIŠEL.", "KAREL V. HAVEL PŘIŠEL.", "kept as an initial"),
     "guard-capitals-initial-before-a-surname-tagged-as-a-verb": (
         "cs", "JAN V. POSPÍŠIL PŘIŠEL.", "JAN V. POSPÍŠIL PŘIŠEL.", "kept as an initial"),
+    "cs-weekday-from-its-hours": (
+        "cs", "So 8–12 h.", "Sobota osm až dvanáct hodin.",
+        "weekday abbreviation read from the opening hours after it"),
+    "cs-weekday-before-zavreno": (
+        "cs", "Ne zavřeno.", "Neděle zavřeno.", "weekday abbreviation read from the opening hours after it"),
+    "sk-weekday-before-zatvorene": (
+        "sk", "Ne zatvorené.", "Nedeľa zatvorené.", "weekday abbreviation read from the opening hours after it"),
+    "sk-weekday-from-its-hours": (
+        "sk", "So 8–12 h.", "Sobota osem až dvanásť hodín.",
+        "weekday abbreviation read from the opening hours after it"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1550,6 +1560,41 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-cs-genitive-plural-after-a-preposition": ("cs", "Bez 2 nožů.", "Bez dvou nožů."),
     "guard-cs-nominative-singular-of-a-listed-word": ("cs", "Mám 1 šálek.", "Mám jeden šálek."),
     "guard-cs-masculine-homograph-of-a-feminine-plural-is-left-alone": ("cs", "Má 2 sady.", "Má dvě sady."),
+    "cs-weekday-range-before-hours": (
+        "cs", "Otevřeno Po–Pá 8–17 h.", "Otevřeno pondělí až pátek osm až sedmnáct hodin."),
+    "cs-weekday-range-at-sentence-start": ("cs", "Po–Pá 8–17 h.", "Pondělí až pátek osm až sedmnáct hodin."),
+    "cs-weekday-range-with-a-hyphen": (
+        "cs", "Otevřeno Po-Pá 8:00–17:00.", "Otevřeno pondělí až pátek osm hodin až sedmnáct hodin."),
+    "cs-weekday-list": ("cs", "Zavřeno Po, St a Pá.", "Zavřeno pondělí, středa a pátek."),
+    "cs-weekday-pair": ("cs", "Zavřeno v So a Ne.", "Zavřeno v sobotu a neděli."),
+    "cs-weekday-from-to": ("cs", "Zavřeno od Po do Pá.", "Zavřeno od pondělí do pátku."),
+    "cs-weekday-after-v": ("cs", "Otevřeno v So.", "Otevřeno v sobotu."),
+    "cs-weekday-after-v-takes-ve": ("cs", "Otevřeno ve St.", "Otevřeno ve středu."),
+    "cs-weekday-that-is-no-other-word": ("cs", "Út 8–12 h.", "Úterý osm až dvanáct hodin."),
+    "sk-weekday-from-to": ("sk", "Zatvorené od Po do Pi.", "Zatvorené od pondelka do piatku."),
+    "sk-weekday-after-v": ("sk", "Otvorené v So.", "Otvorené v sobotu."),
+    "sk-weekday-after-v-takes-vo": ("sk", "Otvorené vo Št.", "Otvorené vo štvrtok."),
+    "sk-weekday-that-is-no-other-word": ("sk", "Št zatvorené.", "Štvrtok zatvorené."),
+    "sk-weekday-list": ("sk", "Zatvorené Po, St a Pia.", "Zatvorené pondelok, streda a piatok."),
+    "guard-cs-po-is-a-preposition": ("cs", "Po obědě spal.", "Po obědě spal."),
+    "guard-cs-po-before-an-hour": ("cs", "Po 8 h odešel.", "Po osmi hodinách odešel."),
+    "guard-cs-po-before-a-span-of-hours-and-a-verb": (
+        "cs", "Po 8–17 h odešel domů.", "Po osmi až sedmnácti hodinách odešel domů."),
+    "guard-cs-po-before-a-span-and-a-noun": (
+        "cs", "Po 8–10 h spánku byl odpočatý.", "Po osmi až deseti hodinách spánku byl odpočatý."),
+    "guard-cs-ne-is-no": ("cs", "Ne, to není pravda.", "Ne, to není pravda."),
+    "guard-cs-ne-before-a-number": ("cs", "Ne 8 h, ale 9 h.", "Ne osm hodin, ale devět hodin."),
+    "guard-cs-ne-comma-po": ("cs", "Ne, Po večeři se vrátím.", "Ne, Po večeři se vrátím."),
+    "guard-cs-ne-dash-po": ("cs", "Ne – Po večeři jsem nešel.", "Ne — Po večeři jsem nešel."),
+    "guard-cs-st-is-saint": ("cs", "Ve St. Louis se narodil.", "Ve St. Louis se narodil."),
+    "guard-cs-so-after-st": ("cs", "Jeli jsme do St. Gallenu.", "Jeli jsme do St. Gallenu."),
+    "guard-cs-pa-bye": ("cs", "Pá pá, uvidíme se.", "Pá pá, uvidíme se."),
+    "guard-sk-so-is-a-preposition": ("sk", "So ženou išiel domov.", "So ženou išiel domov."),
+    "guard-sk-so-before-a-number": ("sk", "So 5 deťmi išiel von.", "So piatimi deťmi išiel von."),
+    "guard-sk-po-is-a-preposition": ("sk", "Po obede spal.", "Po obede spal."),
+    "guard-sk-pi-is-a-number": (
+        "sk", "Hodnota Pi je približne 3,14.", "Hodnota Pi je približne tri celé štrnásť stotín."),
+    "guard-cs-pa-is-a-farewell": ("cs", "Pá, Karle, uvidíme se.", "Pá, Karle, uvidíme se."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

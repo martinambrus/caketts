@@ -244,6 +244,18 @@ FEATURE_FIXES = {"cs": {**dict.fromkeys(CS_MASCULINE_NOUNS, {"Gender": "Masc"}),
 # abbreviations the tagger reads as a name: it tags the word they stand for ("v 5. stol.")
 TAG_EXPANSIONS = {"cs": {"stol": "století"}, "sk": {}}
 
+# weekday abbreviations with their nominative, genitive (after od, do) and accusative (after v, na); alone only the
+# ones that are no other word are read: "Po" is a preposition, "Ne" is "no", "So" and "St" are other words
+WEEKDAYS = {"cs": {"Po": ("pondělí", "pondělí", "pondělí"), "Út": ("úterý", "úterý", "úterý"),
+                   "St": ("středa", "středy", "středu"), "Čt": ("čtvrtek", "čtvrtka", "čtvrtek"),
+                   "Pá": ("pátek", "pátku", "pátek"), "So": ("sobota", "soboty", "sobotu"),
+                   "Ne": ("neděle", "neděle", "neděli")},
+            "sk": {"Po": ("pondelok", "pondelka", "pondelok"), "Ut": ("utorok", "utorka", "utorok"),
+                   "St": ("streda", "stredy", "stredu"), "Št": ("štvrtok", "štvrtka", "štvrtok"),
+                   "Pi": ("piatok", "piatku", "piatok"), "Pia": ("piatok", "piatku", "piatok"),
+                   "So": ("sobota", "soboty", "sobotu"), "Ne": ("nedeľa", "nedele", "nedeľu")}}
+WEEKDAYS_ALONE = {"cs": ("Út", "Čt"), "sk": ("Ut", "Št")}
+
 # endings every plural noun has in these cases, in both languages (hradech, ženách, dubom, mužmi)
 PLURAL_ENDINGS = {DAT: ("m",), INS: ("mi", "ma", "y", "i"), LOC: ("ch",)}
 LOCATIVE_PLURAL_ENDINGS = ("ech", "ách", "och", "iach")  # only the locative plural ends so
@@ -479,6 +491,15 @@ _NUMBER_AFTER = re.compile(r"\d|[IVXLCDM]+\.")
 _DATE_BEFORE = re.compile(rf"(?<![\d.])(?:3[01]|[12]\d|0?[1-9])\.{_HS}*(?:1[0-2]|0?[1-9])\.{_HS}+$")  # "5. 6. "
 _RANGE_AHEAD = re.compile(rf"{_HS}*[–—-]{_HS}*(?:[-−–+]?\d|[IVXLCDM]+\.)")
 _ERA_AHEAD = re.compile(rf"(?:(?:př\.|pred){_HS}*)?n\.{_HS}*l\.", re.IGNORECASE)  # "5. STOL. PŘ. N. L."
+_WEEKDAY_PREPOSITION = re.compile(rf"{_NOT_LETTER_BEFORE}(?i:(od|do)|v|ve|vo|na){_HS}+$")  # "od Po do Pá", "v So"
+_WEEKDAY_NAME_AFTER = re.compile(rf"\.?{_HS}+[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]")  # "St. Louis"
+_LOWERCASE_AFTER = re.compile(rf"{_HS}+[a-záäčďéěíĺľňóôŕřšťúůýž]")
+_HOURS = r"\d{1,2}(?:[.:]\d\d)?"
+# what follows a doubtful weekday abbreviation that makes it one: "Ne zavřeno", "So 8–12 h", not "Po 8–17 h odešel"
+_WEEKDAY_AHEAD = re.compile(rf":?{_HS}+(?:(?i:zavřen[oé]|otevřen[oé]|zatvorené|otvorené){_NOT_LETTER_AFTER}"
+                            rf"|(?:{_HOURS}(?:{_HS}*{_HOUR_WORD})?{_HS}*[–—-]{_HS}*{_HOURS}{_HS}*{_HOUR_WORD}"
+                            rf"|\d{{1,2}}[.:]\d\d{_HS}*[–—-]{_HS}*\d{{1,2}}[.:]\d\d(?:{_HS}*{_HOUR_WORD})?)"
+                            rf"(?![\d:]|[^\W\d_]|\.?{_LOWERCASE_AFTER.pattern}))")
 
 
 @lru_cache(maxsize=None)
@@ -800,6 +821,11 @@ class TextNormalizer:
         table = self.ABBREVIATIONS_CS if language == "cs" else self.ABBREVIATIONS_SK
         self.abbreviations = {_abbreviation_key(k): v for k, v in table.items()}
         self._items = _items_pattern(self.abbreviations)
+        days = "|".join(sorted(WEEKDAYS[language], key=len, reverse=True))
+        day = rf"{_NOT_LETTER_BEFORE}(?:{days}){_NOT_LETTER_AFTER}"
+        # "Po–Pá", "Po, St", "So a Ne"; not the answer "Ne, Po večeři"
+        self._weekday_link = re.compile(rf"({_HS}*[–—-]{_HS}*|{_HS}*,{_HS}+|{_HS}+a{_HS}+)")
+        self._weekday = re.compile(rf"(?>(?!Ne{_HS}*,{_HS}+{day}){day}(?:{self._weekday_link.pattern}{day})*)")
         self._items_in_capitals = _items_pattern(self.abbreviations, capitals=True)
         books = sorted(filter(None, _string_list(config, "verse_references")), key=len, reverse=True)
         numbered = [book for book in books if re.search(r"\d", book)]
@@ -851,6 +877,7 @@ class TextNormalizer:
     def _paragraph(self, text: str, heading: bool = False) -> str:
         if self._english:
             text = self._wrap_english(text)
+        text = self._weekdays(text)
         spans = []
         for s in _SPAN_RE.finditer(text):
             bad = _unspeakable(s.group(2))
@@ -892,6 +919,34 @@ class TextNormalizer:
         if bad:
             raise ValueError(f"no reading for {bad!r} in {text!r}")
         return result
+
+    def _weekdays(self, text: str) -> str:
+        """"Po–Pá 8–17 h" -> "pondělí až pátek 8–17 h", "od Po do Pá" -> "od pondělí do pátku", "v So" -> "v sobotu"."""
+        spans = [s.span() for s in _SPAN_RE.finditer(text)]
+        names, out, pos = WEEKDAYS[self.language], [], 0
+        for m in self._weekday.finditer(text):
+            days = self._weekday_link.split(m.group())  # the abbreviations at the even places, the links between them
+            before = _WEEKDAY_PREPOSITION.search(text[:m.start()])
+            ahead = _WEEKDAY_AHEAD.match(text, m.end())
+            sure = before or days[0] in WEEKDAYS_ALONE[self.language]
+            if (any(s < m.end() and m.start() < e for s, e in spans)
+                    or (len(days) == 1 and not (sure or ahead))
+                    or (len(days) == 1 and days[0] == "St" and _WEEKDAY_NAME_AFTER.match(text, m.end()))
+                    or (len(days) > 1 and days[-1] == "Po" and not ahead and _LOWERCASE_AFTER.match(text, m.end()))):
+                continue
+            case = (1 if before.group(1) else 2) if before else 0
+            until = " do " if (before and before.group().lower().startswith("od")) else " až "
+            words = names[days[0]][case]
+            for link, day in zip(days[1::2], days[2::2]):
+                words += (", " if "," in link else " a " if "a" in link else until) + names[day][case]
+            if len(days) == 1 and not sure:
+                self._warn(text, m, words, "weekday abbreviation read from the opening hours after it")
+            if _starts_sentence(text[:m.start()]):
+                words = words[0].upper() + words[1:]
+            start, words = self._vocalise(text, m.start(), words)
+            out += [text[pos:start], words]
+            pos = m.end()
+        return "".join(out) + text[pos:]
 
     def _wrap_english(self, text: str) -> str:
         spans = [s.span() for s in _SPAN_RE.finditer(text)]
