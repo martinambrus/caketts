@@ -60,8 +60,8 @@ class AlignConfig:
     context_s: float = 2.0
     gap_min_words: int = 3
     gap_min_s: float = 1.0
-    ok_sigmas: float = 3.0
-    edge_sigmas: float = 4.0
+    ok_sigmas: float = 4.0
+    edge_ratio: float = 0.25
     unmatched_ratio: float = 0.5
     sigma_floor: float = 0.02
     asr: AsrConfig = field(default_factory=AsrConfig)

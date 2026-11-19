@@ -8,7 +8,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -44,7 +44,7 @@ class AsrConfig:
     language: str = "cs"
     window_s: float = 35.0
     overlap_s: float = 1.0
-    batch_size: int = 4
+    batch_size: Optional[int] = None
     cut_search_s: float = 3.0
 
 
@@ -111,6 +111,12 @@ class AsrRunner:
         self._processor = AutoProcessor.from_pretrained(self.spec.model_id)
         self._model = auto_model.from_pretrained(self.spec.model_id, dtype=dtype).to(device).eval()
 
+    @property
+    def batch_size(self) -> int:
+        if self.cfg.batch_size:
+            return self.cfg.batch_size
+        return 4 if str(self._model.device).startswith("cuda") else 1
+
     def close(self) -> None:
         self._model = None
         self._processor = None
@@ -140,8 +146,8 @@ class AsrRunner:
         self._load()
         texts = [""] * len(clips)
         todo = [i for i, c in enumerate(clips) if len(c) > 0]
-        for b in range(0, len(todo), self.cfg.batch_size):
-            idx = todo[b:b + self.cfg.batch_size]
+        for b in range(0, len(todo), self.batch_size):
+            idx = todo[b:b + self.batch_size]
             out = self._generate([clips[i] for i in idx])
             sequences = out if self.spec.kind == "canary" else out.sequences
             for i, text in zip(idx, self._processor.batch_decode(sequences, skip_special_tokens=True)):
@@ -157,8 +163,8 @@ class AsrRunner:
         cfg = self.cfg
         plan = plan_windows(audio, SAMPLE_RATE, cfg.window_s, cfg.overlap_s, cfg.cut_search_s)
         words: List[AsrWord] = []
-        for b in range(0, len(plan), cfg.batch_size):
-            batch = plan[b:b + cfg.batch_size]
+        for b in range(0, len(plan), self.batch_size):
+            batch = plan[b:b + self.batch_size]
             clips = [audio[int(round(w[0] * SAMPLE_RATE)):int(round(w[1] * SAMPLE_RATE))] for w in batch]
             out = self._generate(clips)
             _, stamps = self._processor.decode(out.sequences.cpu(), durations=out.durations.cpu(),

@@ -306,10 +306,10 @@ def test_assign_status_distribution():
     assert _lf_counts(units) == {"ok": 95, "low_conf": 3, "unmatched": 2}
     assert th["n_placed"] == 100
     assert th["score_median"] == pytest.approx(np.median(scores))
-    assert th["ok_min"] == pytest.approx(th["score_median"] - 3.0 * th["score_sigma"])
+    assert th["ok_min"] == pytest.approx(th["score_median"] - AlignConfig().ok_sigmas * th["score_sigma"])
     assert th["unmatched_max"] == pytest.approx(0.5 * th["score_median"])
-    assert set(th) == {"score_median", "score_sigma", "ok_min", "unmatched_max", "edge_median", "edge_sigma",
-                       "edge_ok_min", "n_placed"}
+    assert set(th) == {"score_median", "score_sigma", "ok_min", "unmatched_max", "edge_median", "edge_ok_min",
+                       "n_placed"}
     cleared = [u for u in units if u.status == "unmatched"]
     assert all(u.start_s is None and u.words == [] and u.score_mean == 0.0 for u in cleared)
 
@@ -325,10 +325,10 @@ def test_assign_status_sigma_floor():
 
 
 def test_assign_status_edge_criterion():
-    units = _lf_scored_units([0.95] * 30, edge={4: 0.3})
+    units = _lf_scored_units([0.95] * 30, edge={4: 0.1, 5: 0.3})
     th = assign_status(units, AlignConfig())
-    assert units[4].status == "low_conf"
-    assert th["edge_ok_min"] < th["edge_median"]
+    assert units[4].status == "low_conf" and units[5].status == "ok"
+    assert th["edge_ok_min"] == pytest.approx(AlignConfig().edge_ratio * th["edge_median"])
     assert _lf_counts(units) == {"ok": 29, "low_conf": 1, "unmatched": 0}
 
 

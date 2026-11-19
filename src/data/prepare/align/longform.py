@@ -246,12 +246,12 @@ def assign_status(units: List[UnitSpan], cfg: AlignConfig) -> Dict[str, float]:
     placed = [u for u in units if u.start_s is not None]
     if not placed:
         return {k: 0.0 for k in ("score_median", "score_sigma", "ok_min", "unmatched_max", "edge_median",
-                                 "edge_sigma", "edge_ok_min", "n_placed")}
+                                 "edge_ok_min", "n_placed")}
     edge = {u.id: min(u.words[0].score, u.words[-1].score) if u.words else u.score_mean for u in placed}
     m, sigma = _median_sigma(np.array([u.score_mean for u in placed]), cfg.sigma_floor)
-    m_e, sigma_e = _median_sigma(np.array(list(edge.values())), cfg.sigma_floor)
+    m_e = float(np.median(list(edge.values())))
     ok_min, unmatched_max = m - cfg.ok_sigmas * sigma, cfg.unmatched_ratio * m
-    edge_ok_min = m_e - cfg.edge_sigmas * sigma_e
+    edge_ok_min = cfg.edge_ratio * m_e
     for u in placed:
         if u.score_mean < unmatched_max:
             _clear(u)
@@ -261,7 +261,7 @@ def assign_status(units: List[UnitSpan], cfg: AlignConfig) -> Dict[str, float]:
         else:
             u.status = "low_conf"
     return {"score_median": m, "score_sigma": sigma, "ok_min": ok_min, "unmatched_max": unmatched_max,
-            "edge_median": m_e, "edge_sigma": sigma_e, "edge_ok_min": edge_ok_min, "n_placed": len(placed)}
+            "edge_median": m_e, "edge_ok_min": edge_ok_min, "n_placed": len(placed)}
 
 
 def skipped_gaps(units: List[UnitSpan], duration_s: float) -> List[Gap]:
