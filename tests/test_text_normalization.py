@@ -1168,6 +1168,19 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "1. Petr Berkovec — zavražděn;\n2. byl zavražděn kolem půlnoci;\n3. Vrah utekl oknem.",
         "Za prvé, Petr Berkovec — zavražděn;\nZa druhé, byl zavražděn kolem půlnoci;\nZa třetí, Vrah utekl oknem.",
         "list item"),
+    "list-items-in-a-sentence-after-a-verb": (
+        "cs", "Měl 1) nápad, 2) pak přišel.", "Měl za prvé nápad, za druhé pak přišel.", "list item"),
+    "guard-list-bracket-number": (
+        "cs", "Přišlo jich málo (5) a odešli.", "Přišlo jich málo (pět) a odešli.", "no governing noun"),
+    "guard-list-bracket-year": (
+        "cs", "Rok (1945) byl těžký.", "Rok (tisíc devět set čtyřicet pět) byl těžký.", "no governing noun"),
+    "guard-list-function-value": ("cs", "Hodnota x(1) je rovna.", "Hodnota x(jeden) je rovna.", "no governing noun"),
+    "guard-list-lone-bracket-item": ("cs", "1) první bod", "Jeden) první bod", "no governing noun"),
+    "guard-list-lone-bracketed-item": ("cs", "(1) první bod", "(Jeden) první bod", "no governing noun"),
+    "guard-list-lone-item-in-a-sentence": (
+        "cs", "Měl jediný důvod: 1) neměl čas.", "Měl jediný důvod: jeden) neměl čas.", "no governing noun"),
+    "guard-list-bracket-after-an-abbreviation": (
+        "cs", "Viz obr. 1) dole.", "Viz obr. Jeden) dole.", "no governing noun"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1737,6 +1750,35 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "guard-list-ordinal-and-noun": (
         "cs", "2. světová válka začala v roce 1939.",
         "Druhá světová válka začala v roce tisíc devět set třicet devět."),
+    "list-bracket-items": (
+        "cs", "1) Petr přišel.\n2) Jan odešel.\n3) Karel zůstal.",
+        "Za prvé, Petr přišel.\nZa druhé, Jan odešel.\nZa třetí, Karel zůstal."),
+    "list-bracketed-items": ("cs", "(1) Petr přišel.\n(2) Jan odešel.", "Za prvé, Petr přišel.\nZa druhé, Jan odešel."),
+    "list-bracket-items-paragraphs": (
+        "cs", "Důvody:\n\n1) Petr přišel;\n\n2) odešel pryč;\n\n3) Karel zůstal.",
+        "Důvody:\n\nZa prvé, Petr přišel;\n\nZa druhé, odešel pryč;\n\nZa třetí, Karel zůstal."),
+    "list-items-in-a-sentence": (
+        "cs", "Měl tři důvody: 1) neměl čas, 2) neměl peníze, 3) nechtěl.",
+        "Měl tři důvody: za prvé neměl čas, za druhé neměl peníze, za třetí nechtěl."),
+    "list-bracketed-items-in-a-sentence": (
+        "cs", "Měl dva důvody: (1) neměl čas; (2) neměl peníze.",
+        "Měl dva důvody: za prvé neměl čas; za druhé neměl peníze."),
+    "sk-list-items-in-a-sentence": (
+        "sk", "Mal tri dôvody: 1) nemal čas, 2) nemal peniaze, 3) nechcel.",
+        "Mal tri dôvody: po prvé nemal čas, po druhé nemal peniaze, po tretie nechcel."),
+    "sk-list-bracket-items": (
+        "sk", "(1) Peter prišiel.\n(2) Ján odišiel.", "Po prvé, Peter prišiel.\nPo druhé, Ján odišiel."),
+    "guard-list-page-in-brackets": (
+        "cs", "Podívej se (viz str. 5) a (viz str. 6) a čti dál.",
+        "Podívej se (viz strana pět) a (viz strana šest) a čti dál."),
+    "guard-list-bracketed-times": (
+        "cs", "Začátek v (12:30) a konec ve (14:00) byl pozdě.",
+        "Začátek v (dvanáct třicet) a konec ve (čtrnáct hodin) byl pozdě."),
+    "guard-list-bracketed-dates": (
+        "cs", "Dne (1. 5.) a (2. 5.) bylo ticho.", "Dne (prvního května) a (druhého května) bylo ticho."),
+    "guard-list-lettered-labels": ("cs", "a) první bod\nb) druhý bod", "a) první bod\nb) druhý bod"),
+    "guard-list-lettered-labels-in-a-sentence": (
+        "cs", "Měl důvody: a) čas, b) peníze.", "Měl důvody: a) čas, b) peníze."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

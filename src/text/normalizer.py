@@ -508,7 +508,8 @@ _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 _HEADING_NUMERAL = r"(?=[IVXL])(?:XL|L?X{0,3})(?:IX|IV|V?I{0,3})"
 _HEADING_ROMAN = re.compile(rf"(?:(?P<label>[^\W\d_]+){_HS}+)?(?P<numeral>{_HEADING_NUMERAL})(?P<dot>\.)?")
 _HEADING_TITLE = re.compile(rf"(?:(?P<arabic>\d{{1,3}})|(?P<roman>{_HEADING_NUMERAL}))\.{_HS}+(?=[^\W\d_])")
-_LIST_ITEM = re.compile(rf"{_HS}*(?P<number>\d{{1,2}})\.{_HS}+(?=[^\W\d_])")
+_LIST_ITEM = re.compile(rf"(?<![\w.,(])(?<!\.{_HS})(?P<open>\()?(?P<number>\d{{1,2}})(?(open)\)|(?P<mark>[.)]))"
+                        rf"{_HS}+(?=[^\W\d_])")
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
@@ -980,20 +981,33 @@ class TextNormalizer:
         return f"{lead} {self._paragraph(rest, heading=True)}"
 
     def _list_items(self, lines: List[str]) -> List[str]:
-        """Lines that start with "1.", "2.", … in turn are the items of a list: "Za prvé, …", "Za druhé, …"."""
+        """Labels "1.", "2." at line starts, and "1)", "(1)" anywhere, that follow each other are a list: "Za prvé, …"
+        at a line start, "za prvé …" inside a sentence, where a run starts at 1 and goes on after a comma, colon or
+        semicolon (no comma after the label: "důvody: za prvé neměl čas, za druhé …")."""
         items = []
         for i, line in enumerate(lines):
-            m = None if line.startswith("# ") else _LIST_ITEM.match(line)
-            word = re.match(r"[^\W\d_]+", line[m.end():]).group().lower() if m else ""
-            if m and not (ROMAN_LABEL_STEMS[self.language].match(word) or word in MONTHS_GENITIVE[self.language]):
-                items.append((i, int(m["number"]), m.start("number"), m.end()))
-        for k, (i, number, start, end) in enumerate(items):
-            if (k > 0 and items[k - 1][1] == number - 1) or (k + 1 < len(items) and items[k + 1][1] == number + 1):
+            for m in ([] if line.startswith("# ") else _LIST_ITEM.finditer(line)):
+                before = line[:m.start()].rstrip()
+                first = not before
+                word = re.match(r"[^\W\d_]+", line[m.end():]).group().lower()
+                if (first or m["mark"] != ".") and not (ROMAN_LABEL_STEMS[self.language].match(word)
+                                                        or word in MONTHS_GENITIVE[self.language]):
+                    items.append((i, int(m["number"]), m.start(), m.end(), first, before[-1:] in (":", ";", ",")))
+        confirmed = []
+        for k, (i, number, start, end, first, after_mark) in enumerate(items):
+            follows = k + 1 < len(items) and items[k + 1][1] == number + 1
+            confirmed.append(bool(confirmed and confirmed[-1] and items[k - 1][1] == number - 1
+                                  and (first or after_mark))
+                             or (follows and (first or (number == 1 and items[k + 1][5]))))
+        for k, (i, number, start, end, first, after_mark) in reversed(list(enumerate(items))):
+            if confirmed[k]:
                 ordinal = "prvé" if number == 1 else self._ordinal(number, NOM, "neuter", "inanimate")
-                lead = f"{LIST_ITEM_WORDS[self.language]} {ordinal},".capitalize()
+                lead = f"{LIST_ITEM_WORDS[self.language]} {ordinal}"
+                if first:
+                    lead = f"{lead.capitalize()},"
                 if self._tag(lines[i][end:])[0].upos in ("NOUN", "ADJ"):
                     self._warn(lines[i], (0, end), lead,
-                               "numbered line before a noun that an ordinal fits, read as a list item; check it")
+                               "numbered item before a noun that an ordinal fits, read as a list item; check it")
                 lines[i] = f"{lines[i][:start]}{lead} {lines[i][end:]}"
         return lines
 
