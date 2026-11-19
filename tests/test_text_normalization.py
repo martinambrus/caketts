@@ -1159,6 +1159,15 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
         "cs", "Co myslíte, dr. Nováku?", "Co myslíte, doktore Nováku?", "not clear"),
     "title-vocative-of-a-surname-in-a-after-a-comma": (
         "cs", "Pojďte dál, Ing. Svobodo.", "Pojďte dál, inženýre Svobodo.", "not clear"),
+    "guard-list-lone-item": ("cs", "Seznam:\n1. Petr přišel.", "Seznam:\njeden. Petr přišel.", "no governing noun"),
+    "guard-list-gap": (
+        "cs", "1. Petr přišel.\n3. Vrah utekl.", "Jeden. Petr přišel.\nTřetí Vrah utekl.", "no governing noun"),
+    "list-item-before-a-noun": (
+        "cs", "1. Petr přišel.\n2. Vrah utekl.", "Za prvé, Petr přišel.\nZa druhé, Vrah utekl.", "list item"),
+    "list-items-ending-in-a-noun": (
+        "cs", "1. Petr Berkovec — zavražděn;\n2. byl zavražděn kolem půlnoci;\n3. Vrah utekl oknem.",
+        "Za prvé, Petr Berkovec — zavražděn;\nZa druhé, byl zavražděn kolem půlnoci;\nZa třetí, Vrah utekl oknem.",
+        "list item"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1702,6 +1711,32 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "sk-title-pan-and-pani": ("sk", "Prišla p. Nováková.", "Prišla pani Nováková."),
     "sk-title-lowercase-mid-sentence": (
         "sk", "Prof. Horváth a Ing. Kráľ diskutujú.", "Profesor Horváth a inžinier Kráľ diskutujú."),
+    "list-items": ("cs", "1. Petr přišel.\n2. Jan odešel.", "Za prvé, Petr přišel.\nZa druhé, Jan odešel."),
+    "list-items-paragraphs": (
+        "cs", "Fakta:\n\n1. Petr přišel;\n\n2. odešel pryč;\n\n3. Karel zůstal.",
+        "Fakta:\n\nZa prvé, Petr přišel;\n\nZa druhé, odešel pryč;\n\nZa třetí, Karel zůstal."),
+    "list-items-verb-and-conjunction": (
+        "cs", "1. Přišel Petr.\n2. Ale odešel.", "Za prvé, Přišel Petr.\nZa druhé, Ale odešel."),
+    "list-items-from-two": (
+        "cs", "2. Petr přišel.\n3. Jan odešel.\n4. Karel zůstal.",
+        "Za druhé, Petr přišel.\nZa třetí, Jan odešel.\nZa čtvrté, Karel zůstal."),
+    "list-items-ten": ("cs", "9. Petr přišel.\n10. Jan odešel.", "Za deváté, Petr přišel.\nZa desáté, Jan odešel."),
+    "list-items-twenty": (
+        "cs", "19. Petr přišel.\n20. Jan odešel.\n21. Karel zůstal.",
+        "Za devatenácté, Petr přišel.\nZa dvacáté, Jan odešel.\nZa dvacáté první, Karel zůstal."),
+    "sk-list-items": (
+        "sk", "1. Peter prišiel.\n2. Ján odišiel.\n3. Mária zostala.",
+        "Po prvé, Peter prišiel.\nPo druhé, Ján odišiel.\nPo tretie, Mária zostala."),
+    "guard-list-dates": ("cs", "1. května přijel.\n2. května odjel.", "Prvního května přijel.\nDruhého května odjel."),
+    "guard-list-sk-dates": ("sk", "1. mája prišiel.\n2. mája odišiel.", "Prvého mája prišiel.\nDruhého mája odišiel."),
+    "guard-list-label-nouns": (
+        "cs", "1. kapitola\n2. kapitola\n3. kapitola", "První kapitola\ndruhá kapitola\ntřetí kapitola"),
+    "guard-list-numbered-dates": (
+        "cs", "1. 5. 1945\n2. 5. 1945",
+        "Prvního května tisíc devět set čtyřicet pět\ndruhého května tisíc devět set čtyřicet pět"),
+    "guard-list-ordinal-and-noun": (
+        "cs", "2. světová válka začala v roce 1939.",
+        "Druhá světová válka začala v roce tisíc devět set třicet devět."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
@@ -1842,12 +1877,32 @@ HEADING_ROWS = {  # id: (language, input, expected output); no WARNING allowed; 
     "heading-guard-letter-c": ("cs", "# C", "# C"),
     "heading-guard-letter-l": ("cs", "# L", "# L"),
     "heading-guard-number-and-noun": ("cs", "# 5 let", "# Pět let"),
+    "heading-numbered-title": ("cs", "# 1. Příchod", "# Jedna. Příchod"),
+    "heading-numbered-title-three": ("cs", "# 3. Vrah", "# Tři. Vrah"),
+    "heading-numbered-title-preposition": ("cs", "# 1. V lese", "# Jedna. V lese"),
+    "heading-numbered-title-twelve": ("cs", "# 12. Jak to začalo", "# Dvanáct. Jak to začalo"),
+    "heading-numbered-title-capitals": ("cs", "# 1. PŘÍCHOD", "# Jedna. PŘÍCHOD"),
+    "heading-roman-title": ("cs", "# I. Příchod", "# Jedna. Příchod"),
+    "heading-roman-title-fourteen": ("cs", "# XIV. Návrat", "# Čtrnáct. Návrat"),
+    "heading-numbered-titles": (
+        "cs", "# 1. Příchod\n\nText.\n\n# 2. Odjezd", "# Jedna. Příchod\n\nText.\n\n# Dva. Odjezd"),
+    "heading-sk-numbered-title": ("sk", "# 1. Príchod", "# Jeden. Príchod"),
+    "heading-sk-roman-title": ("sk", "# II. Odchod", "# Dva. Odchod"),
+    "heading-guard-label-noun-after-number": ("cs", "# 2. Kapitola", "# Druhá Kapitola"),
+    "heading-guard-month-after-number": ("cs", "# 5. května 1945", "# Pátého května tisíc devět set čtyřicet pět"),
+    "heading-guard-lowercase-noun-after-number": ("cs", "# 19. století", "# Devatenácté století"),
+    "heading-guard-sk-label-noun-after-number": ("sk", "# II. diel", "# Druhý diel"),
 }
 HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "heading-single-numeral": ("cs", "# V", "# Pět", "one Roman numeral"),
     "heading-single-numeral-one": ("cs", "# I", "# Jedna", "one Roman numeral"),
     "heading-single-numeral-period": ("cs", "# V.", "# Pět.", "one Roman numeral"),
     "heading-sk-single-numeral": ("sk", "# I", "# Jeden", "one Roman numeral"),
+    "heading-number-before-adjective": ("cs", "# 2. Světová válka", "# Druhá Světová válka", "capitalised adjective"),
+    "heading-roman-before-adjective": ("cs", "# 1. Nový začátek", "# První Nový začátek", "capitalised adjective"),
+    "heading-sk-number-before-adjective": (
+        "sk", "# 2. Svetová vojna", "# Druhá Svetová vojna", "capitalised adjective"),
+    "heading-single-numeral-before-name": ("cs", "# V. Havel", "# Pět. Havel", "may be an initial"),
 }
 
 

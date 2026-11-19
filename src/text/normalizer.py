@@ -408,6 +408,7 @@ NUMBERED_BOOKS = {
 # nouns that a Roman numeral may number from behind ("díl V."), also before a genitive: "díl V. knihy"
 ROMAN_LABEL_NOUNS = {"cs": frozenset({"díl", "svazek", "kapitola", "část", "oddíl", "ročník", "kniha", "sešit"}),
                      "sk": frozenset({"diel", "zväzok", "kapitola", "časť", "oddiel", "ročník", "kniha", "zošit"})}
+LIST_ITEM_WORDS = {"cs": "za", "sk": "po"}  # "1. Petr přišel" in a list: "Za prvé, Petr přišel", sk "Po prvé, …"
 # label nouns that a Roman numeral may follow in a chapter heading without a period: "Kapitola V"
 HEADING_LABELS = {"cs": ROMAN_LABEL_NOUNS["cs"] | {"hlava", "zpěv", "příloha", "dějství"},
                   "sk": ROMAN_LABEL_NOUNS["sk"] | {"hlava", "spev", "príloha", "dejstvo"}}
@@ -506,6 +507,8 @@ _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 # Roman numerals of a chapter heading: I, V, X, L only, as C, D and M are letters too
 _HEADING_NUMERAL = r"(?=[IVXL])(?:XL|L?X{0,3})(?:IX|IV|V?I{0,3})"
 _HEADING_ROMAN = re.compile(rf"(?:(?P<label>[^\W\d_]+){_HS}+)?(?P<numeral>{_HEADING_NUMERAL})(?P<dot>\.)?")
+_HEADING_TITLE = re.compile(rf"(?:(?P<arabic>\d{{1,3}})|(?P<roman>{_HEADING_NUMERAL}))\.{_HS}+(?=[^\W\d_])")
+_LIST_ITEM = re.compile(rf"{_HS}*(?P<number>\d{{1,2}})\.{_HS}+(?=[^\W\d_])")
 _INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
@@ -933,12 +936,13 @@ class TextNormalizer:
     # ---- public API ----------------------------------------------------------------------
     def normalize(self, text: str) -> str:
         lines = _clean_typography(text).split("\n")
+        lines = self._list_items(lines)
         headings = [_HEADING_ROMAN.fullmatch(line[2:]) for line in lines if line.startswith("# ")]
         numbers = {_roman_value(m["numeral"]) for m in headings if m and m["label"] is None}
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
-                lines[i] = "# " + self._paragraph(self._heading_digits(lines[i][2:], numbers), heading=True)
+                lines[i] = "# " + self._heading(self._heading_digits(lines[i][2:], numbers))
                 i += 1
             elif not lines[i].strip():
                 i += 1
@@ -949,6 +953,49 @@ class TextNormalizer:
                 lines[i:j] = self._paragraph("\n".join(lines[i:j])).split("\n")
                 i = j
         return "\n".join(lines)
+
+    def _heading(self, text: str) -> str:
+        """A number and a period before a capitalised noun in a heading number the chapter: "1. Příchod" is
+        "Jedna. Příchod", not "První Příchod"; a label noun, a month or an adjective keeps its ordinal."""
+        m = _HEADING_TITLE.match(text)
+        if m is None or not text[m.end():m.end() + 1].isupper():
+            return self._paragraph(text, heading=True)
+        rest, value = text[m.end():], int(m["arabic"]) if m["arabic"] else _roman_value(m["roman"])
+        word = re.match(r"[^\W\d_]+", rest).group().lower()
+        if (ROMAN_LABEL_STEMS[self.language].match(word) or word in HEADING_LABELS[self.language]
+                or word in MONTHS_GENITIVE[self.language]):
+            return self._paragraph(text, heading=True)
+        tag = self._tag(rest)[0].upos
+        if tag == "ADJ":
+            words = self._paragraph(text, heading=True)
+            self._warn(text, (0, m.end() - 1), words.split(" ")[0],
+                       "number before a capitalised adjective in a heading, read as its ordinal; a chapter number fits "
+                       "too; check it")
+            return words
+        lead = self._cardinal(value, *self._label(value))
+        lead = f"{lead[:1].upper()}{lead[1:]}."
+        if tag == "PROPN" and m["roman"] and len(m["roman"]) == 1:
+            self._warn(text, (0, m.end() - 1), lead,
+                       "one Roman numeral before a name, read as the chapter number; it may be an initial; check it")
+        return f"{lead} {self._paragraph(rest, heading=True)}"
+
+    def _list_items(self, lines: List[str]) -> List[str]:
+        """Lines that start with "1.", "2.", … in turn are the items of a list: "Za prvé, …", "Za druhé, …"."""
+        items = []
+        for i, line in enumerate(lines):
+            m = None if line.startswith("# ") else _LIST_ITEM.match(line)
+            word = re.match(r"[^\W\d_]+", line[m.end():]).group().lower() if m else ""
+            if m and not (ROMAN_LABEL_STEMS[self.language].match(word) or word in MONTHS_GENITIVE[self.language]):
+                items.append((i, int(m["number"]), m.start("number"), m.end()))
+        for k, (i, number, start, end) in enumerate(items):
+            if (k > 0 and items[k - 1][1] == number - 1) or (k + 1 < len(items) and items[k + 1][1] == number + 1):
+                ordinal = "prvé" if number == 1 else self._ordinal(number, NOM, "neuter", "inanimate")
+                lead = f"{LIST_ITEM_WORDS[self.language]} {ordinal},".capitalize()
+                if self._tag(lines[i][end:])[0].upos in ("NOUN", "ADJ"):
+                    self._warn(lines[i], (0, end), lead,
+                               "numbered line before a noun that an ordinal fits, read as a list item; check it")
+                lines[i] = f"{lines[i][:start]}{lead} {lines[i][end:]}"
+        return lines
 
     def _heading_digits(self, text: str, numbers: set) -> str:
         """A Roman numeral that is a whole heading, or follows a label noun in one, as its digits: "V" like "5"."""
