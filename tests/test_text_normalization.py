@@ -1184,6 +1184,8 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "title-oblique-form-in-a-read-as-nominative": (
         "cs", "Zeptal se dr. Jekylla.", "Zeptal se doktor Jekylla.", "not clear"),
     "title-oblique-form-in-u-read-as-nominative": ("cs", "Zavolal Mgr. Hálu.", "Zavolal magistr Hálu.", "not clear"),
+    "guard-list-two-labels-joined-by-a-conjunction": (
+        "cs", "Z důvodů 1) a 2) odešel.", "Z důvodů jedna) a dva) odešel.", "no governing noun"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1789,6 +1791,18 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
     "title-guard-short-surname-in-ovou-is-no-feminine": ("cs", "Mluvil s doc. Sovou.", "Mluvil s docentem Sovou."),
     "title-guard-vocative-after-pane-in-capitals": (
         "cs", "PANE DR. NOVÁKU, POJĎTE DÁL.", "PANE doktore NOVÁKU, POJĎTE DÁL."),
+    "list-items-in-a-sentence-and-before-the-last": (
+        "cs", "Měl tři důvody: 1) neměl čas, 2) neměl peníze a 3) nechtěl.",
+        "Měl tři důvody: za prvé neměl čas, za druhé neměl peníze a za třetí nechtěl."),
+    "list-items-in-a-sentence-or-before-the-last": (
+        "cs", "Měl důvody: 1) neměl čas, 2) neměl peníze nebo 3) nechtěl.",
+        "Měl důvody: za prvé neměl čas, za druhé neměl peníze nebo za třetí nechtěl."),
+    "list-items-from-a-line-start-and-before-the-last": (
+        "cs", "1) Petr přišel, 2) Jan odešel a 3) Marie zůstala.",
+        "Za prvé, Petr přišel, za druhé Jan odešel a za třetí Marie zůstala."),
+    "sk-list-items-in-a-sentence-and-before-the-last": (
+        "sk", "Mal tri dôvody: 1) nemal čas, 2) nemal peniaze a 3) nechcel.",
+        "Mal tri dôvody: po prvé nemal čas, po druhé nemal peniaze a po tretie nechcel."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

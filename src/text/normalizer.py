@@ -510,7 +510,8 @@ _HEADING_ROMAN = re.compile(rf"(?:(?P<label>[^\W\d_]+){_HS}+)?(?P<numeral>{_HEAD
 _HEADING_TITLE = re.compile(rf"(?:(?P<arabic>\d{{1,3}})|(?P<roman>{_HEADING_NUMERAL}))\.{_HS}+(?=[^\W\d_])")
 _LIST_ITEM = re.compile(rf"(?<![\w.,(])(?<!\.{_HS})(?P<open>\()?(?P<number>\d{{1,2}})(?(open)\)|(?P<mark>[.)]))"
                         rf"{_HS}+(?=[^\W\d_])")
-_INT = r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
+_LIST_AND = re.compile(r"\b(?:a|i|nebo|anebo|či|alebo)$")  # before the last label of a run: "2) peníze a 3) chuť"
+_INT =r"[1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+(?!\d)|[1-9]\d{0,2}(?:\.\d{3})+(?!\d|\.\d)|\d+"  # 10 000, 10.000
 # a minus sign starts after a space, bracket, quote or operator: „-5 °C“, "=-5"; not after a letter,
 # digit or period: "COVID-19", "5-3", "1.-5."
 _SIGN_START = r"(?:(?<=\dx)|(?<![^\s(\[{\"'„“”‚‘’«»‹›=:×*~≈/+]))"  # also "3x-4", "3*-4", "~-5", but not "Max-5"
@@ -982,8 +983,8 @@ class TextNormalizer:
 
     def _list_items(self, lines: List[str]) -> List[str]:
         """Labels "1.", "2." at line starts, and "1)", "(1)" anywhere, that follow each other are a list: "Za prvé, …"
-        at a line start, "za prvé …" inside a sentence, where a run starts at 1 and goes on after a comma, colon or
-        semicolon (no comma after the label: "důvody: za prvé neměl čas, za druhé …")."""
+        at a line start, "za prvé …" inside a sentence, where a run starts at 1 and goes on after a comma, colon,
+        semicolon or conjunction (no comma after the label: "důvody: za prvé neměl čas, za druhé …")."""
         items = []
         for i, line in enumerate(lines):
             for m in ([] if line.startswith("# ") else _LIST_ITEM.finditer(line)):
@@ -992,14 +993,15 @@ class TextNormalizer:
                 word = re.match(r"[^\W\d_]+", line[m.end():]).group().lower()
                 if (first or m["mark"] != ".") and not (ROMAN_LABEL_STEMS[self.language].match(word)
                                                         or word in MONTHS_GENITIVE[self.language]):
-                    items.append((i, int(m["number"]), m.start(), m.end(), first, before[-1:] in (":", ";", ",")))
+                    items.append((i, int(m["number"]), m.start(), m.end(), first, before[-1:] in (":", ";", ","),
+                                  bool(_LIST_AND.search(before))))
         confirmed = []
-        for k, (i, number, start, end, first, after_mark) in enumerate(items):
+        for k, (i, number, start, end, first, after_mark, after_and) in enumerate(items):
             follows = k + 1 < len(items) and items[k + 1][1] == number + 1
             confirmed.append(bool(confirmed and confirmed[-1] and items[k - 1][1] == number - 1
-                                  and (first or after_mark))
+                                  and (first or after_mark or after_and))
                              or (follows and (first or (number == 1 and items[k + 1][5]))))
-        for k, (i, number, start, end, first, after_mark) in reversed(list(enumerate(items))):
+        for k, (i, number, start, end, first, after_mark, after_and) in reversed(list(enumerate(items))):
             if confirmed[k]:
                 ordinal = "prvé" if number == 1 else self._ordinal(number, NOM, "neuter", "inanimate")
                 lead = f"{LIST_ITEM_WORDS[self.language]} {ordinal}"
