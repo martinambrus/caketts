@@ -1534,6 +1534,22 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Mezi 5. a 6. stol. vládli Řekové.", "Mezi pátým a šestým stoletím vládli Řekové."),
     "guard-century-abbreviation-after-a-genitive-ordinal": (
         "cs", "Ke konci 5. stol. se to změnilo.", "Ke konci pátého století se to změnilo."),
+    "cs-misgendered-masculine-plural": ("cs", "Má 2 šálky.", "Má dva šálky."),
+    "cs-misgendered-masculine-plural-of-soft-stem": ("cs", "Má 2 nože.", "Má dva nože."),
+    "cs-misgendered-masculine-plural-of-things": ("cs", "Koupil 2 tagy a 2 párky.", "Koupil dva tagy a dva párky."),
+    "cs-misgendered-masculine-singular": ("cs", "Mám 1 esej.", "Mám jeden esej."),
+    "cs-misgendered-masculine-genitive-singular-after-one": (
+        "cs", "Cena 1 nože je 5 korun.", "Cena jednoho nože je pět korun."),
+    "cs-misgendered-feminine-plural": ("cs", "Má 2 bouřky.", "Má dvě bouřky."),
+    "cs-misgendered-feminine-plural-of-clothes": ("cs", "Má 2 mikiny.", "Má dvě mikiny."),
+    "cs-misgendered-feminine-plural-of-animals": ("cs", "Koupila 2 perly a 2 krysy.", "Koupila dvě perly a dvě krysy."),
+    "cs-misgendered-feminine-singular": ("cs", "Mám 1 slzu.", "Mám jednu slzu."),
+    "guard-cs-masculine-plural-tagged-right": ("cs", "Má 2 stromy.", "Má dva stromy."),
+    "guard-cs-feminine-plural-tagged-right": ("cs", "Má 2 ženy.", "Má dvě ženy."),
+    "guard-cs-genitive-plural-of-a-listed-word": ("cs", "Má 5 šálků.", "Má pět šálků."),
+    "guard-cs-genitive-plural-after-a-preposition": ("cs", "Bez 2 nožů.", "Bez dvou nožů."),
+    "guard-cs-nominative-singular-of-a-listed-word": ("cs", "Mám 1 šálek.", "Mám jeden šálek."),
+    "guard-cs-masculine-homograph-of-a-feminine-plural-is-left-alone": ("cs", "Má 2 sady.", "Má dvě sady."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")

@@ -197,10 +197,24 @@ SK_FEMININE_PLURALS = ("buchty bábiky celebrity cievy cyklotrasy dámy etikety 
                        "priority procedúry prosby reťaze samice skratky tony výhody známky zľavy úspory "
                        "šablóny šance žinky").split()
 
+# Czech nouns that the tagger often gives the other gender, mostly plurals in -y and -e: masculine "dva nože",
+# feminine "dvě bouřky"; the gender alone is set, so the genitive singular "Cena 1 nože" keeps its number and case
+CS_MASCULINE_NOUNS = ("tagy nože transfery večírky ledovce eseje pupínky hostince lisy nepokoje parapety vitaminy "
+                      "muffiny střípky spreje screenshoty plusy pamlsky schůdky diáře stroužky trailery párky "
+                      "piškoty šálky žlaby balónky prstýnky výstřiky mlýnky dílce prstence alarmy padělky opiáty "
+                      "balzámy střepy videozáznamy gadgety lupínky hospice seniory pejsky alergiky diabetiky "
+                      "esej schůdek lupínek").split()
+CS_FEMININE_NOUNS = ("bouřky mikiny eurozóny priority slzy čtyřkolky perly túry cyklotrasy webkamery nástrahy "
+                     "membrány kolony fontány trampolíny víly vitríny paseky krytky mrtvoly kulisy videokamery "
+                     "penalty neshody elektrocentrály krysy hádky příšery výluky limuzíny balady kotlety úchytky "
+                     "tuniky bagety zátky vrby trafiky blechy přestřelky slzu blechu").split()
+
 # forms the tagger misreads, with the features they have: UD Slovak-SNK takes "diel" (a part or
 # volume, masculine) for feminine, even alone, and "neskôr", "skôr" (later, sooner) for positive adverbs;
 # an "upos" key sets the part of speech instead
-FEATURE_FIXES = {"cs": {"krát": {"Gender": "Masc", "Animacy": "Inan"},
+FEATURE_FIXES = {"cs": {**dict.fromkeys(CS_MASCULINE_NOUNS, {"Gender": "Masc"}),
+                        **dict.fromkeys(CS_FEMININE_NOUNS, {"Gender": "Fem"}),
+                        "krát": {"Gender": "Masc", "Animacy": "Inan"},
                         "pravnuka": {"Gender": "Masc", "Animacy": "Anim", "Number": "Sing", "Case": "Acc"},
                         "pravnuky": {"Gender": "Masc", "Animacy": "Anim"},
                         "pravnuci": {"Gender": "Masc", "Animacy": "Anim", "Number": "Plur"},
