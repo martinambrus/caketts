@@ -1976,6 +1976,12 @@ HEADING_ROWS = {  # id: (language, input, expected output); no WARNING allowed; 
     "heading-guard-month-after-number": ("cs", "# 5. května 1945", "# Pátého května tisíc devět set čtyřicet pět"),
     "heading-guard-lowercase-noun-after-number": ("cs", "# 19. století", "# Devatenácté století"),
     "heading-guard-sk-label-noun-after-number": ("sk", "# II. diel", "# Druhý diel"),
+    "heading-digit-label-before-a-title": ("cs", "# Kapitola 1. Příchod", "# Kapitola první. Příchod"),
+    "heading-digit-label-part-before-a-title": ("cs", "# Díl 2. Návrat", "# Díl druhý. Návrat"),
+    "heading-sk-digit-label-before-a-title": ("sk", "# Kapitola 1. Príchod", "# Kapitola prvá. Príchod"),
+    "heading-guard-digit-label-without-a-period": ("cs", "# Kapitola 5", "# Kapitola pět"),
+    "heading-guard-digit-label-in-a-sentence": ("cs", "Kapitola 1 začíná.", "Kapitola jedna začíná."),
+    "heading-guard-digit-label-before-a-lowercase-word": ("cs", "# Kapitola 1. příchod", "# Kapitola první příchod"),
 }
 HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "heading-single-numeral": ("cs", "# V", "# Pět", "one Roman numeral"),

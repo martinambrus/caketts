@@ -1846,8 +1846,10 @@ class TextNormalizer:
                 return self._ordinal(value, NOM, *self._gender(verb)) + "."  # "Skončil 2. Pak…"
             case, gender, animacy = self._context(value, m.start(), m.end() - 1, text, tags, after_label, m)
             return self._cardinal(value, case, gender, animacy) + "."
-        head = tags.head_after(m.end()) or self._shared_head(m.end(), tags)
-        case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags)
+        label = (heading and prev is not None and prev.text.lower() in HEADING_LABELS[self.language]
+                 and following[:1].isupper())  # "# Kapitola 1. Příchod": the label's number, then the title
+        head = prev if label else (tags.head_after(m.end()) or self._shared_head(m.end(), tags))
+        case, gender, animacy, plural, doubt = self._agreement(head, m.start(), tags, following=not label)
         if month:  # "5. KVĚTNA": a date, whatever the tagger made of the month
             case, gender, animacy, plural, doubt = GEN, "masculine", "inanimate", False, None
         words = self._ordinal(value, case or NOM, gender or "masculine", animacy or "inanimate", plural)
@@ -1857,7 +1859,7 @@ class TextNormalizer:
             self._warn(text, m, words, f"{doubt}; check it")
         elif until and self._verb_follows(m.end(), tags):
             self._warn(text, m, words, "ordinal after až before a time; a count ending the sentence fits too; check it")
-        return words
+        return f"{words}." if label else words
 
     def _number(self, m: re.Match, text: str, tags: _Tags, after_label: bool) -> str:
         value, _, fraction = _parse(m["value"])
