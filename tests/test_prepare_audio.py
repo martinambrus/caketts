@@ -10,11 +10,12 @@ import torch
 import torchaudio.functional as AF
 
 from src.data.audio import AudioProcessor, MelConfig
-from src.data.prepare.audio import (AudioConfig, LoudnessMeter, count_clipped_runs, iter_resampled,
+from src.data.prepare.audio import (AudioConfig, LoudnessMeter, PeakLimiter, count_clipped_runs, iter_resampled,
                                     process_part, run_audio)
 
 CONTRACT_KEYS = {"sr_in", "channels_in", "duration_s", "loudness_in", "loudness_out", "gain_db", "peak_out"}
-EXTRA_KEYS = {"peak_in", "peak_limited", "clipped_runs_in", "samples_in", "samples_clip", "samples_align"}
+EXTRA_KEYS = {"peak_in", "peak_limited", "limited_samples", "max_limit_db", "clipped_runs_in", "samples_in",
+              "samples_clip", "samples_align"}
 
 
 def speechlike(seconds=1.0, sr=24000, seed=0):
@@ -143,17 +144,22 @@ class TestProcessPart:
         with pytest.raises(ValueError):
             process_part(tmp_path / "a.wav", tmp_path / "out", "p", AudioConfig())
 
-    def test_peak_ceiling(self, tmp_path):
-        n = 4 * 44100
-        rng = np.random.default_rng(0)
-        x = 0.01 * rng.standard_normal(n)
-        x[n // 2 - 441:n // 2 + 441] += 0.9 * np.hanning(882)
+    def test_peaks_are_limited_locally_and_the_part_still_reaches_the_target(self, tmp_path):
+        x = at_rms_db(speechlike(4.0, 44100, seed=1), -30)
+        clicks = [22050, 66150, 110250]
+        x[clicks] = 0.95
         write_stereo(tmp_path / "a.wav", x, x)
         info = process_part(tmp_path / "a.wav", tmp_path / "out", "p", AudioConfig())
-        assert info["peak_limited"] and info["peak_out"] <= 0.99
-        ap = AudioProcessor()
-        _, ref_gain = ap.normalize_loudness(ap.load_audio(str(tmp_path / "a.wav")))
-        assert info["gain_db"] == pytest.approx(ref_gain, abs=0.01)
+        out, _ = sf.read(str(tmp_path / "out/p.24k.wav"), dtype="float64")
+        assert info["peak_limited"] and info["limited_samples"] > 0 and 0 < info["max_limit_db"] < 3
+        assert info["gain_db"] == pytest.approx(-23 - info["loudness_in"])
+        assert pyln.Meter(24000).integrated_loudness(out) == pytest.approx(-23, abs=0.1)
+        assert np.abs(out).max() <= 0.99 + 1 / 32768
+        ref = AudioProcessor().load_audio(str(tmp_path / "a.wav"))[0].numpy() * 10 ** (info["gain_db"] / 20)
+        far = np.ones(len(out), bool)
+        for c in clicks:
+            far[max(0, c * 24000 // 44100 - 600):c * 24000 // 44100 + 600] = False
+        assert np.abs(out - ref)[far].max() < 2 / 32768
 
     def test_clipped_runs_in_json(self, tmp_path):
         x = 0.01 * np.random.default_rng(1).standard_normal(4 * 44100)
@@ -172,6 +178,55 @@ class TestProcessPart:
             a, _ = sf.read(str(tmp_path / "a" / f"p.{ext}"), dtype="int16")
             c, _ = sf.read(str(tmp_path / "c" / f"p.{ext}"), dtype="int16")
             assert len(a) == len(c) and np.abs(a.astype(int) - c).max() <= 1
+
+
+class TestPeakLimiter:
+    PEAKS = (7, 5000, 5003, 30000, 47990)
+
+    @staticmethod
+    def run(x, sizes, ceiling=0.9, rate=24000):
+        lim, out, i, k = PeakLimiter(ceiling, rate), [], 0, 0
+        while i < len(x):
+            n = sizes[k % len(sizes)]
+            out.append(lim.process(x[i:i + n]))
+            i, k = i + n, k + 1
+        out.append(lim.flush())
+        return np.concatenate(out), lim
+
+    def spiky(self):
+        x = (0.3 * speechlike(2.0, seed=1)).astype(np.float32)
+        x[list(self.PEAKS)] = 1.2
+        return x
+
+    def test_untouched_below_the_ceiling(self):
+        x = (0.3 * speechlike(1.0)).astype(np.float32)
+        out, lim = self.run(x, [777])
+        assert np.array_equal(out, x) and lim.limited == 0 and lim.max_db == 0
+
+    def test_peaks_end_at_the_ceiling_and_the_rest_is_untouched(self):
+        x = self.spiky()
+        out, lim = self.run(x, [4096])
+        assert len(out) == len(x) and np.abs(out).max() <= 0.9 + 1e-6
+        far = np.ones(len(x), bool)
+        for p in self.PEAKS:
+            far[max(0, p - 2 * lim.h - 1):p + 2 * lim.h + 2] = False
+        assert np.array_equal(out[far], x[far])
+        assert lim.limited > 0 and lim.max_db == pytest.approx(20 * np.log10(1.2 / 0.9), abs=0.01)
+
+    def test_chunk_size_independent(self):
+        x = self.spiky()
+        ref, _ = self.run(x, [len(x)])
+        for sizes in ([1, 4999, 77], [999], [100000]):
+            assert np.allclose(self.run(x, sizes)[0], ref, atol=1e-6, rtol=0)
+
+    def test_gain_dip_is_smooth(self):
+        x = np.full(48000, 0.5, dtype=np.float32)
+        x[24000] = 1.2
+        out, lim = self.run(x, [5000])
+        ratio = out / x
+        assert ratio[24000] <= 0.9 / 1.2 + 1e-6 and ratio.min() > 0.74
+        assert np.abs(np.diff(ratio)).max() < (1 - 0.9 / 1.2) / lim.h
+        assert ratio[:24000 - 2 * lim.h - 1].min() == 1 and ratio[24000 + 2 * lim.h + 2:].min() == 1
 
 
 class TestClippedRuns:

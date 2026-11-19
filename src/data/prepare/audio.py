@@ -11,6 +11,7 @@ import pyloudnorm as pyln
 import soundfile as sf
 import torch
 import torchaudio.functional as AF
+from scipy.ndimage import minimum_filter1d, uniform_filter1d
 from scipy.signal import lfilter
 
 
@@ -108,6 +109,44 @@ def count_clipped_runs(path, block_s, level):
     return total
 
 
+class PeakLimiter:
+    """Streaming look-ahead limiter: a smooth gain dip around each sample over the ceiling, unity elsewhere.
+    A few isolated peaks far above the loudness would otherwise cap the gain of the whole part below -23 LUFS."""
+
+    def __init__(self, ceiling, rate, look_s=0.005):
+        self.ceiling = ceiling
+        self.h = max(1, round(look_s * rate))
+        self.limited = 0
+        self.max_db = 0.0
+        self._buf = np.zeros(0, dtype=np.float32)
+        self._pos = 0
+        self._out = 0
+
+    def process(self, x):
+        self._buf = np.concatenate([self._buf, np.asarray(x, dtype=np.float32)])
+        return self._emit(self._pos + len(self._buf) - 2 * self.h)
+
+    def flush(self):
+        return self._emit(self._pos + len(self._buf))
+
+    def _emit(self, end):
+        if end <= self._out:
+            return np.zeros(0, dtype=np.float32)
+        size, pad = 2 * self.h + 1, 2 * self.h
+        need = np.minimum(1.0, self.ceiling / np.maximum(np.abs(self._buf).astype(np.float64), 1e-12))
+        gain = uniform_filter1d(minimum_filter1d(np.pad(need, pad, constant_values=1.0), size), size)[pad:-pad]
+        a, b = self._out - self._pos, end - self._pos
+        out = (self._buf[a:b] * gain[a:b]).astype(np.float32)
+        low = gain[a:b].min()
+        if low < 1 - 1e-9:
+            self.limited += int((gain[a:b] < 1 - 1e-9).sum())
+            self.max_db = max(self.max_db, float(-20 * np.log10(low)))
+        self._out = end
+        drop = max(0, end - 2 * self.h - self._pos)
+        self._buf, self._pos = self._buf[drop:], self._pos + drop
+        return out
+
+
 def _measure_file(path, block_s):
     meter, peak = LoudnessMeter(24000), 0.0
     with sf.SoundFile(str(path)) as f:
@@ -132,21 +171,23 @@ def process_part(src, out_dir, stem, cfg):
     loudness_in = meter.integrated()
     if peak == 0:
         raise ValueError(f"{src} is silent")
-    gain_db, limited = cfg.target_lufs - loudness_in, False
-    if peak * 10 ** (gain_db / 20) > cfg.peak_ceiling:
-        gain_db, limited = 20 * math.log10(cfg.peak_ceiling / peak), True
+    gain_db = cfg.target_lufs - loudness_in
     gain = np.float32(10 ** (gain_db / 20))
     paths = {cfg.clip_sr: out_dir / f"{stem}.24k.wav", cfg.align_sr: out_dir / f"{stem}.16k.wav"}
     kw = dict(channels=1, subtype="PCM_16", format="WAV")
+    lim_clip, lim_align = PeakLimiter(cfg.peak_ceiling, cfg.clip_sr), PeakLimiter(cfg.peak_ceiling, cfg.align_sr)
     with sf.SoundFile(str(paths[cfg.clip_sr]), "w", samplerate=cfg.clip_sr, **kw) as w_clip, \
             sf.SoundFile(str(paths[cfg.align_sr]), "w", samplerate=cfg.align_sr, **kw) as w_align:
         for b_clip, b_align in iter_resampled(src, (cfg.clip_sr, cfg.align_sr), cfg.block_s):
-            w_clip.write(b_clip * gain)
-            w_align.write(b_align * gain)
+            w_clip.write(lim_clip.process(b_clip * gain))
+            w_align.write(lim_align.process(b_align * gain))
+        w_clip.write(lim_clip.flush())
+        w_align.write(lim_align.flush())
     loudness_out, peak_out = _measure_file(paths[cfg.clip_sr], cfg.block_s)
     info = {"sr_in": meta.samplerate, "channels_in": meta.channels, "duration_s": meta.frames / meta.samplerate,
             "loudness_in": loudness_in, "loudness_out": loudness_out, "gain_db": gain_db, "peak_out": peak_out,
-            "peak_in": peak, "peak_limited": limited,
+            "peak_in": peak, "peak_limited": lim_clip.limited > 0, "limited_samples": lim_clip.limited,
+            "max_limit_db": lim_clip.max_db,
             "clipped_runs_in": count_clipped_runs(src, cfg.block_s, cfg.clip_level),
             "samples_in": meta.frames, "samples_clip": n_clip, "samples_align": n_align}
     (out_dir / f"{stem}.json").write_text(json.dumps(info, sort_keys=True, indent=2))
