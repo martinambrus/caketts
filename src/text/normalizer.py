@@ -507,6 +507,7 @@ _HS = r"[ \t\u00a0\u202f]"  # horizontal space: no item may swallow a line break
 # Roman numerals of a chapter heading: I, V, X, L only, as C, D and M are letters too
 _HEADING_NUMERAL = r"(?=[IVXL])(?:XL|L?X{0,3})(?:IX|IV|V?I{0,3})"
 _HEADING_ROMAN = re.compile(rf"(?:(?P<label>[^\W\d_]+){_HS}+)?(?P<numeral>{_HEADING_NUMERAL})(?P<dot>\.)?")
+_HEADING_LABEL_TITLE = re.compile(rf"(?P<label>[^\W\d_]+){_HS}+(?P<numeral>{_HEADING_NUMERAL})\.(?={_HS}+[^\W\d_])")
 _HEADING_TITLE = re.compile(rf"(?:(?P<arabic>\d{{1,3}})|(?P<roman>{_HEADING_NUMERAL}))\.{_HS}+(?=[^\W\d_])")
 _LIST_ITEM = re.compile(rf"(?<![\w.,(])(?<!\.{_HS})(?P<open>\()?(?P<number>\d{{1,2}})(?(open)\)|(?P<mark>[.)]))"
                         rf"{_HS}+(?=[^\W\d_])")
@@ -1025,7 +1026,11 @@ class TextNormalizer:
     def _heading_digits(self, text: str, numbers: set) -> str:
         """A Roman numeral that is a whole heading, or follows a label noun in one, as its digits: "V" like "5"."""
         m = _HEADING_ROMAN.fullmatch(text)
-        if m is None:
+        if m is None:  # "Kapitola I. V lese" -> "Kapitola 1. V lese"
+            t = _HEADING_LABEL_TITLE.match(text)
+            if (t and t["label"].lower() in HEADING_LABELS[self.language] and t["numeral"] != "L"
+                    and text[t.end():].lstrip(" \t\u00a0\u202f")[:1].isupper()):
+                return f"{text[:t.start('numeral')]}{_roman_value(t['numeral'])}{text[t.end('numeral'):]}"
             return text
         numeral, value = m["numeral"], _roman_value(m["numeral"])
         if m["label"] is None:

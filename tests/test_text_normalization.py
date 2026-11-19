@@ -1982,6 +1982,14 @@ HEADING_ROWS = {  # id: (language, input, expected output); no WARNING allowed; 
     "heading-guard-digit-label-without-a-period": ("cs", "# Kapitola 5", "# Kapitola pět"),
     "heading-guard-digit-label-in-a-sentence": ("cs", "Kapitola 1 začíná.", "Kapitola jedna začíná."),
     "heading-guard-digit-label-before-a-lowercase-word": ("cs", "# Kapitola 1. příchod", "# Kapitola první příchod"),
+    "heading-roman-label-hlava-before-a-title": ("cs", "# Hlava II. Návrat", "# Hlava druhá. Návrat"),
+    "heading-roman-label-before-a-preposition-title": ("cs", "# Kapitola I. V lese", "# Kapitola první. V lese"),
+    "heading-sk-roman-label-before-a-preposition-title": ("sk", "# Kapitola I. V horách", "# Kapitola prvá. V horách"),
+    "heading-guard-roman-label-before-a-title": ("cs", "# Kapitola I. Příchod", "# Kapitola první. Příchod"),
+    "heading-guard-roman-label-kniha-before-a-title": ("cs", "# Kniha II. Na cestě", "# Kniha druhá. Na cestě"),
+    "heading-guard-roman-label-part-before-a-title": ("cs", "# Díl II. Návrat", "# Díl druhý. Návrat"),
+    "heading-guard-roman-letter-c-after-a-label": ("cs", "# Příloha C. Návrat", "# Příloha stý Návrat"),
+    "heading-guard-roman-label-in-a-sentence": ("cs", "Kapitola I. začíná.", "Kapitola první začíná."),
 }
 HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "heading-single-numeral": ("cs", "# V", "# Pět", "one Roman numeral"),
