@@ -6,9 +6,7 @@ when revived. New findings are added to one of the two lists as they are verifie
 
 ## Kept
 
-Next batch, queued by the user on 2026-11-18: weekday abbreviations. `Otvorené Po–Pia 8–17 h.` reads "Po— Pia od ôsmej
-do sedemnástej" (sk Po, Ut, St, Št, Pi/Pia, So, Ne; cs Po, Út, St, Čt, Pá, So, Ne; "Po" is also the preposition "po"; the
-em dash spacing).
+Nothing is queued: batch 6 (under Fixed) took the weekday abbreviations and what real prose showed.
 
 Pinned, its own task when taken up: Stanza 1.15.0 (Dependabot #12) changes 563 of 9,818 corpus readings with its new
 CAC and SNK models and fails 19 tests, so `pyproject.toml` holds `stanza<1.15`. Upgrading means going through those
@@ -111,6 +109,24 @@ Batch 5 Roman numerals and capitals chain, de7a8e5..7237fd5.
 Closed without a change: `Uplynulo 1 nebo 2 hodiny.` (ungrammatical; `Uplynuly 2 hodiny` reads right), `Prišli 5 ľudia`
 (ungrammatical; read as written), Slovak hundreds in oblique cases stay undeclined (`o päťsto ľuďoch`, user 2026-11-18).
 
+Batch 6, 548e09e..fad157d. The weekday abbreviations were queued by the user; the titles and `šálky` come from pull
+request #8 by nightguarder, ported with co-author credit; the headings and labels were found by running six stories of
+Karel Čapek and a Slovak novel through the normalizer and the segmenter.
+
+| id | input | now |
+|---|---|---|
+| — | `Otevřeno Po–Pá 8–17 h.` / sk `Otvorené Po–Pia 8–17 h.` | `pondělí až pátek osm až sedmnáct hodin` / `pondelok až piatok od ôsmej do sedemnástej` |
+| — | `Zavřeno od Po do Pá.` / `So 8–12 h, Ne zavřeno.` | `od pondělí do pátku` / `Sobota ..., neděle zavřeno`, logged; `Ne, to není pravda.`, `Po 8 h odešel.`, `Pá pá!` unchanged |
+| PR #8 | `Mluvil s doc. Horákem a dr. Novákem.` / `Mgr. Svobodová odešla.` / `Přišel MUDr. Jan Novák.` | `s docentem Horákem a doktorem Novákem` / `Magistra Svobodová` / `doktor Jan Novák` (short spoken forms, user 2026-11-19) |
+| — | `Mluvili o prof. Novákovi.` / `Pane dr. Nováku, pojďte dál.` / `Děkuji, Ing. Nováku.` | `o profesoru Novákovi` (Slovak `-ovi`) / `Pane doktore Nováku` / `inženýre Nováku`, logged |
+| — | `Šel za dr. Svobodou.` / `Přišel Ing. Skála.` / `Pozval Ing. Nováka, Ing. Klímu.` | `za doktorem Svobodou` (the 16 commonest surnames in -a) / `inženýr Skála` (a lone surname in -a is a man's) / `inženýra Klímu` (a list, no address) |
+| PR #8, N63 | cs `Mám 2 šálky.` / `Má 2 nože.` / `Má 2 mikiny.` | `dva šálky` / `dva nože` / `dvě mikiny` (stopgap lists, 90 forms) |
+| — | `# V` / `# XII` / `# Kapitola V` / sk `# Kapitola I` | `# Pět` (logged when alone) / `# Dvanáct` / `# Kapitola pět` / `# Kapitola jeden` |
+| — | `# Kapitola 1. Příchod` / `# Kapitola I. V lese` / `# Hlava II. Návrat` | `# Kapitola první. Příchod` / `# Kapitola první. V lese` / `# Hlava druhá. Návrat` |
+| — | `# 1. Příchod` beside `# 2. Odchod` / a lone `# 3. Říše` | `# Jedna. Příchod`, `# Dva. Odchod` / `# Třetí Říše`, logged |
+| — | `1. Petr Berkovec — zavražděn;` `2. byl zavražděn kolem půlnoci;` | `Za prvé, Petr Berkovec ...` `Za druhé, byl zavražděn ...` (Slovak `Po prvé, ...`) |
+| — | `Měl tři důvody: 1) neměl čas, 2) neměl peníze, 3) nechtěl.` | `za prvé neměl čas, za druhé neměl peníze, za třetí nechtěl` |
+
 ## Parked
 
 - Genitive-verb subject or object, rare or log-only: N7 (`Dosáhl 2 vítězství` dvě; with N77, its regression), N12
@@ -147,3 +163,14 @@ Closed without a change: `Uplynulo 1 nebo 2 hodiny.` (ungrammatical; `Uplynuly 2
   h.`, `Prídem o 9,10,11 h.`, `Medzi 13. h a 15. h.`, `Skóre 2:30–3:15.` (logged), other prastrýc forms, sk `Prišli 21
   učitelia.`, `Ráno prišli na stretnutie 5 muži z mesta.`, cs `Při 0 V napětí.`, `Skončili blízko 0.`, sk `Pri 0:00
   hodinách.`, cs `Dosáhl 2. cíle.`.
+- Batch 6 (2026-11-19), logged, the text's other mentions or its meaning decide: `Zeptal se dr. Jekylla.` "doktor
+  Jekylla" (the tagger reads an unknown foreign name as a nominative), `Mluvil s Ing. Skálou.` "inženýrkou" (the form in
+  -ou is shared with `Novotnou`; only the 16 listed surnames read masculine there), `Nebylo tam Ing. Novákové.`,
+  `Získal titul Ing.`, `# V. I. Lenin`, `10. patro` / `11. patro` at line starts, `Po 8–17 h, kdy skončil, šel domů.`.
+- Batch 6, rare, or wrong before and after: `Viděl dr. Evu.` "doktora Evu", `Přišla Ing. Krejčí.` and `Přišla Ing.
+  Smith.` "inženýr", `Vážená paní Ing. Nováková!` (no feminine vocative), `Dr. h. c.`, titles after a name (`Ph.D.`,
+  `CSc.`), address abbreviations (`ul. Národní`), weekdays in capitals (`PO–PÁ`), with a period or before a date (`Pá 5.
+  března`), `Kromě So–Ne`, `na Po u Turína`, cs `Zrušili 2 lety.` "dvěma lety", `Cena 1 bouřky` "jedna", the dash between
+  two words (`Praha— Brno`, the same G2P tokens), `# Příloha C. Návrat` "stý", `# XL`, lettered labels (`a)`), a run of
+  labels right after a sentence end (`Měl dva důvody. 1) ..., 2) ...`), `XIV a XV. století`, a Roman year (`MCCCCLXV`).
+  `# Ukradený spis 139/VII` raises: a symbol with no reading raises by design.
