@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
 
-**1322 tests:** 102 for the TTS components, 104 for num2words, 1112 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**1920 tests:** 102 for the TTS components, 104 for num2words, 1710 for the text normalizer and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -303,7 +303,9 @@ which "3,16", "3:16", "5,3–12" and "3,16.18" are chapter and verses ("Jan tři
 tři až dvanáct", "Jan tři, šestnáct a osmnáct"), not decimals; it is off by default, as "Jan" is
 also a name. A numbered book is listed
 by its name ("Jan" for "1 Jan"; a name with a digit raises) and read with an ordinal ("1 Jan 3,16" ->
-"první Jan tři, šestnáct"). Every option is a list of strings, checked on construction. Invisible characters (soft
+"první Jan tři, šestnáct"; a Roman numeral from I to the book's top number with its period before a numbered
+book reads as its ordinal: "Viz I. Jan 3,16." -> "první Jan"). Every option is a list of strings, checked on
+construction. Invisible characters (soft
 hyphen, word joiner, BOM) are dropped, a zero-width space becomes a space, and hyphen variants
 are normalised on input.
 
@@ -344,17 +346,54 @@ Handle:
     verb of a level ("záležet", "zůstat") and "po" before an amount that is no time take the locative
     ("Záleží na pěti procentech", "Po pěti kilometrech zastavil"). Slovak genitive verbs follow the
     Czech rules ("Týka sa to piatich ľudí"); a Slovak "-li" shows no gender, so a counted noun after a
-    plural verb is LOGGED as its possible subject. Text in capitals is tagged lowercased, as the tagger
+    plural verb is LOGGED as its possible subject. "Po" and a unit is the locative ("Po 30 min" -> "Po třiceti minutách"), the
+    accusative in an "od ... po" range, after "až" and after a word of reaching, depth or height right before "po" or as the
+    verb ("Voda sahala po 50 cm" -> "po padesát centimetrů"). "Na" and an amount is the locative after dohodnout se,
+    shodnout se, trvat, žít, bydlet, ležet and zůstat (Slovak zostať, ostať, zotrvať); a time unit stays the accusative.
+    "O" and an amount is the accusative of a difference after a word of change or before a comparative ("Zpoždění o 2 h" ->
+    "o dvě hodiny"), and the locative of a topic after a Czech verb or noun of speaking and writing ("Mluvili o 5 %" -> "o
+    pěti procentech"). A time after a verb with a subject of its own is its span ("Mluvil 1 h" -> "jednu hodinu"); after a
+    verb of time passing it keeps the logged nominative ("Uplynul 1 h." -> "jedna hodina"). A bare "s" after a number is
+    seconds unless an instrumental follows ("Po 10 s začalo pršet." -> "Po deseti sekundách"; "s 5 lidmi" stays), logged
+    when a noun, name or adjective follows; "sek" is a unit. A form of být or byť is the copula even when the tagger calls
+    it a verb. A number before a Slovak nominative plural of persons agrees ("Prišli 5 muži." -> "piati muži", "dvadsiati
+    dvaja študenti"); with the num2words agreement construction, the subject of a Slovak neuter verb reads "päť mužov"
+    ("Prišlo 5 mužov."), not "piatich". Zero followed by a
+    counted noun or a unit reads "nula" after any preposition and before Slovak persons ("s 0 bodmi" -> "s nula bodmi", "bez
+    0 bodů" -> "bez nula bodů", "Videl 0 mužov." -> "nula mužov"); a bare zero is declined as a noun ("klesla na nulu").
+    Czech "2 krát" is "dva krát". An ordinal agrees with its own instrumental noun after a genitive verb ("Dotkl se 2.
+    prstem" -> "druhým prstem"). FEATURE_FIXES entries may also set the part of speech; its stopgap entries cover kinship
+    forms (pravnuk, prapravnuk, pradědeček, prastrýc) and 87 Slovak plurals the tagger gives the other gender ("Má 2 hrady."
+    -> "dva hrady"); the general fix needs a lexicon. Text in capitals is tagged lowercased, as the tagger
     reads capitals as caseless names; there a period before a verb ends the sentence only when its
     clause already has a verb ("KAREL IV. ZALOŽIL" goes on, "BYL TAM ATD. ODEŠEL" ends), and a
     conjunction after a name goes on ("KAREL IV. A VÁCLAV IV."), as does an ordinal after a
     conjunction ("BYLO JICH 1. A 2. DÍL VYŠEL"). A Roman numeral's period goes on into the epithet
-    of an oblique name ("Patřilo to Václavu druhému Přemyslovci").
+    of an oblique name ("Patřilo to Václavu druhému Přemyslovci"), and the epithet goes on after the numeral when no verb
+    follows ("Václavu II. Přemyslovci" -> "druhému Přemyslovci"); a nominative name with a verb in its clause, or an
+    inanimate noun, starts a new sentence ("Karla IV. Karel IV. byl", "Karlu IV. Dům."). In capitals a Roman numeral after a
+    label noun (kniha, díl, kapitola, část, svazek, oddíl, ročník, sešit) numbers the label noun after it ("V KNIZE II. DÍL"
+    -> "druhý DÍL"); an abbreviation period before its counted noun (tis., mil., mld. and a genitive noun) or, after a verb,
+    before a conjunction or a preposition is no sentence end ("PŘIŠLO 5 TIS. LIDÍ."), never after ATD. or APOD.; an ordinal
+    before a genitive month is a date ("DNE 5. KVĚTNA" -> "pátého"); a single Roman numeral after a name before an auxiliary
+    is the ruler's number, LOGGED ("KAREL V. BYL KORUNOVÁN." -> "pátý"); "HOD." works in capitals. Czech "stol." after an
+    ordinal is "století" ("v 5. stol." -> "v pátém století", instrumental "stoletím"), also with the era ("V 5. STOL. PŘ. N.
+    L.").
  2. Dates ("1. ledna 2024" -> "Prvního ledna dva tisíce dvacet čtyři"), times read digitally
     ("ve čtrnáct třicet", Slovak "o štrnástej tridsať", "o jednej"; a Slovak "N h" after od, do, po,
     pred, okolo, k or medzi is the hour of the day for 13 to 23 and for the "od" of a span that ends
     at one: "od 8 do 17 h" -> "od ôsmej do sedemnástej", LOGGED; so is a dash span after "od" or with
-    no preposition: "8–17 h" -> "od ôsmej do sedemnástej"), currency ("sto korun", "čtyři eura
+    no preposition: "8–17 h" -> "od ôsmej do sedemnástej"; Slovak "o N h" is the hour of the day, LOGGED, also in lists and
+    dash spans: "Prídem o 5 h." -> "o piatej". It stays a span where a word says so: a comparative ("o 2 h neskôr", "dlhšie o 2
+    h"), a word of change or request as the verb, before "o" or as a copular subject ("Posunuli to o 1 h", "Prosil o 2 h",
+    "Meškanie vlaku je o 2 h"), a genitive noun after the unit ("o 2 h času", "Po 20 h jazdy"), minutes or "a pol" after the
+    hours. A Slovak span between two times, or a time and an hour, reads "od ... do": "Otvorené 8:30–17:00." -> "od ôsmej
+    tridsať do sedemnástej", LOGGED; a morning span before an afternoon span reads hours of the day ("od 9 do 12 h a od 13 do
+    17 h"); "denne", "týždenne", "mesačne", "ročne", the Slovak time genitives (dňa, roka, týždňa, mesiaca, dopoludnia,
+    popoludnia, leta) and the Czech weekday genitives keep the hour ("o 17 h dňa 5. júna" -> "o sedemnástej"). A dotted time
+    in a list or before an approximator is a time ("v 8.30, asi 9.30 a 10.30 hod." -> "v osm třicet, asi devět třicet a
+    deset třicet"), as is a time after a dash ("8–17:30"). An ordinal before "h" or "hod." is the Nth hour ("kolem 13. h" ->
+    "kolem třinácté hodiny"); Czech "ve 24 h provozu" is hours of operation), currency ("sto korun", "čtyři eura
     padesát centů"), units that agree with their number ("5 km" -> "pět kilometrů", "80 m²" ->
     "osmdesát metrů čtverečních", also after a written scale: "5 milionů €" -> "pět milionů eur"), ranges ("5–10", "5 až 10" -> "pět až deset"), Roman numerals ("Karel
     IV." -> "Karel čtvrtý."), and ordinals that share a noun ("od XIX. do XX. století").
@@ -488,7 +527,7 @@ The num2words suites ship with the reference implementation:
 - `tests/test_num2words_sk.py` and `tests/test_num2words_cs.py`: 104 tests. Each expectation is quoted from a named source or was decided in native review.
 - `scripts/validate_all_sk.py` and `scripts/validate_all_cs.py`: print every form, for native review.
 
-Normalizer tests (tested, 1112 tests; the first run downloads the Stanza models, 250 MB):
+Normalizer tests (tested, 1710 tests; the first run downloads the Stanza models, 250 MB):
 
 ```python
 # tests/test_text_normalization.py
@@ -906,7 +945,7 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
                               "století bylo bohaté."),
     "az-before-time-or-word": ("cs", None, "Otevřeno 8 až 9.30 hod. a 8 až 9:30. Opakuj to 2 až 3krát, byl to 2 až 3letý "
                                            "chlapec a zlepšení nastane 5 až 6. den.",
-                               "Otevřeno osm až devět třicet a osm až devět třicet. Opakuj to dvě až třikrát, byl to dva až "
+                               "Otevřeno osm až devět třicet a osm až devět třicet. Opakuj to dva až třikrát, byl to dva až "
                                "tříletý chlapec a zlepšení nastane pět až šestý den."),
     "comma-list": ("cs", None, "Zvol 1,2,3 nebo 4,5,6.", "Zvol jedna, dva, tři nebo čtyři, pět, šest."),
     "comma-list-before-noun": ("cs", None, "Šel s 1,2,3 přáteli.", "Šel s jedním, dvěma, třemi přáteli."),
@@ -1162,11 +1201,13 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "zero-before-a-written-noun": (
         "cs", None, "S 0 body skončil. Při 0 stupních Celsia. Za 0 bodů. S 0 bodů.",
         "S nula body skončil. Při nula stupních Celsia. Za nula bodů. S nulou bodů."),
-    "guard-zero-genitive-before-a-written-noun": ("cs", None, "Bez 0 bodů. Mám 0 bodů.", "Bez nuly bodů. Mám nula bodů."),
+    "zero-genitive-preposition-before-a-written-noun": (
+        "cs", None, "Bez 0 bodů. Mám 0 bodů.", "Bez nula bodů. Mám nula bodů."),
     "zero-before-a-unit": (
         "cs", None, "Při 0 °C voda mrzne. Koupil to za 0 Kč. Přijdu v 0 h. Po 0:00 odešel.",
         "Při nula stupních Celsia voda mrzne. Koupil to za nula korun. Přijdu v nula hodin. Po nula hodinách odešel."),
-    "guard-zero-genitive-before-a-unit": ("cs", None, "Do 0 °C. Bez 0 Kč.", "Do nuly stupňů Celsia. Bez nuly korun."),
+    "zero-genitive-preposition-before-a-unit": (
+        "cs", None, "Do 0 °C. Bez 0 Kč.", "Do nula stupňů Celsia. Bez nula korun."),
     "unit-after-a-written-scale-word": (
         "cs", None, "Mám 5 milionů Kč, 2 tisíce € a 5 tisíc m².",
         "Mám pět milionů korun, dva tisíce eur a pět tisíc metrů čtverečních."),
@@ -1306,6 +1347,85 @@ EXAMPLES = {  # id: (language, book_config, input, expected output)
     "sk-afternoon-span-from-a-morning-hour": (
         "sk", None, "Príde medzi 9 a 17 h.", "Príde medzi deviatou a sedemnástou."),
     "sk-afternoon-span-in-capitals": ("sk", None, "PRÍDE OD 8 DO 17 H.", "PRÍDE OD ôsmej DO sedemnástej."),
+    "dot-times-after-an-approximator": (
+        "cs", None, "Přišel v 8.30, asi 9.30 a 10.30 hod.", "Přišel v osm třicet, asi devět třicet a deset třicet."),
+    "sk-dot-times-after-an-approximator": (
+        "sk", None, "Prídem o 8.30, asi 9.30 a 10.30 hod.",
+        "Prídem o ôsmej tridsať, asi deviatej tridsať a desiatej tridsať."),
+    "dot-time-before-a-bare-hour-with-hour-word": (
+        "cs", None, "Otevřeno 8.30–17 h.", "Otevřeno osm třicet až sedmnáct hodin."),
+    "dot-time-as-the-upper-end-of-a-dash-range": (
+        "cs", None, "Otevřeno 8–17.30 hod.", "Otevřeno osm až sedmnáct třicet."),
+    "colon-time-as-the-upper-end-of-a-dash-range": (
+        "cs", None, "Otevřeno 8–17:30.", "Otevřeno osm až sedmnáct třicet."),
+    "sk-colon-time-as-the-upper-end-of-a-dash-range": (
+        "sk", None, "Otvorené 8–17:30.", "Otvorené osem až sedemnásť tridsať."),
+    "sk-hours-in-a-list-after-o-each-logged": ("sk", None, "Prídem o 5 h a 6 h.", "Prídem o piatej a šiestej."),
+    "sk-morning-span-before-an-afternoon-span": (
+        "sk", None, "Otvorené od 9 do 12 h a od 13 do 17 h.",
+        "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej."),
+    "sk-morning-dash-span-before-an-afternoon-span": (
+        "sk", None, "Otvorené 8–12 h a 13–17 h.", "Otvorené od ôsmej do dvanástej a od trinástej do sedemnástej."),
+    "sk-hours-of-a-feminine-genitive-tagged-locative": (
+        "sk", None, "Po 20 h jazdy sme zastavili.", "Po dvadsiatich hodinách jazdy sme zastavili."),
+    "sk-genitive-verb-after-a-time-genitive": (
+        "sk", None, "Toho dňa sa bojí 5 psov.", "Toho dňa sa bojí piatich psov."),
+    "cs-ordinal-hour-after-kolem": ("cs", None, "Přijdu kolem 13. h.", "Přijdu kolem třinácté hodiny."),
+    "cs-ordinal-hour-abbreviation-before-a-word": (
+        "cs", None, "Přijdu ve 13. hod. a odejdu.", "Přijdu ve třinácté hodině a odejdu."),
+    "cs-ordinal-school-hour": ("cs", None, "V 5. h máme tělocvik.", "V páté hodině máme tělocvik."),
+    "sk-ordinal-hour-after-okolo": ("sk", None, "Prídem okolo 13. h.", "Prídem okolo trinástej hodiny."),
+    "sk-ordinal-hours-after-od-and-do": (
+        "sk", None, "Od 8. h do 17. h je otvorené.", "Od ôsmej hodiny do sedemnástej hodiny je otvorené."),
+    "cs-time-span-stays-until": ("cs", None, "Otevřeno 8:30–17:00.", "Otevřeno osm třicet až sedmnáct hodin."),
+    "sk-time-span-after-o-stays-until": ("sk", None, "Prídem o 8:30–9:00.", "Prídem o ôsmej tridsať až deviatej."),
+    "sk-two-hour-spans-before-denne": (
+        "sk", None, "Otvorené od 9 do 12 h a od 13 do 17 h denne.",
+        "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej denne."),
+    "sk-agreement-subject-of-a-neuter-verb-counts-persons-in-the-genitive": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Prišlo 5 mužov.", "Prišlo päť mužov."),
+    "sk-agreement-subject-of-a-genitive-verb": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Zúčastnilo sa 5 mužov.", "Zúčastnilo sa päť mužov."),
+    "guard-sk-agreement-object-agrees": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Videl 5 mužov.", "Videl piatich mužov."),
+    "guard-sk-agreement-object-after-a-neuter-subject": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Dieťa videlo 5 mužov.", "Dieťa videlo piatich mužov."),
+    "guard-sk-agreement-object-after-a-pronoun-subject": (
+        "sk", {"num2words": {"construction": "agreement"}}, "To zrazilo 5 mužov.", "To zrazilo piatich mužov."),
+    "guard-sk-agreement-object-before-a-subject-after-the-verb": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Včera videlo dieťa 5 mužov.",
+        "Včera videlo dieťa piatich mužov."),
+    "guard-sk-agreement-object-in-a-relative-clause": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Auto, ktoré zrazilo 5 mužov, ušlo.",
+        "Auto, ktoré zrazilo piatich mužov, ušlo."),
+    "sk-agreement-object-of-a-neuter-pronoun-subject": (
+        "sk", {"num2words": {"construction": "agreement"}}, "Ono videlo 5 mužov.", "Ono videlo piatich mužov."),
+    "cs-zero-before-counted-nouns-after-pred": (
+        "cs", None, "Mluvili jsme před 0 body.", "Mluvili jsme před nula body."),
+    "cs-zero-before-counted-nouns-after-mezi": ("cs", None, "Stál mezi 0 body.", "Stál mezi nula body."),
+    "cs-zero-before-counted-nouns-after-nad": ("cs", None, "Stál nad 0 body.", "Stál nad nula body."),
+    "guard-sk-zero-after-pred": ("sk", None, "Stál pred 0 bodmi.", "Stál pred nula bodmi."),
+    "guard-sk-zero-after-medzi": ("sk", None, "Stál medzi 0 bodmi.", "Stál medzi nula bodmi."),
+    "guard-cs-zero-opening-a-range-after-mezi": (
+        "cs", None, "Stál mezi 0 a 5 body.", "Stál mezi nulou a pěti body."),
+    "guard-cs-zero-after-a-verb-stays-declined": ("cs", None, "Dosáhl 0 bodů.", "Dosáhl nuly bodů."),
+    "guard-cs-clock-zero-after-od": (
+        "cs", None, "Pracuje od 0:00 do 6:00.", "Pracuje od nuly hodin do šesti hodin."),
+    "cs-great-grandchildren-nominative-plural": ("cs", None, "Přišli 2 pravnuci.", "Přišli dva pravnuci."),
+    "cs-great-great-grandchildren-nominative-plural": (
+        "cs", None, "Přišli 2 prapravnuci.", "Přišli dva prapravnuci."),
+    "guard-cs-great-grandchildren-accusative-plural": ("cs", None, "Viděl 2 pravnuky.", "Viděl dva pravnuky."),
+    "sk-snimky-is-left-to-the-tagger": ("sk", None, "Má 2 snímky.", "Má dve snímky."),
+    "roman-numbered-verse-books": (
+        "cs", {"verse_references": ["Jan", "Kor", "Sam"]}, "Viz I. Jan 3,16, II. Kor 5,17 a II. Sam 7,12.",
+        "Viz první Jan tři, šestnáct, druhý Kor pět, sedmnáct a druhá Sam sedm, dvanáct."),
+    "roman-numeral-above-the-top-number-of-a-book-stays": (
+        "cs", {"verse_references": ["Jan", "Kor", "Sam"]}, "Viz II. Kor 5,17 a III. Jan 1,1 a IV. Jan 3,16.",
+        "Viz druhý Kor pět, sedmnáct a třetí Jan jedna, jedna a IV. Jan tři, šestnáct."),
+    "sk-roman-numbered-verse-book": (
+        "sk", {"verse_references": ["Ján"]}, "Pozri III. Ján 1,2.", "Pozri tretí Ján jeden, dva."),
+    "guard-conjunction-before-a-verse-reference": (
+        "cs", {"verse_references": ["Jan"]}, "I Jan 3,16 to potvrzuje.", "I Jan tři, šestnáct to potvrzuje."),
 }
 LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "fallback": ("cs", "Zbyl jen 1.", "Zbyl jen jeden.", "nominative masculine inanimate"),
@@ -1457,6 +1577,92 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "genitive-verb-present-tense-taking-part-imperfective": ("cs", "Zúčastňuje se 50 lidí.",
                                                              "Zúčastňuje se padesát lidí.", "read as the subject"),
     "sk-afternoon-hour-after-do": ("sk", "Otvorené do 17 h.", "Otvorené do sedemnástej.", "read as the hour"),
+    "sk-dot-time-before-do-an-afternoon-hour": (
+        "sk", "Otvorené od 8.30 do 17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-hour-after-a-dotted-time-before-do": (
+        "sk", "Otvorené od 8.30 do 12 h.", "Otvorené od ôsmej tridsať do dvanástej.", "read as the hour"),
+    "sk-hour-after-a-colon-time-before-do": (
+        "sk", "Spal od 22:00 do 6 h.", "Spal od dvadsiatej druhej do šiestej.", "read as the hour"),
+    "sk-hour-after-o-before-a-genitive-time-noun": (
+        "sk", "Prídem o 5 h rána.", "Prídem o piatej rána.", "read as the hour"),
+    "sk-afternoon-hour-after-po-before-a-genitive-time-noun": (
+        "sk", "Prídem po 18 h večera.", "Prídem po osemnástej večera.", "read as the hour"),
+    "sk-hour-after-o": ("sk", "Prídem o 5 h.", "Prídem o piatej.", "read as the hour"),
+    "sk-hour-abbreviation-after-o": (
+        "sk", "Stretnutie bude o 10 hod. v kancelárii.", "Stretnutie bude o desiatej v kancelárii.",
+        "read as the hour"),
+    "sk-hours-in-a-list-after-o": ("sk", "Prídem o 5 alebo 6 h.", "Prídem o piatej alebo šiestej.", "read as the hour"),
+    "sk-hours-in-a-dash-span-after-o": ("sk", "Prídem o 5–6 h.", "Prídem o piatej až šiestej.", "read as the hour"),
+    "sk-dot-time-and-an-hour-after-o": (
+        "sk", "Prídem o 8.30 a 9 h.", "Prídem o ôsmej tridsať a deviatej.", "read as the hour"),
+    "sk-clock-hour-before-an-adverb-tagged-locative": (
+        "sk", "Pracoval po 14 h denne.", "Pracoval po štrnástej denne.", "read as the hour"),
+    "sk-clock-hour-before-nonstop-tagged-locative": (
+        "sk", "Pracoval po 14 h nonstop.", "Pracoval po štrnástej nonstop.", "read as the hour"),
+    "sk-hour-before-dna-and-a-date": (
+        "sk", "Prídem o 17 h dňa 5. júna.", "Prídem o sedemnástej dňa piateho júna.", "read as the hour"),
+    "sk-hour-before-dopoludnia": (
+        "sk", "Prídem o 10 h dopoludnia.", "Prídem o desiatej dopoludnia.", "read as the hour"),
+    "sk-ordinal-hour-with-no-preposition": (
+        "sk", "Začiatok: 13. h.", "Začiatok: trinásta hodina.", "no preposition; nominative"),
+    "sk-time-span-without-od": (
+        "sk", "Otvorené 8:30–17:00.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-dotted-time-and-hour-span-without-od": (
+        "sk", "Otvorené 8.30–17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-colon-time-and-hour-span-without-od": (
+        "sk", "Otvorené 8:30–17 h.", "Otvorené od ôsmej tridsať do sedemnástej.", "read as the hour"),
+    "sk-two-times-span-ending-before-six": (
+        "sk", "Spal 22:00–6:00.", "Spal od dvadsiatej druhej do šiestej.", "read as the hour"),
+    "sk-afternoon-span-without-od-after-a-morning-span": (
+        "sk", "Otvorené od 9 do 12 a 13 do 17 h.", "Otvorené od deviatej do dvanástej a trinástej do sedemnástej.",
+        "read as the hour"),
+    "sk-spans-with-the-unit-once-at-the-end": (
+        "sk", "Otvorené od 9 do 12 a od 13 do 17 h.",
+        "Otvorené od deviatej do dvanástej a od trinástej do sedemnástej.", "read as the hour"),
+    "guard-neuter-verb-of-time-passing-with-1-h-is-logged": (
+        "cs", "Uplynulo 1 h.", "Uplynulo jedna hodina.", "no preposition; nominative"),
+    "guard-neuter-verb-of-time-passing-and-a-list-is-logged": (
+        "cs", "Uplynulo 1 nebo 2 h.", "Uplynulo jedna nebo dvě hodiny.", "no preposition; nominative"),
+    "guard-neuter-verb-of-remaining-with-1-h-is-logged": (
+        "cs", "Zbylo 1 h.", "Zbylo jedna hodina.", "no preposition; nominative"),
+    "guard-masculine-verb-of-time-passing-with-1-h-is-logged": (
+        "cs", "Uplynul 1 h.", "Uplynul jedna hodina.", "no preposition; nominative"),
+    "guard-masculine-verb-of-remaining-with-1-h-is-logged": (
+        "cs", "Zbyl 1 h.", "Zbyl jedna hodina.", "no preposition; nominative"),
+    "guard-masculine-verb-of-ending-with-1-h-is-logged": (
+        "cs", "Skončil 1 h.", "Skončil jedna hodina.", "no preposition; nominative"),
+    "guard-sk-verb-of-time-passing-with-1-h-is-logged": (
+        "sk", "Uplynulo 1 h.", "Uplynulo jedna hodina.", "no preposition; nominative"),
+    "s-after-a-number-before-a-noun-is-seconds": (
+        "cs", "Po 3 s ticha odešel.", "Po třech sekundách ticha odešel.", "read as seconds and not as the preposition"),
+    "s-before-a-name-without-an-instrumental-ending-is-seconds-logged": (
+        "cs", "Přišli 3 s Kate.", "Přišli tři sekundy Kate.", "read as seconds and not as the preposition"),
+    "guard-s-before-an-instrumental-is-no-unit": (
+        "cs", "Dostal 2 s plusem.", "Dostal dva s plusem.", "no governing noun"),
+    "guard-s-before-a-dual-instrumental-is-no-unit": (
+        "cs", "Šli 2 s dvěma psy.", "Šli dva s dvěma psy.", "no governing noun"),
+    "sk-hour-span-before-denne-is-the-hour": (
+        "sk", "Otvorené od 8 do 17 h denne.", "Otvorené od ôsmej do sedemnástej denne.", "read as the hour"),
+    "sk-dash-span-before-denne-is-the-hour": (
+        "sk", "Otvorené 8–17 h denne.", "Otvorené od ôsmej do sedemnástej denne.", "read as the hour"),
+    "sk-o-after-a-verb-of-speaking-is-the-hour": (
+        "sk", "Premiér bude hovoriť o 18 h.", "Premiér bude hovoriť o osemnástej.", "read as the hour"),
+    "guard-sk-o-after-a-past-copula-and-no-word-of-change-is-the-hour": (
+        "sk", "Stretnutie bolo o 5 h.", "Stretnutie bolo o piatej.", "read as the hour"),
+    "cs-plural-instrumental-after-an-ordinal": (
+        "cs", "Dotkl se 2. prsty stolu.", "Dotkl se druhými prsty stolu.", "ordinal agrees with a plural noun"),
+    "cs-plural-subject-of-a-genitive-verb-after-an-ordinal": (
+        "cs", "Soutěže se zúčastnily 2. ročníky.", "Soutěže se zúčastnily druhé ročníky.",
+        "ordinal agrees with a plural noun"),
+    "guard-capitals-roman-numeral-after-an-initial-and-a-conjunction": (
+        "cs", "ZA KARLA V. A FILIPA II. ZEMĚ VZKVÉTALA.", "ZA KARLA V. A FILIPA druhého. ZEMĚ VZKVÉTALA.",
+        "kept as an initial"),
+    "capitals-roman-numeral-after-a-name-before-a-verb": (
+        "cs", "KAREL V. BYL KORUNOVÁN.", "KAREL pátý BYL KORUNOVÁN.", "read as the number"),
+    "guard-capitals-initial-before-a-surname": (
+        "cs", "KAREL V. HAVEL PŘIŠEL.", "KAREL V. HAVEL PŘIŠEL.", "kept as an initial"),
+    "guard-capitals-initial-before-a-surname-tagged-as-a-verb": (
+        "cs", "JAN V. POSPÍŠIL PŘIŠEL.", "JAN V. POSPÍŠIL PŘIŠEL.", "kept as an initial"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1559,6 +1765,308 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "Batéria vydrží do dvadsiatich hodín nepretržitej prevádzky."),
     "guard-sk-decimal-span-stays-a-count": (
         "sk", "Príde od 8,5 do 17 h.", "Príde od osem celých päť desatín do sedemnástich hodín."),
+    "guard-sk-o-before-a-comparative-keeps-the-span": ("sk", "Prídem o 2 h neskôr.", "Prídem o dve hodiny neskôr."),
+    "guard-sk-o-after-a-shift-verb-keeps-the-span": ("sk", "Posunuli to o 1 h.", "Posunuli to o jednu hodinu."),
+    "guard-sk-o-after-a-verb-with-an-object-keeps-the-span": ("sk", "Prosil o 2 h.", "Prosil o dve hodiny."),
+    "guard-sk-o-after-ide-keeps-the-span": ("sk", "Ide o 5 h.", "Ide o päť hodín."),
+    "guard-sk-o-before-a-genitive-noun-keeps-the-count": ("sk", "Prídem o 5 h práce.", "Prídem o päť hodín práce."),
+    "guard-sk-o-with-a-decimal-keeps-the-count": ("sk", "Prídem o 5,5 h.", "Prídem o päť celých päť desatín hodiny."),
+    "guard-sk-o-after-25-keeps-the-count": ("sk", "Prídem o 25 h.", "Prídem o dvadsaťpäť hodín."),
+    "sk-afternoon-hours-before-a-genitive-in-u-are-a-count": (
+        "sk", "Po 18 h spánku sa zobudil.", "Po osemnástich hodinách spánku sa zobudil."),
+    "guard-sk-o-with-minutes-keeps-the-span": ("sk", "Prídem o 2 h 30 min.", "Prídem o dve hodiny tridsať minút."),
+    "guard-sk-o-with-and-minutes-keeps-the-span": (
+        "sk", "Vrátim sa o 2 h a 30 min.", "Vrátim sa o dve hodiny a tridsať minút."),
+    "guard-sk-o-with-and-a-half-keeps-the-span": ("sk", "Prídem o 2 h a pol.", "Prídem o dve hodiny a pol."),
+    "cs-hours-of-operation-after-v-are-no-clock-time": (
+        "cs", "Hotel je ve 24 h provozu.", "Hotel je ve dvaceti čtyřech hodinách provozu."),
+    "guard-cs-clock-time-before-a-time-genitive": ("cs", "Přijdu v 8 h večera.", "Přijdu v osm hodin večera."),
+    "guard-cs-clock-time-before-a-weekday-genitive": (
+        "cs", "Sejdeme se ve 14 h pátku.", "Sejdeme se ve čtrnáct hodin pátku."),
+    "sk-hour-before-do-and-a-time": ("sk", "Otvorené od 8 do 17:30.", "Otvorené od ôsmej do sedemnástej tridsať."),
+    "sk-spans-with-the-long-hour-word-stay-counts": (
+        "sk", "Otvorené od 8 do 12 a 13 do 17 hodín.",
+        "Otvorené od ôsmich do dvanástich a trinástich do sedemnástich hodín."),
+    "sk-spans-before-a-later-span-of-work-stay-counts": (
+        "sk", "Pracoval od 9 do 12 h a od 13 do 17 h práce.",
+        "Pracoval od deviatich do dvanástich hodín a od trinástich do sedemnástich hodín práce."),
+    "sk-dash-spans-before-a-later-span-of-work-stay-counts": (
+        "sk", "Pracoval 8–12 h a 13–17 h práce.", "Pracoval osem až dvanásť hodín a trinásť až sedemnásť hodín práce."),
+    "sk-spans-with-the-unit-once-before-work-stay-counts": (
+        "sk", "Pracoval od 9 do 12 a 13 do 17 h práce.",
+        "Pracoval od deviatich do dvanástich a trinástich do sedemnástich hodín práce."),
+    "po-before-a-range-end-is-the-accusative": ("cs", "Měří od 1 m po 5 m.", "Měří od jednoho metru po pět metrů."),
+    "po-after-od-and-a-pronoun-is-each": ("cs", "Dostal od něj po 5 Kč.", "Dostal od něj po pěti korunách."),
+    "po-with-minutes-is-after": ("cs", "Po 30 min se vrátil.", "Po třiceti minutách se vrátil."),
+    "po-with-hours-is-after": ("cs", "Po 12 h nastal klid.", "Po dvanácti hodinách nastal klid."),
+    "guard-po-until-a-length-is-the-accusative": ("cs", "Ujel až po 5 km.", "Ujel až po pět kilometrů."),
+    "guard-po-until-a-time-is-after": ("cs", "Až po 2 h odešel.", "Až po dvou hodinách odešel."),
+    "guard-po-between-two-percents-is-the-accusative": ("cs", "Od 5 % po 10 %.", "Od pěti procent po deset procent."),
+    "na-after-dohodnout-se-is-the-locative": ("cs", "Dohodli se na 5 %.", "Dohodli se na pěti procentech."),
+    "na-after-trvat-is-the-locative": ("cs", "Trvali na 5 kg.", "Trvali na pěti kilogramech."),
+    "na-after-zit-is-the-locative": ("cs", "Žijí na 50 m².", "Žijí na padesáti metrech čtverečních."),
+    "na-before-bydlet-is-the-locative": (
+        "cs", "Na 50 m² bydlí 5 lidí.", "Na padesáti metrech čtverečních bydlí pět lidí."),
+    "sk-na-after-zostat-is-the-locative": ("sk", "Zostala na 5 %.", "Zostala na piatich percentách."),
+    "sk-na-after-zalezat-is-the-locative": ("sk", "Záleží na 2 h.", "Záleží na dvoch hodinách."),
+    "sk-na-after-dohodnut-sa-is-the-locative": ("sk", "Dohodli sa na 5 %.", "Dohodli sa na piatich percentách."),
+    "guard-na-after-dohodnout-a-thing-is-the-accusative": (
+        "cs", "Dohodli cenu na 500 Kč.", "Dohodli cenu na pět set korun."),
+    "guard-na-after-dohodnout-se-a-time-is-the-accusative": ("cs", "Dohodli se na 2 h.", "Dohodli se na dvě hodiny."),
+    "guard-na-after-trvat-a-time-is-the-accusative": ("cs", "Trvalo to na 2 h.", "Trvalo to na dvě hodiny."),
+    "guard-sk-na-after-zostat-a-time-is-the-accusative": ("sk", "Zostal tam na 2 h.", "Zostal tam na dve hodiny."),
+    "o-after-a-noun-of-delay-is-the-difference": (
+        "cs", "Zpoždění o 2 h se nikomu nelíbilo.", "Zpoždění o dvě hodiny se nikomu nelíbilo."),
+    "o-before-a-reflexive-delay-verb-is-the-difference": ("cs", "O 2 h se zpozdil.", "O dvě hodiny se zpozdil."),
+    "o-before-a-comparative-is-the-difference": ("cs", "Mluvil o 2 h déle.", "Mluvil o dvě hodiny déle."),
+    "o-after-a-verb-of-speaking-is-the-topic": ("cs", "Mluvili o 5 %.", "Mluvili o pěti procentech."),
+    "o-after-a-verb-of-negotiating-is-the-topic": ("cs", "Jednali o 5 kg.", "Jednali o pěti kilogramech."),
+    "sk-o-after-a-noun-of-delay-is-the-difference": ("sk", "Meškanie o 2 h.", "Meškanie o dve hodiny."),
+    "sk-o-after-a-noun-of-increase-is-the-difference": (
+        "sk", "Zvýšenie o 5 % schválili.", "Zvýšenie o päť percent schválili."),
+    "sk-o-after-informovat-is-the-topic": ("sk", "Informovali o 5 %.", "Informovali o piatich percentách."),
+    "guard-o-after-jednat-se-is-the-accusative": ("cs", "Jednalo se o 5 %.", "Jednalo se o pět procent."),
+    "guard-o-after-a-noun-before-a-topic-verb-is-no-topic": (
+        "cs", "Informovali o růstu o 5 %.", "Informovali o růstu o pět procent."),
+    "guard-o-after-a-verb-of-growth-is-the-accusative": ("cs", "Vzrostl o 5 %.", "Vzrostl o pět procent."),
+    "guard-o-after-prosit-is-the-accusative": ("cs", "Prosil o 5 Kč.", "Prosil o pět korun."),
+    "time-after-a-verb-with-its-own-subject-is-the-accusative": (
+        "cs", "Mluvil 1 h a čekal 2 h.", "Mluvil jednu hodinu a čekal dvě hodiny."),
+    "time-after-an-impersonal-verb-is-the-accusative": ("cs", "Pršelo 1 h.", "Pršelo jednu hodinu."),
+    "sk-time-after-a-duration-verb-is-the-accusative": ("sk", "Trvalo to 1 h.", "Trvalo to jednu hodinu."),
+    "s-after-a-number-before-a-verb-is-seconds": ("cs", "Po 10 s začalo pršet.", "Po deseti sekundách začalo pršet."),
+    "s-after-a-number-before-a-conjunction-is-seconds": (
+        "cs", "Počkej 10 s než se spustí.", "Počkej deset sekund než se spustí."),
+    "s-after-na-and-a-number-is-seconds": ("cs", "Na 5 s zavřel oči.", "Na pět sekund zavřel oči."),
+    "sek-is-seconds": ("cs", "Po 10 sek začalo pršet.", "Po deseti sekundách začalo pršet."),
+    "sek-with-a-period-is-seconds": ("cs", "Trvalo to 10 sek.", "Trvalo to deset sekund."),
+    "sk-s-after-a-number-before-a-verb-is-seconds": (
+        "sk", "Po 10 s začalo pršať.", "Po desiatich sekundách začalo pršať."),
+    "guard-sek-in-capitals-is-the-krona": ("cs", "Stálo to 5 SEK.", "Stálo to pět SEK."),
+    "sk-po-with-seconds-is-after": ("sk", "Po 10 sek začalo pršať.", "Po desiatich sekundách začalo pršať."),
+    "sk-po-with-minutes-is-after": ("sk", "Po 30 min sa vrátil.", "Po tridsiatich minútach sa vrátil."),
+    "sk-po-before-a-range-end-is-the-accusative": (
+        "sk", "Meral od 1 m po 5 m.", "Meral od jedného metra po päť metrov."),
+    "sk-po-until-a-length-is-the-accusative": ("sk", "Došiel až po 5 km.", "Došiel až po päť kilometrov."),
+    "guard-sk-po-with-hours-is-after": ("sk", "Po 2 h nastal pokoj.", "Po dvoch hodinách nastal pokoj."),
+    "guard-sk-po-with-kilometres-is-after": ("sk", "Po 5 km odbočil.", "Po piatich kilometroch odbočil."),
+    "sk-o-before-a-time-noun-keeps-the-span": ("sk", "Ušetril o 2 h času.", "Ušetril o dve hodiny času."),
+    "sk-o-after-a-noun-of-delay-and-a-copula-keeps-the-span": (
+        "sk", "Meškanie vlaku je o 2 h.", "Meškanie vlaku je o dve hodiny."),
+    "sk-o-after-a-noun-of-delay-and-a-future-copula-keeps-the-span": (
+        "sk", "Meškanie vlaku bude o 2 h.", "Meškanie vlaku bude o dve hodiny."),
+    "sk-o-after-a-verb-of-growth-keeps-the-span": ("sk", "Vzrástol o 2 h.", "Vzrástol o dve hodiny."),
+    "sk-o-after-a-noun-of-difference-and-a-copula-keeps-the-span": (
+        "sk", "Rozdiel je o 2 h.", "Rozdiel je o dve hodiny."),
+    "o-after-a-news-noun-and-a-copula-is-the-topic": ("cs", "Zpráva je o 5 %.", "Zpráva je o pěti procentech."),
+    "sk-o-after-a-comparative-adverb-keeps-the-span": ("sk", "Bolo to dlhšie o 2 h.", "Bolo to dlhšie o dve hodiny."),
+    "sk-o-after-a-comparative-adjective-keeps-the-span": ("sk", "Je dlhší o 2 h.", "Je dlhší o dve hodiny."),
+    "sk-o-after-viac-keeps-the-span": ("sk", "Zostalo viac o 2 h.", "Zostalo viac o dve hodiny."),
+    "guard-sk-o-after-a-comparative-and-a-count-keeps-the-accusative": (
+        "sk", "Je starší o 5 rokov.", "Je starší o päť rokov."),
+    "sk-po-after-a-verb-of-reaching-is-up-to": (
+        "sk", "Voda siahala po 50 cm.", "Voda siahala po päťdesiat centimetrov."),
+    "po-after-a-verb-of-reaching-is-up-to": ("cs", "Voda sahala po 50 cm.", "Voda sahala po padesát centimetrů."),
+    "po-after-an-adjective-of-depth-is-up-to": (
+        "cs", "Sníh byl hluboký po 20 cm.", "Sníh byl hluboký po dvacet centimetrů."),
+    "guard-po-with-no-word-of-reaching-is-after": ("cs", "Po 5 km zastavil.", "Po pěti kilometrech zastavil."),
+    "guard-sk-po-after-a-verb-is-each": ("sk", "Dostal po 5 kg.", "Dostal po piatich kilogramoch."),
+    "guard-po-after-a-tall-subject-is-each": (
+        "cs", "Vysoký muž dostal po 5 Kč.", "Vysoký muž dostal po pěti korunách."),
+    "sk-o-after-a-noun-of-delay-and-a-past-copula-keeps-the-span": (
+        "sk", "Meškanie vlaku bolo o 2 h.", "Meškanie vlaku bolo o dve hodiny."),
+    "sk-personal-nominative-plural-from-five": ("sk", "Prišli 5 muži.", "Prišli piati muži."),
+    "sk-personal-nominative-plural-over-twenty": ("sk", "Prišli 22 študenti.", "Prišli dvadsiati dvaja študenti."),
+    "sk-personal-nominative-plural-in-a-list": (
+        "sk", "Prišli 5 alebo 6 chlapci.", "Prišli piati alebo šiesti chlapci."),
+    "sk-personal-nominative-plural-in-a-comma-list": ("sk", "Prišli 5,6,7 muži.", "Prišli piati, šiesti, siedmi muži."),
+    "guard-sk-personal-genitive-plural-stays": ("sk", "Prišlo 5 mužov.", "Prišlo päť mužov."),
+    "guard-sk-personal-nominative-plural-from-two-to-four": ("sk", "Prišli 3 muži.", "Prišli traja muži."),
+    "guard-sk-animal-plural-counts-with-the-cardinal": ("sk", "Prišli 5 psi.", "Prišli päť psi."),
+    "guard-sk-year-before-a-nominative-plural-keeps-the-cardinal": (
+        "sk", "V roku 2020 muži vyhrali.", "V roku dvetisícdvadsať muži vyhrali."),
+    "guard-sk-years-in-a-list-before-a-nominative-plural-keep-the-cardinal": (
+        "sk", "V rokoch 2010 a 2011 študenti protestovali.",
+        "V rokoch dvetisícdesať a dvetisícjedenásť študenti protestovali."),
+    "sk-zero-subject-of-a-neuter-verb": ("sk", "Prišlo 0 ľudí.", "Prišlo nula ľudí."),
+    "sk-zero-subject-of-a-copula": ("sk", "Bolo tam 0 ľudí.", "Bolo tam nula ľudí."),
+    "guard-sk-zero-things-in-the-genitive": ("sk", "Mal 0 bodov.", "Mal nula bodov."),
+    "cs-times-word-takes-the-masculine-count": ("cs", "Viděl ho 2 krát.", "Viděl ho dva krát."),
+    "guard-cs-times-word-from-five": ("cs", "Viděl ho 5 krát.", "Viděl ho pět krát."),
+    "guard-cs-times-glued-to-the-digit": ("cs", "Viděl ho 2krát.", "Viděl ho dvakrát."),
+    "cs-scaled-zero-after-a-preposition": ("cs", "Za 0 tis. Kč.", "Za nula korun."),
+    "cs-scaled-zero-of-millions-after-a-preposition": ("cs", "Za 0 mil. Kč.", "Za nula korun."),
+    "guard-cs-scaled-amount-after-a-preposition": ("cs", "Za 5 tis. Kč.", "Za pět tisíc korun."),
+    "guard-cs-scaled-zero-after-a-genitive-verb": ("cs", "Dosáhl 0 tis. bodů.", "Dosáhl nuly bodů."),
+    "cs-great-grandson-is-masculine-animate": ("cs", "Má 1 pravnuka.", "Má jednoho pravnuka."),
+    "cs-great-grandsons-are-masculine-animate": ("cs", "Má 2 pravnuky.", "Má dva pravnuky."),
+    "cs-great-grandfather-is-masculine-animate": ("cs", "Má 1 pradědečka.", "Má jednoho pradědečka."),
+    "sk-great-grandson-is-masculine-animate": ("sk", "Má 1 pravnuka.", "Má jedného pravnuka."),
+    "guard-cs-great-grandsons-in-the-instrumental": ("cs", "S 2 pravnuky.", "Se dvěma pravnuky."),
+    "guard-cs-great-grandsons-in-the-genitive-plural": ("cs", "Má 5 pravnuků.", "Má pět pravnuků."),
+    "cs-genitive-verb-instrumental-ordinal": ("cs", "Dotkl se 2. prstem stolu.", "Dotkl se druhým prstem stolu."),
+    "cs-genitive-verb-instrumental-ordinal-of-a-person": ("cs", "Bál se 2. mužem.", "Bál se druhým mužem."),
+    "guard-cs-genitive-verb-genitive-ordinal": ("cs", "Dotkl se 2. prstu.", "Dotkl se druhého prstu."),
+    "guard-cs-genitive-verb-dative-looking-ordinal": ("cs", "Bál se 2. dílu.", "Bál se druhého dílu."),
+    "sk-times-word-before-an-adverb": ("sk", "Bol tam 2 krát týždenne.", "Bol tam dva krát týždenne."),
+    "sk-times-word-before-a-comparative": ("sk", "Je to 3 krát lacnejšie.", "Je to tri krát lacnejšie."),
+    "guard-sk-times-word-after-a-verb": ("sk", "Prišiel 2 krát.", "Prišiel dva krát."),
+    "sk-great-grandchildren-share-the-genitive-verb": (
+        "sk", "Dočkal sa 5 vnúčat a 3 pravnúčat.", "Dočkal sa piatich vnúčat a troch pravnúčat."),
+    "cs-great-grandchildren-share-the-genitive-verb": (
+        "cs", "Dočkal se 5 vnoučat a 3 pravnoučat.", "Dočkal se pěti vnoučat a tří pravnoučat."),
+    "sk-great-grandchildren-after-a-verb": ("sk", "Má 5 pravnúčat.", "Má päť pravnúčat."),
+    "cs-great-uncle-is-masculine-animate": ("cs", "Má 1 prastrýca.", "Má jednoho prastrýca."),
+    "sk-great-uncle-after-a-verb-is-masculine-animate": ("sk", "Videl 1 prastrýca.", "Videl jedného prastrýca."),
+    "guard-sk-great-uncle-is-read-right-already": ("sk", "Má 1 prastrýca.", "Má jedného prastrýca."),
+    "sk-misgendered-masculine-plural": ("sk", "Má 2 hrady.", "Má dva hrady."),
+    "sk-misgendered-masculine-plural-of-things": ("sk", "Kúpil 2 mobily.", "Kúpil dva mobily."),
+    "sk-misgendered-feminine-plural": ("sk", "Má 2 zľavy.", "Má dve zľavy."),
+    "sk-misgendered-feminine-plural-of-money": ("sk", "Dostal 2 miliardy dolárov.", "Dostal dve miliardy dolárov."),
+    "guard-sk-masculine-plural-tagged-right": ("sk", "Má 2 stromy.", "Má dva stromy."),
+    "guard-sk-feminine-plural-tagged-right": ("sk", "Má 2 ženy.", "Má dve ženy."),
+    "guard-sk-genitive-plural-of-a-listed-word": ("sk", "Má 5 hradov.", "Má päť hradov."),
+    "guard-sk-genitive-singular-after-one-keeps-its-gender": (
+        "sk", "Cena 1 kocky je 5 eur.", "Cena jednej kocky je päť eur."),
+    "guard-sk-genitive-singular-of-money-after-one": ("sk", "Hodnota 1 miliardy eur.", "Hodnota jednej miliardy eur."),
+    "guard-sk-feminine-homograph-of-a-masculine-plural-is-left-alone": (
+        "sk", "Cena 1 roboty je 5 eur.", "Cena jednej roboty je päť eur."),
+    "cs-great-great-grandson-is-masculine-animate": ("cs", "Má 1 prapravnuka.", "Má jednoho prapravnuka."),
+    "cs-great-great-grandsons-are-masculine-animate": ("cs", "Má 2 prapravnuky.", "Má dva prapravnuky."),
+    "sk-great-great-grandson-is-masculine-animate": ("sk", "Má 1 prapravnuka.", "Má jedného prapravnuka."),
+    "cs-instrumental-hand-after-an-ordinal": (
+        "cs", "Chytil se 2. rukou za zábradlí.", "Chytil se druhou rukou za zábradlí."),
+    "guard-cs-genitive-plural-hands-stay-genitive": ("cs", "Chytil se z obou rukou.", "Chytil se z obou rukou."),
+    "guard-cs-counted-hands-after-a-preposition": ("cs", "Bez 2 rukou.", "Bez dvou rukou."),
+    "guard-cs-genitive-singular-hand-after-an-ordinal": ("cs", "Dotkl se 2. ruky.", "Dotkl se druhé ruky."),
+    "guard-cs-preposition-kolem-before-an-ordinal": ("cs", "Šel kolem 2. domu.", "Šel kolem druhého domu."),
+    "guard-cs-indeclinable-show-after-a-preposition": ("cs", "Bez 1 šou to nejde.", "Bez jedné šou to nejde."),
+    "guard-cs-indeclinable-show-after-a-verb": ("cs", "Moderoval 1 šou.", "Moderoval jednu šou."),
+    "sk-zero-object-of-a-verb": ("sk", "Videl 0 mužov.", "Videl nula mužov."),
+    "sk-zero-object-of-a-verb-with-a-subject-clitic": ("sk", "Pozvali sme 0 ľudí.", "Pozvali sme nula ľudí."),
+    "guard-cs-zero-object-of-a-verb": ("cs", "Viděl 0 mužů.", "Viděl nula mužů."),
+    "sk-zero-after-s-before-a-written-noun": (
+        "sk", "Tím odišiel z turnaja s 0 bodmi.", "Tím odišiel z turnaja s nula bodmi."),
+    "sk-zero-after-za-before-a-unit": ("sk", "Kúpil to za 0 eur.", "Kúpil to za nula eur."),
+    "sk-zero-after-bez-before-a-written-noun": ("sk", "Odišiel bez 0 bodov.", "Odišiel bez nula bodov."),
+    "sk-zero-after-o-before-a-written-noun": ("sk", "Hovorili o 0 bodoch.", "Hovorili o nula bodoch."),
+    "sk-zero-after-k-before-a-written-noun": ("sk", "Teplota klesla k 0 stupňom.", "Teplota klesla k nula stupňom."),
+    "sk-zero-after-na-before-a-unit": ("sk", "Teplota klesla na 0 °C.", "Teplota klesla na nula stupňov Celzia."),
+    "cs-zero-after-bez-before-a-written-noun": ("cs", "Odešel bez 0 bodů.", "Odešel bez nula bodů."),
+    "guard-sk-bare-zero-after-na-is-declined": ("sk", "Teplota klesla na 0.", "Teplota klesla na nulu."),
+    "guard-sk-bare-zero-after-k-is-declined": ("sk", "Teplota klesla k 0.", "Teplota klesla k nule."),
+    "guard-sk-bare-zero-after-s-is-declined": ("sk", "Skončili s 0.", "Skončili s nulou."),
+    "guard-cs-bare-zero-after-na-is-declined": ("cs", "Teplota klesla na 0.", "Teplota klesla na nulu."),
+    "guard-cs-bare-zero-after-k-is-declined": ("cs", "Teplota klesla k 0.", "Teplota klesla k nule."),
+    "guard-cs-bare-zero-after-s-is-declined": ("cs", "Skončili s 0.", "Skončili s nulou."),
+    "sk-zero-before-a-unit-after-a-verb": ("sk", "Teplota dosiahla 0 °C.", "Teplota dosiahla nula stupňov Celzia."),
+    "sk-zero-hours-after-a-verb": ("sk", "Trvalo to 0 h.", "Trvalo to nula hodín."),
+    "guard-sk-zero-sharing-its-noun-with-a-later-number-is-declined": (
+        "sk", "Medzi 0 a 5 bodmi bol rozdiel.", "Medzi nulou a piatimi bodmi bol rozdiel."),
+    "guard-cs-zero-opening-a-range-keeps-the-genitive": ("cs", "Od 0 do 5 bodů.", "Od nuly do pěti bodů."),
+    "roman-numeral-before-an-epithet-with-more-after-it": (
+        "cs", "Patřilo to Václavu II. Přemyslovci i jeho synovi.",
+        "Patřilo to Václavu druhému Přemyslovci i jeho synovi."),
+    "roman-numeral-before-an-epithet-after-a-coordinated-name": (
+        "cs", "Dali to Janu a Václavu II. Přemyslovci.", "Dali to Janu a Václavu druhému Přemyslovci."),
+    "roman-numeral-before-an-epithet-and-a-year": (
+        "cs", "Dali to Janu Lucemburskému a Václavu II. Přemyslovci v roce 1300.",
+        "Dali to Janu Lucemburskému a Václavu druhému Přemyslovci v roce tisíc tři sta."),
+    "guard-roman-numeral-before-coordinated-subjects": (
+        "cs", "Dal to Karlu IV. Dům a zahrada byly prázdné.", "Dal to Karlu čtvrtému. Dům a zahrada byly prázdné."),
+    "guard-roman-numeral-before-the-subject-of-a-new-sentence": (
+        "cs", "Dal to Karlu IV. Země byla chudá.", "Dal to Karlu čtvrtému. Země byla chudá."),
+    "guard-roman-numeral-before-a-capitalised-adjective-and-a-verb": (
+        "cs", "Za Karla IV. Velký požár vypukl v Praze.", "Za Karla čtvrtého. Velký požár vypukl v Praze."),
+    "roman-numeral-before-a-new-sentence-led-by-the-same-name": (
+        "cs", "Vzpomínal na Karla IV. Karel IV. byl velký panovník.",
+        "Vzpomínal na Karla čtvrtého. Karel čtvrtý byl velký panovník."),
+    "roman-numeral-before-a-new-sentence-led-by-a-longer-name": (
+        "cs", "Znal Karla IV. Jan Lucemburský byl jeho otec.", "Znal Karla čtvrtého. Jan Lucemburský byl jeho otec."),
+    "sk-roman-numeral-before-a-new-sentence-led-by-the-same-name": (
+        "sk", "Spomínal na Karola IV. Karol IV. bol veľký panovník.",
+        "Spomínal na Karola štvrtého. Karol štvrtý bol veľký panovník."),
+    "guard-roman-numeral-before-an-oblique-name": (
+        "cs", "Řekl to Karlu IV. Petrovi.", "Řekl to Karlu čtvrtému Petrovi."),
+    "guard-roman-numeral-before-an-accusative-name": ("cs", "Viděl Karla IV. Jana.", "Viděl Karla čtvrtého Jana."),
+    "guard-roman-numeral-before-an-oblique-surname-tagged-nominative": (
+        "cs", "Navštívil Jindřicha VIII. Tudora.", "Navštívil Jindřicha osmého Tudora."),
+    "guard-roman-numeral-before-an-oblique-surname-and-a-verb-after-a-conjunction": (
+        "cs", "Navštívil Jindřicha VIII. Tudora a odešel.", "Navštívil Jindřicha osmého Tudora a odešel."),
+    "guard-roman-numeral-before-an-oblique-surname-and-a-relative-clause": (
+        "cs", "Navštívil Jindřicha VIII. Tudora, který ho přijal.",
+        "Navštívil Jindřicha osmého Tudora, který ho přijal."),
+    "capitals-roman-numeral-numbers-the-noun-after-a-verbless-clause": (
+        "cs", "V KNIZE II. DÍL CHYBĚL.", "V KNIZE druhý DÍL CHYBĚL."),
+    "sk-capitals-roman-numeral-numbers-the-noun-after-a-verbless-clause": (
+        "sk", "V KNIHE II. DIEL CHÝBAL.", "V KNIHE druhý DIEL CHÝBAL."),
+    "capitals-roman-numeral-numbers-a-feminine-label-after-a-label": (
+        "cs", "V DÍLE II. KAPITOLA CHYBĚLA.", "V DÍLE druhá KAPITOLA CHYBĚLA."),
+    "guard-capitals-roman-numeral-after-a-name-before-a-subject": (
+        "cs", "ZA KARLA IV. ZEMĚ VZKVÉTALA.", "ZA KARLA čtvrtého. ZEMĚ VZKVÉTALA."),
+    "guard-mixed-roman-numeral-before-a-capitalised-noun": (
+        "cs", "V knize II. Díl chyběl.", "V knize druhé. Díl chyběl."),
+    "guard-capitals-roman-numeral-before-a-person-noun-after-a-label": (
+        "cs", "V KAPITOLE III. AUTOR PÍŠE.", "V KAPITOLE třetí. AUTOR PÍŠE."),
+    "guard-capitals-roman-numeral-after-a-ruler-before-a-neuter-subject": (
+        "cs", "LUDVÍKA XIV. SLUNCE NAZÝVALI KRÁLEM SLUNCE.", "LUDVÍKA čtrnáctého. SLUNCE NAZÝVALI KRÁLEM SLUNCE."),
+    "guard-capitals-roman-numeral-after-a-name-before-a-label": (
+        "cs", "O KARLU IV. KNIHA ZAČÍNÁ.", "O KARLU čtvrtém. KNIHA ZAČÍNÁ."),
+    "guard-capitals-roman-numeral-after-a-page-before-a-label": (
+        "cs", "NA STRANĚ II. KAPITOLA ZAČÍNÁ.", "NA STRANĚ druhé. KAPITOLA ZAČÍNÁ."),
+    "capitals-scale-abbreviation-before-its-noun": (
+        "cs", "PŘIŠLO 5 TIS. LIDÍ NA NÁMĚSTÍ.", "PŘIŠLO pět tisíc LIDÍ NA NÁMĚSTÍ."),
+    "capitals-unit-abbreviation-before-a-phrase": ("cs", "ČEKAL 5 HOD. NA VLAK.", "ČEKAL pět hodin NA VLAK."),
+    "capitals-abbreviation-before-its-noun-and-a-new-sentence": (
+        "cs", "PŘIŠLO 5 TIS. LIDÍ. DNES ODEŠLI.", "PŘIŠLO pět tisíc LIDÍ. DNES ODEŠLI."),
+    "sk-capitals-scale-abbreviation-before-its-noun": ("sk", "PRIŠLO 5 TIS. ĽUDÍ.", "PRIŠLO päťtisíc ĽUDÍ."),
+    "guard-capitals-abbreviation-before-a-nominative-subject": ("cs", "ČEKAL 5 MIN. TICHO.", "ČEKAL pět minut. TICHO."),
+    "guard-capitals-abbreviation-before-a-clause-with-a-verb": (
+        "cs", "ČEKAL 5 MIN. NIKDO NEPŘIŠEL.", "ČEKAL pět minut. NIKDO NEPŘIŠEL."),
+    "guard-capitals-abbreviation-before-a-genitive-subject": (
+        "cs", "ČEKAL 5 MIN. ČASU NEBYLO.", "ČEKAL pět minut. ČASU NEBYLO."),
+    "guard-capitals-abbreviation-before-an-interjection": ("cs", "ČEKAL 5 MIN. NIC!", "ČEKAL pět minut. NIC!"),
+    "guard-capitals-abbreviation-before-a-name": ("cs", "ČEKAL 5 MIN. KAREL.", "ČEKAL pět minut. KAREL."),
+    "capitals-scale-abbreviation-at-the-start-before-its-noun": (
+        "cs", "5 TIS. LIDÍ SE ZÚČASTNILI VOLEB.", "Pět tisíc LIDÍ SE ZÚČASTNILI VOLEB."),
+    "capitals-scale-abbreviation-before-a-genitive-and-a-verb": (
+        "cs", "MĚL 3 MLD. DOLARŮ A ODEŠEL.", "MĚL tři miliardy DOLARŮ A ODEŠEL."),
+    "capitals-unit-abbreviation-before-a-conjunction": (
+        "cs", "PŘIŠEL V 5 HOD. A ODEŠEL.", "PŘIŠEL V pět hodin A ODEŠEL."),
+    "ordinal-before-the-century-abbreviation": (
+        "cs", "Stalo se to v 5. stol. v Řecku.", "Stalo se to v pátém století v Řecku."),
+    "ordinal-before-the-century-abbreviation-and-an-era": (
+        "cs", "Žil v 5. stol. př. n. l.", "Žil v pátém století před naším letopočtem."),
+    "ordinal-span-before-the-century-abbreviation": (
+        "cs", "Od 5. do 7. stol. vládli Řekové.", "Od pátého do sedmého století vládli Řekové."),
+    "capitals-century-abbreviation-and-an-era-stay-in-one-phrase": (
+        "cs", "V 5. STOL. PŘ. N. L.", "V pátém století před naším letopočtem."),
+    "roman-numeral-before-an-inanimate-noun-ends-the-sentence": (
+        "cs", "Dal to Karlu IV. Dům.", "Dal to Karlu čtvrtému. Dům."),
+    "sk-roman-numeral-before-an-inanimate-noun-ends-the-sentence": (
+        "sk", "Dal to Karolovi IV. Dom.", "Dal to Karolovi štvrtému. Dom."),
+    "guard-roman-numeral-before-an-epithet-ending-the-sentence": (
+        "cs", "Dal to Karlu IV. Přemyslovci.", "Dal to Karlu čtvrtému Přemyslovci."),
+    "guard-roman-numeral-before-an-epithet-of-a-ruler": (
+        "cs", "Slíbil to Jindřichu VIII. Tudorovi.", "Slíbil to Jindřichu osmému Tudorovi."),
+    "capitals-time-span-with-a-dot-before-hod": (
+        "cs", "OTEVŘENO OD 8.30 DO 9.30 HOD.", "OTEVŘENO OD osmi třiceti DO devíti třiceti."),
+    "capitals-time-with-a-dot-before-hod": ("cs", "PŘIŠEL V 8.30 HOD.", "PŘIŠEL V osm třicet."),
+    "sk-capitals-time-with-a-dot-before-hod": ("sk", "O 8.30 HOD.", "O ôsmej tridsať."),
+    "capitals-day-before-a-month-name": ("cs", "DNE 5. DUBNA PŘIŠEL.", "DNE pátého DUBNA PŘIŠEL."),
+    "capitals-day-before-a-month-name-without-a-verb": ("cs", "5. KVĚTNA.", "Pátého KVĚTNA."),
+    "capitals-day-before-a-month-name-after-a-preposition-of-another-case": (
+        "cs", "NA 5. KVĚTNA BYLA SVOLÁNA SCHŮZE.", "NA pátého KVĚTNA BYLA SVOLÁNA SCHŮZE."),
+    "guard-day-before-a-month-name-in-mixed-text": (
+        "cs", "Bylo 5. července. Potom přišel.", "Bylo pátého července. Potom přišel."),
+    "capitals-roman-numeral-after-a-title-before-an-auxiliary": (
+        "cs", "CÍSAŘ V. BYL KORUNOVÁN.", "CÍSAŘ pátý BYL KORUNOVÁN."),
+    "century-abbreviation-after-an-instrumental-ordinal": (
+        "cs", "Před 5. stol. to bylo jinak.", "Před pátým stoletím to bylo jinak."),
+    "century-abbreviation-after-an-instrumental-ordinal-chain": (
+        "cs", "Mezi 5. a 6. stol. vládli Řekové.", "Mezi pátým a šestým stoletím vládli Řekové."),
+    "guard-century-abbreviation-after-a-genitive-ordinal": (
+        "cs", "Ke konci 5. stol. se to změnilo.", "Ke konci pátého století se to změnilo."),
 }
 HEADINGS = ("# Kapitola 5\n\nPetr koupil 5\njablek.\n\n\n# 2. Kapitola\n\nBylo 8:00.\n",
             "# Kapitola pět\n\nPetr koupil pět\njablek.\n\n\n# Druhá Kapitola\n\nBylo osm hodin.\n")
