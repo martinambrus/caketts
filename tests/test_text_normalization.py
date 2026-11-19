@@ -1154,6 +1154,11 @@ LOGGED = {  # id: (language, input, expected output, part of the WARNING)
     "title-feminine-surname-in-ou": ("cs", "Mluvil s Ing. Hrubou.", "Mluvil s inženýrkou Hrubou.", "not clear"),
     "sk-title-feminine-case-shared-by-three": (
         "sk", "Volali sme Ing. Kováčovej.", "Volali sme inžinierky Kováčovej.", "not clear"),
+    "title-vocative-after-a-comma-and-a-verb": ("cs", "Děkuji, Ing. Nováku.", "Děkuji, inženýre Nováku.", "not clear"),
+    "title-vocative-after-a-comma-in-a-question": (
+        "cs", "Co myslíte, dr. Nováku?", "Co myslíte, doktore Nováku?", "not clear"),
+    "title-vocative-of-a-surname-in-a-after-a-comma": (
+        "cs", "Pojďte dál, Ing. Svobodo.", "Pojďte dál, inženýre Svobodo.", "not clear"),
 }
 UNLOGGED = {  # id: (language, input, expected output); readings that need no review
     "sk-morning-dash-span": ("sk", "Otvorené 8–12 h.", "Otvorené osem až dvanásť hodín."),
@@ -1680,6 +1685,8 @@ UNLOGGED = {  # id: (language, input, expected output); readings that need no re
         "cs", "Dobrý den, paní dr. Nováková.", "Dobrý den, paní doktorka Nováková."),
     "title-guard-accusatives-in-a-list-are-no-vocative": (
         "cs", "Pozval Mgr. Svobodu, Ing. Procházku.", "Pozval magistra Svobodu, inženýra Procházku."),
+    "title-guard-accusative-of-a-surname-in-a-after-a-comma": (
+        "cs", "Pozval Ing. Nováka, doc. Kučeru.", "Pozval inženýra Nováka, docenta Kučeru."),
     "title-guard-the-noun-svoboda": ("cs", "Bojoval za svobodou.", "Bojoval za svobodou."),
     "title-pi-at-a-sentence-start": ("cs", "Pí Nováková se usmála.", "Paní Nováková se usmála."),
     "title-guard-pi-before-a-lowercase-word": ("cs", "Pí je číslo.", "Pí je číslo."),

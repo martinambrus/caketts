@@ -1291,9 +1291,11 @@ class TextNormalizer:
         return head if head is not None and head.upos in ("PROPN", "NOUN", "ADJ", "X") else None
 
     def _opens(self, text: str, start: int, tags: _Tags) -> bool:
-        """Whether `start` opens a sentence, or follows a comma with no verb since the sentence began: "Dobrý den, ..."."""
+        """Whether `start` opens a sentence or follows a comma: "Dobrý den, ...", "Děkuji, ..."."""
         before = text[:start].rstrip()
-        if not (_starts_sentence(before) or before.endswith(",")):
+        if before.endswith(","):
+            return True
+        if not _starts_sentence(before):
             return False
         for w in reversed(tags.words[:bisect.bisect_left(tags.starts, start)]):
             if (w.text in _QUOTES or w.text in (".", "!", "?", "…")) and not self._titles_before.search(text, 0, w.end):
@@ -1316,7 +1318,8 @@ class TextNormalizer:
             i, head = i + 1, tags.words[i + 1]  # the surname: "Jan Novák", "Eva Horákovú"
         form, name_type, gender = head.text.lower(), head.feats.get("NameType"), head.feats.get("Gender")
         tagged_case, ending = head.feats.get("Case"), re.search(r"(ou|[ayu])$", form)
-        if ending and form[:ending.start()] + "a" in SURNAMES_IN_A:  # the ending tells what the tagger misreads
+        surname_in_a = bool(ending) and form[:ending.start()] + "a" in SURNAMES_IN_A
+        if surname_in_a:  # the ending tells what the tagger misreads
             gender, tagged_case = "Masc", {"a": "Nom", "y": "Gen", "u": "Acc", "ou": "Ins"}[ending.group()]
         # the tagger takes a masculine surname in -a for a feminine one in the accusative and the instrumental: the
         # first name tells, if there is one, else it is logged
@@ -1345,10 +1348,10 @@ class TextNormalizer:
         vocative = guess = False
         if self.language == "cs" and not fem:
             vocative = prev is not None and prev.text.lower() == "pane"
-            # no word governs a title that opens a sentence, or follows a greeting, and a comma or the end sets it off: a
-            # name in -u or -o (not -ou) is then a vocative; "Pozval Ing. Svobodu, Mgr. Nováka" has its verb before
+            # no word governs a title that opens a sentence or follows a comma, and a comma or the end sets it off: a name
+            # in -u or -o (not -ou) is then a vocative, unless it is the accusative of a surname in -a
             guess = (not vocative and not prepositional and self._opens(text, start, tags)
-                     and form.endswith(("u", "o")) and not form.endswith("ou")
+                     and form.endswith(("u", "o")) and not form.endswith("ou") and not surname_in_a
                      and text[head.end:].lstrip(" \t")[:1] in ("", ",", "!", "?", "."))
             if vocative or guess:
                 words = masculine[6]
