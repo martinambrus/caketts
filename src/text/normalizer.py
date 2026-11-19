@@ -941,10 +941,12 @@ class TextNormalizer:
         lines = self._list_items(lines)
         headings = [_HEADING_ROMAN.fullmatch(line[2:]) for line in lines if line.startswith("# ")]
         numbers = {_roman_value(m["numeral"]) for m in headings if m and m["label"] is None}
+        titled = [_HEADING_TITLE.match(line[2:]) for line in lines if line.startswith("# ")]
+        titled = numbers | {int(m["arabic"]) if m["arabic"] else _roman_value(m["roman"]) for m in titled if m}
         i = 0
         while i < len(lines):
             if lines[i].startswith("# "):
-                lines[i] = "# " + self._heading(self._heading_digits(lines[i][2:], numbers))
+                lines[i] = "# " + self._heading(self._heading_digits(lines[i][2:], numbers), titled)
                 i += 1
             elif not lines[i].strip():
                 i += 1
@@ -956,9 +958,10 @@ class TextNormalizer:
                 i = j
         return "\n".join(lines)
 
-    def _heading(self, text: str) -> str:
-        """A number and a period before a capitalised noun in a heading number the chapter: "1. Příchod" is
-        "Jedna. Příchod", not "První Příchod"; a label noun, a month or an adjective keeps its ordinal."""
+    def _heading(self, text: str, numbers: set) -> str:
+        """A number and a period before a capitalised noun in a heading number the chapter when another heading
+        carries the next or the previous number: "1. Příchod" is "Jedna. Příchod", not "První Příchod"; a label
+        noun, a month or an adjective keeps its ordinal."""
         m = _HEADING_TITLE.match(text)
         if m is None or not text[m.end():m.end() + 1].isupper():
             return self._paragraph(text, heading=True)
@@ -973,6 +976,12 @@ class TextNormalizer:
             self._warn(text, (0, m.end() - 1), words.split(" ")[0],
                        "number before a capitalised adjective in a heading, read as its ordinal; a chapter number fits "
                        "too; check it")
+            return words
+        if not {value - 1, value + 1} & numbers:
+            words = self._paragraph(text, heading=True)
+            self._warn(text, (0, m.end() - 1), words.split(" ")[0],
+                       "number before a capitalised word in a heading, read as its ordinal; it may be a chapter "
+                       "label; check it")
             return words
         lead = self._cardinal(value, *self._label(value))
         lead = f"{lead[:1].upper()}{lead[1:]}."

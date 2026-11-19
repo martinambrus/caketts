@@ -1960,17 +1960,18 @@ HEADING_ROWS = {  # id: (language, input, expected output); no WARNING allowed; 
     "heading-guard-letter-c": ("cs", "# C", "# C"),
     "heading-guard-letter-l": ("cs", "# L", "# L"),
     "heading-guard-number-and-noun": ("cs", "# 5 let", "# Pět let"),
-    "heading-numbered-title": ("cs", "# 1. Příchod", "# Jedna. Příchod"),
-    "heading-numbered-title-three": ("cs", "# 3. Vrah", "# Tři. Vrah"),
-    "heading-numbered-title-preposition": ("cs", "# 1. V lese", "# Jedna. V lese"),
-    "heading-numbered-title-twelve": ("cs", "# 12. Jak to začalo", "# Dvanáct. Jak to začalo"),
-    "heading-numbered-title-capitals": ("cs", "# 1. PŘÍCHOD", "# Jedna. PŘÍCHOD"),
-    "heading-roman-title": ("cs", "# I. Příchod", "# Jedna. Příchod"),
-    "heading-roman-title-fourteen": ("cs", "# XIV. Návrat", "# Čtrnáct. Návrat"),
+    "heading-numbered-title": ("cs", "# 1. Příchod\n\n# 2. Odchod", "# Jedna. Příchod\n\n# Dva. Odchod"),
+    "heading-numbered-title-three": ("cs", "# 3. Vrah\n\n# 4. Soud", "# Tři. Vrah\n\n# Čtyři. Soud"),
+    "heading-numbered-title-preposition": ("cs", "# 1. V lese\n\n# 2. V poli", "# Jedna. V lese\n\n# Dva. V poli"),
+    "heading-numbered-title-twelve": (
+        "cs", "# 12. Jak to začalo\n\n# 13. Jak to skončilo", "# Dvanáct. Jak to začalo\n\n# Třináct. Jak to skončilo"),
+    "heading-numbered-title-capitals": ("cs", "# 1. PŘÍCHOD\n\n# 2. ODCHOD", "# Jedna. PŘÍCHOD\n\n# Dva. ODCHOD"),
+    "heading-roman-title": ("cs", "# I. Příchod\n\n# II. Odchod", "# Jedna. Příchod\n\n# Dva. Odchod"),
+    "heading-roman-title-fourteen": ("cs", "# XIV. Návrat\n\n# XV. Odchod", "# Čtrnáct. Návrat\n\n# Patnáct. Odchod"),
     "heading-numbered-titles": (
         "cs", "# 1. Příchod\n\nText.\n\n# 2. Odjezd", "# Jedna. Příchod\n\nText.\n\n# Dva. Odjezd"),
-    "heading-sk-numbered-title": ("sk", "# 1. Príchod", "# Jeden. Príchod"),
-    "heading-sk-roman-title": ("sk", "# II. Odchod", "# Dva. Odchod"),
+    "heading-sk-numbered-title": ("sk", "# 1. Príchod\n\n# 2. Odchod", "# Jeden. Príchod\n\n# Dva. Odchod"),
+    "heading-sk-roman-title": ("sk", "# I. Príchod\n\n# II. Odchod", "# Jeden. Príchod\n\n# Dva. Odchod"),
     "heading-guard-label-noun-after-number": ("cs", "# 2. Kapitola", "# Druhá Kapitola"),
     "heading-guard-month-after-number": ("cs", "# 5. května 1945", "# Pátého května tisíc devět set čtyřicet pět"),
     "heading-guard-lowercase-noun-after-number": ("cs", "# 19. století", "# Devatenácté století"),
@@ -1985,7 +1986,11 @@ HEADING_LOGGED = {  # id: (language, input, expected output, part of the WARNING
     "heading-roman-before-adjective": ("cs", "# 1. Nový začátek", "# První Nový začátek", "capitalised adjective"),
     "heading-sk-number-before-adjective": (
         "sk", "# 2. Svetová vojna", "# Druhá Svetová vojna", "capitalised adjective"),
-    "heading-single-numeral-before-name": ("cs", "# V. Havel", "# Pět. Havel", "may be an initial"),
+    "heading-single-numeral-before-name": (
+        "cs", "# IV. Příchod\n\n# V. Havel", "# Čtyři. Příchod\n\n# Pět. Havel", "may be an initial"),
+    "heading-lone-number-before-a-noun": ("cs", "# 3. Říše", "# Třetí Říše", "chapter label"),
+    "heading-lone-single-numeral-before-an-initial": ("cs", "# V. I. Lenin", "# V. První Lenin", "chapter label"),
+    "heading-sk-lone-number-before-a-noun": ("sk", "# 1. Príchod", "# Prvý Príchod", "chapter label"),
 }
 
 
