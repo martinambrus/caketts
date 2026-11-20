@@ -1,6 +1,7 @@
 """
 Cut stage of the corpus pipeline (design D4): units + alignment spans + the -23 LUFS 24 kHz part -> clips
-that can never share audio, with uniform pads, measured pauses and the narrator's pause medians.
+that can never share audio, with pads of about pad_s (shorter in a short gap, longer to reach a quiet edge frame), measured pauses and
+the narrator's pause medians.
 
 Inputs are text/<part>.units.jsonl, align/<part>.align.jsonl and audio/<part>.24k.wav of the work directory;
 outputs are cut/<part>.cuts.jsonl, cut/<part>.rejects.jsonl, cut/clips/<id>.wav, cut/pauses.json and a report.
@@ -20,6 +21,7 @@ from typing import Iterable, Optional, Sequence
 import numpy as np
 import soundfile as sf
 
+from src.data.prepare.gold import _load_word_mids
 from src.text.phonemizer import _SPAN_RE, _WORD_RE
 
 GAP_TYPES = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
@@ -101,6 +103,38 @@ def to_sample(t_s: float, sr: int) -> int:
 
 def clip_bounds(s_ref: int, e_ref: int, c_prev: int, c_next: int, pad: int) -> tuple[int, int]:
     return max(s_ref - pad, c_prev), min(e_ref + pad, c_next)
+
+
+def _loud_window(pcm: np.ndarray, a: int, frame: int, floor_db: float, quiet_db: float) -> bool:
+    return len(pcm) >= a + frame and a >= 0 and float(frame_db(pcm[a:a + frame], frame)[0] - floor_db) > quiet_db
+
+
+def quiet_start(pcm: np.ndarray, a: int, c_prev: int, prev_quiet: bool, floor_db: float, quiet_db: float, frame: int,
+                room: int) -> int:
+    if a <= c_prev or not _loud_window(pcm, a, frame, floor_db, quiet_db):
+        return a
+    x = a
+    while (x - frame > c_prev) and (a - (x - frame) <= room):
+        x -= frame
+        if not _loud_window(pcm, x, frame, floor_db, quiet_db):
+            return x
+    if x - frame > c_prev:
+        return x
+    return c_prev if (prev_quiet and (a - c_prev <= room)) else a
+
+
+def quiet_end(pcm: np.ndarray, b: int, c_next: int, next_quiet: bool, floor_db: float, quiet_db: float, frame: int,
+              room: int) -> int:
+    if b >= c_next or not _loud_window(pcm, b - frame, frame, floor_db, quiet_db):
+        return b
+    x = b
+    while (x + frame < c_next) and ((x + frame) - b <= room):
+        x += frame
+        if not _loud_window(pcm, x - frame, frame, floor_db, quiet_db):
+            return x
+    if x + frame < c_next:
+        return x
+    return c_next if (next_quiet and (c_next - b <= room)) else b
 
 
 def frame_db(pcm: np.ndarray, frame: int) -> np.ndarray:
@@ -365,8 +399,12 @@ def pause_stats(gaps: Sequence[tuple[str, float]], commas: Sequence[float]) -> d
     return out
 
 
+def _holds_word_mid(mids: Optional[np.ndarray], lo: int, hi: int, sr: int) -> bool:
+    return (mids is not None) and bool(((mids >= lo / sr) & (mids < hi / sr)).any())
+
+
 def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans: Sequence[dict],
-              cfg: CutConfig = CutConfig()) -> PartPlan:
+              cfg: CutConfig = CutConfig(), word_mids: Optional[np.ndarray] = None) -> PartPlan:
     units, spans = split_over_cap(units, spans, cfg, sr)
     seq, rejects = validate_spans(part, units, spans, sr)
     F, pad = round(cfg.frame_s * sr), to_sample(cfg.pad_s, sr)
@@ -422,6 +460,16 @@ def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans:
             continue
         first, last = g[0], g[-1]
         a, b = clip_bounds(first.s_ref, last.e_ref, cuts[k], cuts[k + 1], pad)
+        room = max(0, round(cfg.max_clip_s * sr) - (b - a))
+        a0 = a
+        a = quiet_start(pcm, a, cuts[k], quiet[k], floor, cfg.quiet_db, F, room)
+        if _holds_word_mid(word_mids, a, a0, sr):
+            a = a0
+        b0 = b
+        b = quiet_end(pcm, b, cuts[k + 1], quiet[k + 1] if k + 1 < len(quiet) else True, floor, cfg.quiet_db, F,
+                      room - (a0 - a))
+        if _holds_word_mid(word_mids, b0, b, sr):
+            b = b0
         flags = set()
         gb = ga = None
         if k > 0:
@@ -498,7 +546,7 @@ def run_cut(work_dir: Path, parts: Sequence[str], cfg: CutConfig = CutConfig()) 
         pcm, sr = sf.read(str(wav), dtype="int16")
         units = _read_jsonl(work_dir / "text" / f"{part}.units.jsonl")
         spans = _read_jsonl(work_dir / "align" / f"{part}.align.jsonl")
-        plan = plan_part(part, pcm, sr, units, spans, cfg)
+        plan = plan_part(part, pcm, sr, units, spans, cfg, _load_word_mids(work_dir / "align" / f"{part}.asr.json"))
         cuts_path = out / f"{part}.cuts.jsonl"
         if cuts_path.exists():
             for r in _read_jsonl(cuts_path):

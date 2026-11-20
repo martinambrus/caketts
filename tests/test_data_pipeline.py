@@ -1,12 +1,14 @@
 """Data pipeline: drop-don't-crop filtering, strict symbols, conditioning carried into batches."""
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
 import torch
 
-from src.data.audio import AudioProcessor
+from src.data.audio import AudioProcessor, MelConfig
 from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
@@ -51,6 +53,16 @@ def test_filter_drops_impossible_alignments(g2p):
     rows = [{"id": "x", "text": "Rozhlas vysílá zprávy.", "lang": "cs", "duration_s": 0.6}]
     n = token_counts(rows, g2p)
     kept, report = filter_manifest(rows, n, hop_s=0.1, min_duration_s=0.1)  # 6 frames < ~20 tokens
+    assert kept == [] and report.impossible_alignment == ["x"]
+
+
+@pytest.mark.parametrize("sr,n", [(24000, 10240), (22050, 3840), (22050, 7680), (16000, 11008)])
+def test_filter_counts_the_frames_the_mel_has(sr, n):
+    frames = AudioProcessor(MelConfig(sample_rate=sr)).compute_mel(torch.zeros(1, n)).shape[1]
+    rows = [{"id": "x", "duration_s": n / sr}]
+    kept, _ = filter_manifest(rows, {"x": frames}, hop_s=256 / sr, min_duration_s=0.0)
+    assert kept == rows
+    kept, report = filter_manifest(rows, {"x": frames + 1}, hop_s=256 / sr, min_duration_s=0.0)
     assert kept == [] and report.impossible_alignment == ["x"]
 
 
@@ -117,6 +129,38 @@ def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
     assert ds._mel(row).shape[1] == ap.n_frames(SR)
     sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
     assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def test_mel_cache_does_not_read_the_audio_when_the_row_has_its_sha256(tmp_path, g2p, monkeypatch):
+    ds, row = _cached_dataset(tmp_path, g2p, AudioProcessor(), tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    ds._mel(row)
+    reads, read_bytes = [], Path.read_bytes
+    monkeypatch.setattr(Path, "read_bytes", lambda self: (reads.append(self), read_bytes(self))[1])
+    ds._mel(row)
+    assert reads == []
+
+
+def test_mel_cache_is_keyed_by_the_sha256_of_the_row(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "b" * 64})
+    assert len(calls) == 2
+
+
+def test_mel_cache_follows_a_recut_that_the_manifest_row_names(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel({**row, "sha256": _sha256(tmp_path / "u.wav")}).shape[1] == ap.n_frames(SR // 2)
 
 
 def _stats_dataset(tmp_path, g2p, amplitudes):

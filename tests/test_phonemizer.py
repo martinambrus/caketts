@@ -3,7 +3,7 @@ import pytest
 
 from src.text.phonemizer import (
     CzechSlovakPhonemizer, PUNCT_TOKENS, STRESS_MARKS, WORD_BOUNDARY,
-    UnknownSymbolError, build_vocabulary, tokens_to_ids,
+    UnknownSymbolError, build_vocabulary, mark_role, tokens_to_ids,
 )
 
 CS = CzechSlovakPhonemizer("cs")
@@ -194,3 +194,114 @@ class TestVocabulary:
 
     def test_vocabulary_is_deterministic(self, vocab):
         assert build_vocabulary(COVERAGE) == vocab
+
+
+class TestMarkRole:
+    @pytest.mark.parametrize("text,i,expected", [
+        ("„a“", 0, "open"), ("„a“", 2, "close"), ("‚a‘", 0, "open"), ("‚a’", 2, "close"),
+        ("(a)", 0, "open"), ("(a)", 2, "close"), ("[a]", 0, "open"), ("[a]", 2, "close"),
+        ("»a«", 0, "open"), ("»a«", 2, "close"), ("«a»", 0, "open"), ("«a»", 2, "close"),
+        ('"a"', 0, "open"), ('"a"', 2, "close"), ('x "a" y', 2, "open"), ('x "a" y', 4, "close"),
+        ("—\"a", 1, "open"), ("„\"a", 1, "open"), ('a" "b', 1, "close"), ('a" "b', 3, "open"),
+        ("d'a", 1, None), ("d’a", 1, None), ('a"b', 1, None),
+        ("a, b", 1, None), ("a ,b", 2, "open"), ("a ,1", 2, None), ("a", 0, None), (" ", 0, None),
+        ("a”", 1, "close"), ("a ”b", 2, "close"),
+    ])
+    def test_mark_role(self, text, i, expected):
+        assert mark_role(text, i) == expected
+
+
+def quotes(tokens):
+    return [t.symbol for t in tokens if t.kind == "quote"]
+
+
+def without_quotes(tokens):
+    return [(t.symbol, t.lang, t.kind) for t in tokens if t.kind != "quote"]
+
+
+def plain(tokens):
+    return [(t.symbol, t.lang, t.kind) for t in tokens]
+
+
+class TestQuotes:
+    @pytest.mark.parametrize("text", ["Řekl: „Ano.“", 'Řekl: "Ano."', "Řekl: “Ano.”", "Řekl: »Ano.«", "Řekl: «Ano.»"])
+    def test_every_style_by_position(self, text):
+        assert quotes(CS.tokenize(text)) == ["❝", "❞"]
+
+    def test_nested(self):
+        assert quotes(CS.tokenize("„Řekl ‚ano‘.“")) == ["❝", "❝", "❞", "❞"]
+
+    def test_old_slovak_comma_quote(self):
+        assert quotes(SK.tokenize("Povedal ,ahoj!' a odišiel.")) == ["❝", "❞"]
+
+    def test_ascii_quote_opens_then_closes(self):
+        toks = CS.tokenize('"Ano"')
+        assert [t.symbol for t in toks if t.kind in ("quote", "boundary")] == ["❝", "❞"]
+        assert toks[0].symbol == "❝" and toks[-1].symbol == "❞"
+
+    @pytest.mark.parametrize("g2p,text", [
+        (CS, "d'Artagnan"), (CS, "d’Artagnan"), (EN, "the judge's window"), (CS, 'a"b'),
+        (CS, "a`b"), (CS, "a´b"), (CS, "a `b` c"), (EN, "<en>Harry's</en>"), (CS, 'řekl <en>"hi"</en>')])
+    def test_not_quotes(self, g2p, text):
+        assert quotes(g2p.tokenize(text)) == []
+
+    def test_unit_ending_inside_a_quote(self):
+        assert quotes(CS.tokenize("Rozumíš?“ zašeptala.")) == ["❞"]
+
+    def test_unit_starting_inside_a_quote(self):
+        assert quotes(CS.tokenize("„Ne. Nikdy.")) == ["❝"]
+
+    @pytest.mark.parametrize("text", ["„<en>Harry Potter</en>“ řekl.", '"<en>Harry Potter</en>" řekl.'])
+    def test_around_an_english_span(self, text):
+        toks = CS.tokenize(text)
+        assert [(t.symbol, t.lang) for t in toks if t.kind == "quote"] == [("❝", "cs"), ("❞", "cs")]
+        first = next(i for i, t in enumerate(toks) if t.kind == "phone")
+        last = max(i for i, t in enumerate(toks) if t.kind == "phone" and t.lang == "en")
+        assert toks[first - 1].symbol == "❝" and toks[last + 1].symbol == "❞"
+        assert toks[first].lang == "en"
+
+    def test_boundaries_between_words(self):
+        syms = symbols(CS.tokenize("řekl „ano“ a"))
+        o, c = syms.index("❝"), syms.index("❞")
+        assert syms[o - 1] == "|" and syms[c + 1] == "|"
+        assert "|" not in syms[o:c]
+        assert syms[c + 2] != "|" and syms[o - 2] != "|"
+
+    def test_no_boundary_after_closer_following_punct(self):
+        syms = symbols(CS.tokenize("„Ano!“ řekl."))
+        assert syms[syms.index("❞") - 1] == "!"
+        assert syms[syms.index("❞") + 1] != "|"
+
+    @pytest.mark.parametrize("g2p,marked,bare", [
+        (CS, "řekl „ano“ a", "řekl ano a"),
+        (SK, "rok“ a", "rok a"),
+        (CS, "rok „dobrý“", "rok dobrý"),
+        (CS, "„Ano!“ řekl.", "Ano! řekl."),
+        (CS, "Řekl: „Ano.“", "Řekl: Ano."),
+        (CS, "řekl „…a pak“", "řekl …a pak"),
+        (CS, "„Počkej…“ „…a pak“", "Počkej… …a pak"),
+    ])
+    def test_phones_and_boundaries_unchanged(self, g2p, marked, bare):
+        assert without_quotes(g2p.tokenize(marked)) == plain(g2p.tokenize(bare))
+
+    @pytest.mark.parametrize("g2p,text", [(CS, s) for s in COVERAGE["cs"]] + [(SK, s) for s in COVERAGE["sk"]])
+    def test_quotes_around_any_run_of_words_only_add_tokens(self, g2p, text):
+        pieces, base = text.split(" "), g2p.tokenize(text)
+        for i in range(len(pieces)):
+            for j in range(i, len(pieces)):
+                parts = list(pieces)
+                parts[i] = "„" + parts[i]
+                parts[j] += "“"
+                toks = g2p.tokenize(" ".join(parts))
+                assert len(quotes(toks)) == len(quotes(base)) + 2 and without_quotes(toks) == without_quotes(base), (i, j)
+
+    def test_kind_and_ordinary_punct(self):
+        toks = CS.tokenize("„Ne, ano.“")
+        assert {t.kind for t in toks if t.symbol in ("❝", "❞")} == {"quote"}
+        assert [t.symbol for t in toks if t.kind == "punct"] == [",", "."]
+
+    def test_vocabulary_has_both_tokens(self):
+        v = build_vocabulary({"cs": ["Ahoj."]})
+        assert (v["❝"], v["❞"]) == (len(PUNCT_TOKENS) + 5, len(PUNCT_TOKENS) + 6)
+        ids, _ = tokens_to_ids(CS.tokenize("„Ahoj.“"), v)
+        assert v["❝"] in ids and v["❞"] in ids

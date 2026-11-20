@@ -23,7 +23,7 @@
 | 4 | Hand-written phoneme list with a silent `<unk>` fallback; stress marks and punctuation glued onto phones; espeak-ng code `en` crashes | 41–62% of real Czech/Slovak tokens and 88% of English tokens became `<unk>` | Vocabulary built from real espeak-ng output; stress, word boundaries and punctuation are separate tokens; `en` → `en-us`; unknown symbols raise | `test_tokens_are_atomic`, `test_every_training_token_is_known`, `test_unknown_symbol_raises` |
 | 5 | `_apply_custom_pronunciation` was a stub | Lexicon fixes for names and espeak-ng errors silently did nothing | Word-level lexicon looked up before espeak-ng | `test_lexicon_override_is_applied` |
 | 6 | 80 HTK-scale, unnormalised mel bands with `center=True` | Features the BigVGAN checkpoint was never trained on (it expects 100 Slaney-normalised bands) | BigVGAN's exact mel computation | `test_identical_to_bigvgan_mel`, `test_mel_basis_matches_bigvgan_training` |
-| 7 | Trim at −40 dB below the loudest frame with no padding; the "LUFS" step was peak normalisation | Soft onsets and word endings cut off; clip edges varied by session | Bounds from forced alignment or the recording's noise floor, fixed 150 ms pads; EBU R128 per source file | `test_quiet_onset_is_not_cut`, `test_reaches_target_lufs` |
+| 7 | Trim at −40 dB below the loudest frame with no padding; the "LUFS" step was peak normalisation | Soft onsets and word endings cut off; clip edges varied by session | Bounds from forced alignment or the recording's noise floor, pads of about 150 ms on a quiet frame; EBU R128 per source file | `test_quiet_onset_is_not_cut`, `test_reaches_target_lufs` |
 
 ### Further defects found while fixing
 
@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`. The corpus preparation (Step 4.2: `src/data/prepare/`, `src/text/units.py`, `scripts/prepare_corpus.py`, `configs/data/example.yaml`) has no code block here: its files are the reference, and its prompt says what they do.
 
-**3432 tests:** 108 for the TTS components, 104 for num2words, 2165 for the text normalizer, 239 for the segmenter, 812 for the corpus preparation and 4 for the environment. In CI (CPU, no model downloads, no optional groups) 3427 pass and 5 skip: `test_cuda_available` (no GPU), the two real-Parakeet tests and the real-MMS aligner test (the models are not in the Hugging Face cache) and the `uroman` test (optional group `align`). With a GPU, the models and `--group align`, all 3432 pass. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**3585 tests:** 189 for the TTS components, 104 for num2words, 2165 for the text normalizer, 239 for the segmenter, 884 for the corpus preparation and 4 for the environment. In CI (CPU, no model downloads, no optional groups) 3580 pass and 5 skip: `test_cuda_available` (no GPU), the two real-Parakeet tests and the real-MMS aligner test (the models are not in the Hugging Face cache) and the `uroman` test (optional group `align`). With a GPU, the models and `--group align`, all 3585 pass. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -3058,8 +3058,13 @@ Open items for **native review**, which is not automated:
 Create src/text/phonemizer.py exactly as the reference below, and tests/test_phonemizer.py.
 Requirements it satisfies:
  - espeak-ng codes cs, sk, en-us ('en' alone crashes espeak-ng)
- - output is a list of Tokens (phone | stress | boundary | punct), each with a language ID
+ - output is a list of Tokens (phone | stress | boundary | punct | quote), each with a language ID
  - stress, word boundaries and punctuation are never glued onto phones
+ - a quote mark becomes OPEN_QUOTE or CLOSE_QUOTE, decided by its position and not by its glyph
+   (mark_role, which src/text/units.py uses as well), so direct speech is visible to the model; an
+   apostrophe is none, and a mark beside an <en> span has the language of the text around it. The two
+   tokens only add to the output: the phones, boundaries and punctuation are those of the text without
+   the marks (the old Slovak opening comma of ,Ahoj!' is the one mark that replaces a token, the comma)
  - <en>...</en> spans are phonemized as English, as whole phrases (weak forms stay right)
  - the lexicon is applied per word BEFORE espeak-ng; cs/sk are phonemized per word (cached),
    so orthography-conditioned rules always see the right word
@@ -3088,6 +3093,7 @@ What this module guarantees (and the v1 plan did not):
       - Slovak 'ô' split into two vowels [u o]                       -> merged to [u̯o]
       - voicing at word boundaries (prepositions k/s/v/z, final
         obstruents) left inconsistent                                -> fixed per language
+  * quote marks become open/close tokens by position (apostrophes do not)
   * cs/sk stress marks dropped (stress is fixed on the first syllable; espeak-ng
     puts marks on the second half of diphthongs, e.g. "viem" -> v i ˈe m)
   * a vocabulary built from real espeak-ng output and STRICT id lookup:
@@ -3161,11 +3167,49 @@ _PUNCT_MAP = {
     "(": ",", ")": ",", "[": ",", "]": ",",
 }
 _QUOTES = set("\"'„“”‚‘’«»‹›`´")
+OPEN_QUOTE, CLOSE_QUOTE = "❝", "❞"
+QUOTE_TOKENS = (OPEN_QUOTE, CLOSE_QUOTE)
 
-SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS]
+SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS, *QUOTE_TOKENS]
 
 _WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
+_MARK_RE = re.compile(r"[\"'„“”‚‘’«»‹›,]")
+_OPENING_CONTEXT = frozenset(" \t\n—–-([„‚“‘»«‹›\"'")
+
+
+def mark_role(text: str, i: int) -> Optional[str]:
+    """"open" or "close" for the quote or bracket mark at text[i], decided by its position; None for any other character
+    and for a mark between two letters (an apostrophe). „ ‚ ( [ open and ) ] ” ’ close; “ ‘ » « ‹ › " ' open after the start,
+    a space, a dash or an opening mark when a non-space follows, and close otherwise; an old Slovak ,Ahoj!' opens with a
+    comma after a space."""
+    ch = text[i]
+    prev = text[i - 1] if i else " "
+    nxt = text[i + 1] if i + 1 < len(text) else " "
+    if ch in "„‚([":
+        return "open"
+    if ch in ")]":
+        return "close"
+    if ch in "“”‘’»«‹›\"'":
+        if prev.isalnum() and nxt.isalnum():
+            return None
+        if ch in "”’":
+            return "close"
+        return "open" if (prev in _OPENING_CONTEXT and not nxt.isspace()) else "close"
+    if ch == "," and prev in " \t\n" and nxt.isalpha():
+        return "open"
+    return None
+
+
+def _mark_quotes(text: str) -> str:
+    masked = _SPAN_RE.sub(lambda m: "x" * len(m.group()), text)  # a span counts as a word, its marks are left alone
+
+    def token(m: "re.Match") -> str:
+        role = mark_role(masked, m.start())
+        return m.group() if role is None else (OPEN_QUOTE if role == "open" else CLOSE_QUOTE)
+
+    return _MARK_RE.sub(token, text)
+
 
 # Paired obstruents in espeak-ng 1.52 cs/sk output (voiced -> voiceless)
 VOICED_TO_VOICELESS = {
@@ -3191,7 +3235,7 @@ def _nfc(s: str) -> str:
 class Token:
     symbol: str
     lang: str
-    kind: str  # 'phone' | 'stress' | 'boundary' | 'punct'
+    kind: str  # 'phone' | 'stress' | 'boundary' | 'punct' | 'quote'
 
     @property
     def lang_id(self) -> int:
@@ -3266,6 +3310,10 @@ def _first_phone(tokens: Sequence[Token], start: int) -> Optional[Token]:
     return None
 
 
+def _last_unquoted(tokens: Sequence[Token]) -> Optional[Token]:
+    return next((t for t in reversed(tokens) if t.kind != "quote"), None)
+
+
 def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
     """
     Regressive voicing assimilation at word boundaries for Czech and Slovak.
@@ -3274,7 +3322,7 @@ def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
       next word starts with a voicing trigger (obstruent except v/f/ř) -> copy its voicing
       next is punctuation or end of input (pause)                    -> voiceless
       next word starts with a vowel or sonorant: Czech -> voiceless, Slovak -> voiced
-    Language switches (e.g. into an English span) count as a pause.
+    Language switches (e.g. into an English span) count as a pause. Quote tokens are transparent.
     """
     out = list(tokens)
     n = len(out)
@@ -3294,6 +3342,8 @@ def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
             k0 -= 1
         if k0 <= j:
             nxt_idx = j + 1
+            while nxt_idx < n and out[nxt_idx].kind == "quote":
+                nxt_idx += 1
             voiced: Optional[bool]
             if nxt_idx >= n or out[nxt_idx].kind == "punct":
                 voiced = False  # pause
@@ -3435,20 +3485,25 @@ class CzechSlovakPhonemizer:
     # ---- public API ----------------------------------------------------------------------
     def tokenize(self, text: str) -> List[Token]:
         text = _nfc(text).replace("...", "…")
+        marked = _mark_quotes(text)
         tokens: List[Token] = []
         pos = 0
         spans: List[Tuple[str, str]] = []
-        for m in _SPAN_RE.finditer(text):
+        for m in _SPAN_RE.finditer(marked):
             if m.start() > pos:
-                spans.append((self.language, text[pos:m.start()]))
+                spans.append((self.language, marked[pos:m.start()]))
             spans.append((m.group(1), m.group(2)))
             pos = m.end()
-        if pos < len(text):
-            spans.append((self.language, text[pos:]))
+        if pos < len(marked):
+            spans.append((self.language, marked[pos:]))
 
         def add_word(w_tokens: List[Token]) -> None:
-            if tokens and tokens[-1].kind in ("phone", "stress"):
-                tokens.append(Token(WORD_BOUNDARY, w_tokens[0].lang, "boundary"))
+            last = _last_unquoted(tokens)
+            if last is not None and last.kind in ("phone", "stress"):
+                at = len(tokens)
+                while tokens[at - 1].symbol == OPEN_QUOTE:
+                    at -= 1
+                tokens.insert(at, Token(WORD_BOUNDARY, w_tokens[0].lang, "boundary"))
             tokens.extend(w_tokens)
 
         for lang, chunk in spans:
@@ -3483,6 +3538,9 @@ class CzechSlovakPhonemizer:
 
     def _emit_punct(self, between: str, lang: str, tokens: List[Token], text: str) -> None:
         for ch in between:
+            if ch in QUOTE_TOKENS:
+                tokens.append(Token(ch, lang, "quote"))
+                continue
             if ch.isspace() or ch in self.IGNORABLE:
                 continue
             if ch == "-":
@@ -3496,7 +3554,8 @@ class CzechSlovakPhonemizer:
                 raise ValueError(f"unnormalized character {ch!r} in {text!r}; run the normalizer first")
             if mapped is None:
                 continue
-            if tokens and tokens[-1].kind == "punct" and tokens[-1].symbol == mapped:
+            last = _last_unquoted(tokens)
+            if last is not None and last.kind == "punct" and last.symbol == mapped:
                 continue  # collapse repeats like ",," or ".."
             tokens.append(Token(mapped, lang, "punct"))
 
@@ -3577,12 +3636,12 @@ Re-run the review after the first listening test (Step 14) and after adding new 
 ```text
 Claude Code Prompt 3.3: Create scripts/build_vocab.py: tokenize every training transcript in
 each language plus lexicon entries and a coverage text per language (a few hundred phonetically
-rich sentences, including English ones), then save lexicon/vocab.json with build_vocabulary().
-Rebuild the vocabulary only before pretraining; after that, new symbols mean a G2P change that
+rich sentences, including English ones), then save lexicon/vocab.json with build_vocabulary(). The two
+quote tokens are special tokens, always in it. Rebuild the vocabulary only before pretraining; after that, new symbols mean a G2P change that
 must be reviewed.
 ```
 
-## Test 3: Phonemizer Tests (tested, 52 tests, real espeak-ng 1.52)
+## Test 3: Phonemizer Tests (tested, 126 tests, real espeak-ng 1.52)
 
 ```python
 # tests/test_phonemizer.py
@@ -3591,7 +3650,7 @@ import pytest
 
 from src.text.phonemizer import (
     CzechSlovakPhonemizer, PUNCT_TOKENS, STRESS_MARKS, WORD_BOUNDARY,
-    UnknownSymbolError, build_vocabulary, tokens_to_ids,
+    UnknownSymbolError, build_vocabulary, mark_role, tokens_to_ids,
 )
 
 CS = CzechSlovakPhonemizer("cs")
@@ -3782,6 +3841,117 @@ class TestVocabulary:
 
     def test_vocabulary_is_deterministic(self, vocab):
         assert build_vocabulary(COVERAGE) == vocab
+
+
+class TestMarkRole:
+    @pytest.mark.parametrize("text,i,expected", [
+        ("„a“", 0, "open"), ("„a“", 2, "close"), ("‚a‘", 0, "open"), ("‚a’", 2, "close"),
+        ("(a)", 0, "open"), ("(a)", 2, "close"), ("[a]", 0, "open"), ("[a]", 2, "close"),
+        ("»a«", 0, "open"), ("»a«", 2, "close"), ("«a»", 0, "open"), ("«a»", 2, "close"),
+        ('"a"', 0, "open"), ('"a"', 2, "close"), ('x "a" y', 2, "open"), ('x "a" y', 4, "close"),
+        ("—\"a", 1, "open"), ("„\"a", 1, "open"), ('a" "b', 1, "close"), ('a" "b', 3, "open"),
+        ("d'a", 1, None), ("d’a", 1, None), ('a"b', 1, None),
+        ("a, b", 1, None), ("a ,b", 2, "open"), ("a ,1", 2, None), ("a", 0, None), (" ", 0, None),
+        ("a”", 1, "close"), ("a ”b", 2, "close"),
+    ])
+    def test_mark_role(self, text, i, expected):
+        assert mark_role(text, i) == expected
+
+
+def quotes(tokens):
+    return [t.symbol for t in tokens if t.kind == "quote"]
+
+
+def without_quotes(tokens):
+    return [(t.symbol, t.lang, t.kind) for t in tokens if t.kind != "quote"]
+
+
+def plain(tokens):
+    return [(t.symbol, t.lang, t.kind) for t in tokens]
+
+
+class TestQuotes:
+    @pytest.mark.parametrize("text", ["Řekl: „Ano.“", 'Řekl: "Ano."', "Řekl: “Ano.”", "Řekl: »Ano.«", "Řekl: «Ano.»"])
+    def test_every_style_by_position(self, text):
+        assert quotes(CS.tokenize(text)) == ["❝", "❞"]
+
+    def test_nested(self):
+        assert quotes(CS.tokenize("„Řekl ‚ano‘.“")) == ["❝", "❝", "❞", "❞"]
+
+    def test_old_slovak_comma_quote(self):
+        assert quotes(SK.tokenize("Povedal ,ahoj!' a odišiel.")) == ["❝", "❞"]
+
+    def test_ascii_quote_opens_then_closes(self):
+        toks = CS.tokenize('"Ano"')
+        assert [t.symbol for t in toks if t.kind in ("quote", "boundary")] == ["❝", "❞"]
+        assert toks[0].symbol == "❝" and toks[-1].symbol == "❞"
+
+    @pytest.mark.parametrize("g2p,text", [
+        (CS, "d'Artagnan"), (CS, "d’Artagnan"), (EN, "the judge's window"), (CS, 'a"b'),
+        (CS, "a`b"), (CS, "a´b"), (CS, "a `b` c"), (EN, "<en>Harry's</en>"), (CS, 'řekl <en>"hi"</en>')])
+    def test_not_quotes(self, g2p, text):
+        assert quotes(g2p.tokenize(text)) == []
+
+    def test_unit_ending_inside_a_quote(self):
+        assert quotes(CS.tokenize("Rozumíš?“ zašeptala.")) == ["❞"]
+
+    def test_unit_starting_inside_a_quote(self):
+        assert quotes(CS.tokenize("„Ne. Nikdy.")) == ["❝"]
+
+    @pytest.mark.parametrize("text", ["„<en>Harry Potter</en>“ řekl.", '"<en>Harry Potter</en>" řekl.'])
+    def test_around_an_english_span(self, text):
+        toks = CS.tokenize(text)
+        assert [(t.symbol, t.lang) for t in toks if t.kind == "quote"] == [("❝", "cs"), ("❞", "cs")]
+        first = next(i for i, t in enumerate(toks) if t.kind == "phone")
+        last = max(i for i, t in enumerate(toks) if t.kind == "phone" and t.lang == "en")
+        assert toks[first - 1].symbol == "❝" and toks[last + 1].symbol == "❞"
+        assert toks[first].lang == "en"
+
+    def test_boundaries_between_words(self):
+        syms = symbols(CS.tokenize("řekl „ano“ a"))
+        o, c = syms.index("❝"), syms.index("❞")
+        assert syms[o - 1] == "|" and syms[c + 1] == "|"
+        assert "|" not in syms[o:c]
+        assert syms[c + 2] != "|" and syms[o - 2] != "|"
+
+    def test_no_boundary_after_closer_following_punct(self):
+        syms = symbols(CS.tokenize("„Ano!“ řekl."))
+        assert syms[syms.index("❞") - 1] == "!"
+        assert syms[syms.index("❞") + 1] != "|"
+
+    @pytest.mark.parametrize("g2p,marked,bare", [
+        (CS, "řekl „ano“ a", "řekl ano a"),
+        (SK, "rok“ a", "rok a"),
+        (CS, "rok „dobrý“", "rok dobrý"),
+        (CS, "„Ano!“ řekl.", "Ano! řekl."),
+        (CS, "Řekl: „Ano.“", "Řekl: Ano."),
+        (CS, "řekl „…a pak“", "řekl …a pak"),
+        (CS, "„Počkej…“ „…a pak“", "Počkej… …a pak"),
+    ])
+    def test_phones_and_boundaries_unchanged(self, g2p, marked, bare):
+        assert without_quotes(g2p.tokenize(marked)) == plain(g2p.tokenize(bare))
+
+    @pytest.mark.parametrize("g2p,text", [(CS, s) for s in COVERAGE["cs"]] + [(SK, s) for s in COVERAGE["sk"]])
+    def test_quotes_around_any_run_of_words_only_add_tokens(self, g2p, text):
+        pieces, base = text.split(" "), g2p.tokenize(text)
+        for i in range(len(pieces)):
+            for j in range(i, len(pieces)):
+                parts = list(pieces)
+                parts[i] = "„" + parts[i]
+                parts[j] += "“"
+                toks = g2p.tokenize(" ".join(parts))
+                assert len(quotes(toks)) == len(quotes(base)) + 2 and without_quotes(toks) == without_quotes(base), (i, j)
+
+    def test_kind_and_ordinary_punct(self):
+        toks = CS.tokenize("„Ne, ano.“")
+        assert {t.kind for t in toks if t.symbol in ("❝", "❞")} == {"quote"}
+        assert [t.symbol for t in toks if t.kind == "punct"] == [",", "."]
+
+    def test_vocabulary_has_both_tokens(self):
+        v = build_vocabulary({"cs": ["Ahoj."]})
+        assert (v["❝"], v["❞"]) == (len(PUNCT_TOKENS) + 5, len(PUNCT_TOKENS) + 6)
+        ids, _ = tokens_to_ids(CS.tokenize("„Ahoj.“"), v)
+        assert v["❝"] in ids and v["❞"] in ids
 ```
 
 ---
@@ -3980,8 +4150,9 @@ licence of each model (a CC-BY-NC weight is the user's call per run).
     the text become gaps. Each unit is ok, low_conf or unmatched by the part's own scores; only ok units are
     cut. NeMo Forced Aligner cannot be used: it takes CTC or hybrid models only, not the pure-TDT Parakeet.
  5. cut: the aligner's spans lie inside the speech, so the speech edges move to the energy edges; the cut
-    point is the centre of the longest quiet run of the gap; each clip keeps a 150 ms pad that never passes
-    the cut point. A gap under two pads merges the units (same paragraph, within 17 s estimated and 20 s
+    point is the centre of the longest quiet run of the gap; each clip keeps a pad of about 150 ms that never
+    passes the cut point (a pad edge on a loud frame moves outward to the nearest quiet frame, within the
+    cut point and the 20 s cap). A gap under two pads merges the units (same paragraph, within 17 s estimated and 20 s
     measured) or flags short_pause; no quiet run flags no_quiet_cut; a clip over 20 s is split at a word
     pause. Hard assertions: no two clips share a sample, every clip holds its words, every clip hash is
     unique over the corpus. cut/pauses.json holds the narrator's median pause per type (comma, sentence,
@@ -3999,11 +4170,13 @@ licence of each model (a CC-BY-NC weight is the user's call per run).
      "chapter", "flags", "n_tokens", "sha256"}
     filter_manifest (Step 4.3) drops over-length (> 20 s), too-short (< 0.5 s) and impossible clips and
     never crops. The split gives val and test whole paragraphs to a quota per tag (min(5, 10%), rarest tag
-    first), one contiguous held-out block of one chapter (about 4% of the hours), and train the rest. No
-    paragraph, text of four words or more, or audio is in two splits. coverage.md counts clips and hours
+    first), one contiguous held-out block of one chapter (about 4% of the hours, at most twice that; of the
+    candidates the one with the fewest holes, the dropped clips and rejected units between its clips), and
+    train the rest. No paragraph, text of four words or more, or audio is in two splits. coverage.md counts clips and hours
     per tag and split.
  8. gold (optional): scores the cut against speech a person verified (a JSON file, or Audacity labels of
-    the pauses). No matched span may lose an ASR-confirmed word; the unsafe-cut rate is for information.
+    the pauses). No matched span may lose an ASR-confirmed word (the words of rejected units, which are
+    never cut, are reported apart); the unsafe-cut rate is for information.
 ```
 
 Decisions and results on the first book (Czech, 10 parts, 9.091 h, one narrator; the details are in `docs/corpus-preparation.md`):
@@ -4012,23 +4185,26 @@ Decisions and results on the first book (Czech, 10 parts, 9.091 h, one narrator;
 - **Text:** the narrator's rewrite of the book with the EPUB's chapters placed into it. On two parts, 94.7% of the units align (`ok`), against 75.7% for the EPUB text with a lexicon learned from the rewrite, and the audit drops 11.9% against 22.3%. 81% of the EPUB failures are text the narrator skipped or changed.
 - **Aligner:** `xls-r-cs` (Czech, Apache-2.0) aligns 95.4% of the units, `mms-1b-all` 91.3% and `mms-300m` (the code default, CC-BY-NC) 86.5%. All three give refined clip edges within 10 ms (median) of the gold.
 - **Audit:** two judges. One judge drops 22.2% of the clips of two parts and about half of those drops are false (numbers, short interjections, recognition errors); two judges drop 12.9%.
-- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.6% and informational): it is 2 of 153 matched spans, both diagnosed.
+- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.2% and informational): 1 of 153 matched spans loses a word, a first word the aligner placed late (the words of rejected units are listed apart; counted as lost, it was 2 of 153). A pad edge on a frame louder than the quiet level moves outward to the nearest quiet frame within the cut point, the 20 s cap and the midpoint of the next ASR word, so a few pads are longer than 150 ms.
 - **Validation sets:** a paragraph with a clip flagged `short_pause`, `no_quiet_cut` or `over_cap` stays out of val and test (7.0% of the clips are `short_pause`), so the evaluation clips have uniform edges; those clips still train. One test quota (parenthesis) is unmet. The book has no digits after normalisation, so there are no number, date or abbreviation clips.
-- **Result:** 9.091 h of recordings, 4,952 units, 4,721 aligned `ok`, 4,586 clips (7.360 h with pads), 499 dropped by the audit, 4,086 clips kept: 6.613 h (72.7%), of which train 6.068 h, val 0.099 h, test 0.118 h and held-out 0.327 h. One cold run takes 42 min and 5.46 GiB of RAM on one 6 GB GPU.
+- **Result:** 9.091 h of recordings, 4,952 units, 4,721 aligned `ok`, 4,586 clips (7.364 h with pads), 501 dropped by the audit, 4,084 clips kept: 6.613 h (72.7%), of which train 6.107 h, val 0.094 h, test 0.113 h and held-out 0.300 h. One cold run takes 42 min and 5.46 GiB of RAM on one 6 GB GPU.
 - **Pauses** (`cut/pauses.json`, breath-free): sentence 0.95 s, paragraph 1.73 s, chapter 2.93 s, comma 0.10 s.
 
-Not built: a repair of the text from the ASR words where the narrator departs from it (207 of the 499 audit drops), and a normaliser reading for `|`, `•` and a `/` it cannot place (`docs/normalizer-backlog.md`).
+Not built: a repair of the text from the ASR words where the narrator departs from it (about 41% of the audit drops), and a normaliser reading for `|`, `•` and a `/` it cannot place (`docs/normalizer-backlog.md`).
 
 ## 4.3 Dataset and collator
 
 ```text
 Claude Code Prompt 4.3: Create src/data/dataset.py exactly as the reference below.
- - filter_manifest DROPS over-length / too-short / impossible utterances and reports them;
+ - filter_manifest DROPS over-length / too-short / impossible utterances and reports them; a clip has
+   as many frames as its mel does (samples // hop), so "impossible" agrees with the dataset's own check;
    the dataset never truncates mel or tokens.
  - Strict symbol lookup (UnknownSymbolError names the utterance); language IDs per token.
  - Mel targets are normalised with corpus statistics (corpus_mel_stats: rows spread evenly over the
    set, not the first N, which are the first chapters), padded with 0. The mel cache file is named
-   by the clip id and a hash of its audio, so a re-cut under the same id never loads an old mel.
+   by the clip id and the sha256 of its audio (the manifest row's own, else a hash of the file), so a
+   re-cut under the same id never loads an old mel and a cached mel of a row with a sha256 is served
+   without reading the WAV.
  - Batches carry speaker_ids, boundary_ids and rates for the conditioning in Step 8.
 ```
 
@@ -4083,7 +4259,8 @@ class FilterReport:
 
 
 def load_manifest(path: str) -> List[Dict]:
-    """JSONL, one utterance per line. Required: id, audio, text, lang. See the plan, Step 4."""
+    """JSONL, one utterance per line. Required: id, audio, text, lang. The sha256 of a row's audio, when it has one, names
+    its mel cache file. See the plan, Step 4."""
     rows = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -4103,7 +4280,7 @@ def filter_manifest(rows: Sequence[Dict], n_tokens: Dict[str, int], hop_s: float
     kept, too_long, too_short, impossible = [], [], [], []
     for r in rows:
         dur = float(r["duration_s"])
-        frames = int(dur / hop_s)
+        frames = int(dur / hop_s + 1e-6)  # n // hop of the mel; the epsilon covers the float error of dur / hop_s
         if dur > max_duration_s:
             too_long.append(r["id"])
         elif dur < min_duration_s:
@@ -4140,7 +4317,7 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            digest = row.get("sha256") or hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
             p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
@@ -4261,10 +4438,10 @@ class TempoLabel:
 def tempo_from_alignment(kinds: Sequence[str], durations_frames: Sequence[int], hop_s: float,
                          min_pause_s: float = 0.12) -> TempoLabel:
     """
-    kinds: token kinds from the phonemizer ('phone' | 'punct' | 'boundary' | 'stress')
+    kinds: token kinds from the phonemizer ('phone' | 'punct' | 'boundary' | 'stress' | 'quote')
     durations_frames: frames aligned to each token (MAS / forced aligner)
     A punctuation/boundary token longer than min_pause_s counts as a pause; shorter ones
-    (and all phones) count as speech time.
+    (and all phones and quote tokens) count as speech time.
     """
     n_phones, speech_s, pause_s = 0, 0.0, 0.0
     for k, d in zip(kinds, durations_frames):
@@ -4417,14 +4594,16 @@ class TestTrimming:
 ```python
 # tests/test_data_pipeline.py
 """Data pipeline: drop-don't-crop filtering, strict symbols, conditioning carried into batches."""
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
 import torch
 
-from src.data.audio import AudioProcessor
+from src.data.audio import AudioProcessor, MelConfig
 from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
@@ -4469,6 +4648,16 @@ def test_filter_drops_impossible_alignments(g2p):
     rows = [{"id": "x", "text": "Rozhlas vysílá zprávy.", "lang": "cs", "duration_s": 0.6}]
     n = token_counts(rows, g2p)
     kept, report = filter_manifest(rows, n, hop_s=0.1, min_duration_s=0.1)  # 6 frames < ~20 tokens
+    assert kept == [] and report.impossible_alignment == ["x"]
+
+
+@pytest.mark.parametrize("sr,n", [(24000, 10240), (22050, 3840), (22050, 7680), (16000, 11008)])
+def test_filter_counts_the_frames_the_mel_has(sr, n):
+    frames = AudioProcessor(MelConfig(sample_rate=sr)).compute_mel(torch.zeros(1, n)).shape[1]
+    rows = [{"id": "x", "duration_s": n / sr}]
+    kept, _ = filter_manifest(rows, {"x": frames}, hop_s=256 / sr, min_duration_s=0.0)
+    assert kept == rows
+    kept, report = filter_manifest(rows, {"x": frames + 1}, hop_s=256 / sr, min_duration_s=0.0)
     assert kept == [] and report.impossible_alignment == ["x"]
 
 
@@ -4535,6 +4724,38 @@ def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
     assert ds._mel(row).shape[1] == ap.n_frames(SR)
     sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
     assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def test_mel_cache_does_not_read_the_audio_when_the_row_has_its_sha256(tmp_path, g2p, monkeypatch):
+    ds, row = _cached_dataset(tmp_path, g2p, AudioProcessor(), tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    ds._mel(row)
+    reads, read_bytes = [], Path.read_bytes
+    monkeypatch.setattr(Path, "read_bytes", lambda self: (reads.append(self), read_bytes(self))[1])
+    ds._mel(row)
+    assert reads == []
+
+
+def test_mel_cache_is_keyed_by_the_sha256_of_the_row(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "b" * 64})
+    assert len(calls) == 2
+
+
+def test_mel_cache_follows_a_recut_that_the_manifest_row_names(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel({**row, "sha256": _sha256(tmp_path / "u.wav")}).shape[1] == ap.n_frames(SR // 2)
 
 
 def _stats_dataset(tmp_path, g2p, amplitudes):
@@ -5628,7 +5849,7 @@ Rules that make pace consistent:
 4. Keep style out of the duration path. (If style diffusion is ever added, smooth it across sentences.)
 5. Render unit by unit, with the units of training (`src/text/units.py`): one sentence, a quote or bracket kept whole while it is open, a clause cut above the length cap.
 6. Paragraph cadence comes only from the boundary flag.
-7. Insert pauses by rule from the narrator's measured medians per boundary type. `cut/pauses.json` of the corpus run holds them (comma, sentence, paragraph, chapter, and `pad_s`), and the `pause` of a unit says which one follows it ("clause" takes the comma median). Training clips start and end with up to `pad_s` of silence (the pad shrinks where the gap to a neighbour was under two pads: 7.0% of the clips of the first book), so a rendered unit already carries about two pads: insert `max(0, median − 2 × pad_s)`. On the first book the sentence median is 0.95 s, so 0.65 s is inserted; the comma median (0.10 s) is shorter than the two pads, so a clause cut inserts nothing.
+7. Insert pauses by rule from the narrator's measured medians per boundary type. `cut/pauses.json` of the corpus run holds them (comma, sentence, paragraph, chapter, and `pad_s`), and the `pause` of a unit says which one follows it ("clause" takes the comma median). Training clips start and end with about `pad_s` of silence (the pad shrinks where the gap to a neighbour was under two pads: 7.0% of the clips of the first book, and is longer where noise sat at the pad edge), so a rendered unit already carries about two pads: insert `max(0, median − 2 × pad_s)`. On the first book the sentence median is 0.95 s, so 0.65 s is inserted; the comma median (0.10 s) is shorter than the two pads, so a clause cut inserts nothing.
 
 ```text
 Claude Code Prompt 12.1: Create src/inference/synthesizer.py, scripts/synthesize_book.py and
@@ -6040,16 +6261,16 @@ Claude Code Prompt 15.1: Run stage 1 of Step 11, then compare it with v1.
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 3431 tests, ~100 s on one CPU thread
+uv run pytest tests/ -q -m "not slow"   # 3584 tests, ~100 s on one CPU thread
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~25 s more
 ```
 
 | File | Tests | Guards |
 |---|---|---|
 | test_environment.py | 4 | torch and torchaudio versions; espeak-ng for cs, sk and en; the audio config equals the vocoder's; CUDA (skips without a GPU) |
-| test_phonemizer.py | 52 | Defects 4 and 5; espeak-ng corrections; strict vocabulary; digits raise |
+| test_phonemizer.py | 126 | Defects 4 and 5; espeak-ng corrections; strict vocabulary; digits raise |
 | test_audio.py | 12 | Defects 6 and 7; exact BigVGAN mel equality; filterbank pinned to librosa 0.10.2; EBU R128; soft onsets kept; neighbouring clips never share a sample |
-| test_data_pipeline.py | 9 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches; the mel cache follows the clip's audio; mel statistics sample the whole set |
+| test_data_pipeline.py | 16 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches; the mel cache follows the clip's audio; mel statistics sample the whole set |
 | test_model_components.py | 22 | Defects 1 and 3; MAS equals exhaustive search; decoder overfits one utterance; LayerNorm crash; exact padding invariance |
 | test_eval_and_discriminator.py | 12 | SSL discriminator gradients and freezing; tempo labels; pace metrics; ASR failure shapes; per-token retry scaling |
 | test_integration.py | 1 | The whole model learns alignment, durations and content on a synthetic language, and keeps every token |
@@ -6057,18 +6278,18 @@ uv run pytest tests/ -q                 # + end-to-end synthetic training test, 
 | test_num2words_cs.py | 55 | Czech numerals; expectations quoted from IJP, cs.wikipedia, ČRo or NK; every output word is a dictionary word |
 | test_text_normalization.py | 2165 | Prompt 2.2: one row per reading rule; a reading that is a guess must log and the others must not; every output tokenizes in the G2P |
 | test_segmenter.py | 239 | Prompt 2.3: sentence ends, quotes, initials and spans; paragraph and chapter labels; the heading flag and source line of each sentence; normalise, segment and G2P on a Czech and a Slovak text |
-| test_units.py | 177 | Prompt 4.2: the unit builder shared with Step 12: one sentence per unit, open quotes and brackets kept whole up to the cap, clause cuts and the pause after each unit, the length estimate |
+| test_units.py | 210 | Prompt 4.2: the unit builder shared with Step 12: one sentence per unit, open quotes and brackets kept whole up to the cap, clause cuts and the pause after each unit, the length estimate |
 | test_prepare_source.py | 25 | The EPUB as book text (spine order, headings, tables, replacements) and its cut into the parts of the recordings at the word, with the chapter placement; no body text in reports |
 | test_prepare_lexicon.py | 27 | The lexicon of a book: consistent respellings and symbols applied, numbers and abbreviations left to the normalizer, whole-word replacement |
 | test_prepare_text.py | 62 | The text stage: the format reported and never repaired, headings, logged readings, every failing paragraph listed, `skip_unreadable`, the units file, a byte-identical re-run |
 | test_prepare_audio.py | 32 | The audio stage: streamed loudness equals pyloudnorm, block resampling, mono mix, peak ceiling, clipped runs, block-size independence |
 | test_align.py | 63 | The aligner: long-form block planning and monotone spans, CTC backends, status from the part's own scores, the pipeline; real MMS emissions (skips without the model) |
 | test_asr.py | 18 | The ASR runner: window planning, word grouping, long-form stitching with a stub model, light import; real Parakeet (skips without the model) |
-| test_cut.py | 132 | The cut stage on synthetic audio with a known layout: speech edges and the bridge, cut points, pads, merges, `short_pause`, `no_quiet_cut`, the 20 s cap, hard assertions, pause medians |
+| test_cut.py | 154 | The cut stage on synthetic audio with a known layout: speech edges and the bridge, cut points, pads, merges, `short_pause`, `no_quiet_cut`, the 20 s cap, hard assertions, pause medians |
 | test_prepare_audit.py | 73 | The audit: judge CER with digits spelled, the two-judge rule, audio metrics, review and listening lists, transcript caches, no text in reports; real Parakeet (skips without the model) |
-| test_prepare_coverage.py | 52 | The split: quotas per tag, whole paragraphs, one contiguous held-out block, no paragraph, text or audio in two splits |
-| test_prepare_manifest.py | 18 | The manifest: row contract, rates from word times without the pads, the filter report, hash re-check, flagged clips kept out of val and test, the round trip through `TTSDataset` |
-| test_prepare_gold.py | 71 | The gold scorer: one-to-one matching, unsafe cuts, edge and pause-centre errors, lost speech and lost words, Audacity labels |
+| test_prepare_coverage.py | 58 | The split: quotas per tag, whole paragraphs, one contiguous held-out block, no paragraph, text or audio in two splits |
+| test_prepare_manifest.py | 20 | The manifest: row contract, rates from word times without the pads, the filter report, hash re-check, flagged clips kept out of val and test, the round trip through `TTSDataset` |
+| test_prepare_gold.py | 80 | The gold scorer: one-to-one matching, unsafe cuts, edge and pause-centre errors, lost speech and lost words, Audacity labels |
 | test_prepare_config.py | 25 | The YAML: `example.yaml` loads and is complete, unknown keys name their path, fed keys, derived defaults, the judge check |
 | test_prepare_pipeline.py | 27 | The entry point: stage order, errors, the align stage's ASR cache, the audit's judge check |
 | test_prepare_all.py | 10 | `prepare_corpus.py all` end to end on a tiny synthetic book with a stub aligner and stub judges, with negative controls |
