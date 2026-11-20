@@ -19,6 +19,7 @@ from src.data.prepare.gold import GoldConfig
 from src.data.prepare.manifest import ManifestConfig
 from src.data.prepare.source import SourceConfig
 from src.data.prepare.text import TextConfig
+from src.text.normalizer import STANZA_PACKAGES
 
 
 class ConfigError(ValueError):
@@ -238,6 +239,8 @@ def from_mapping(mapping: Optional[dict], base_dir: str) -> PipelineConfig:
 
 
 def validate(cfg: PipelineConfig) -> None:
+    if cfg.language not in STANZA_PACKAGES:
+        raise ConfigError(f"language: must be one of {', '.join(sorted(STANZA_PACKAGES))}, got {cfg.language!r}")
     try:
         validate_align(cfg.align)
     except ValueError as e:

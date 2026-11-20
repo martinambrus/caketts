@@ -292,6 +292,12 @@ def test_audit_edge_level_follows_the_cut(tmp_path):
     assert from_mapping({"cut": {"quiet_db": 18.0}, "audit": {"edge_db": 12.0}}, base).audit.edge_db == 12.0
 
 
+def test_language_the_normalizer_cannot_read_fails_at_load(tmp_path):
+    with pytest.raises(ConfigError, match=r"^language: "):
+        load_config(write(tmp_path, {"language": "en"}))
+    assert load_config(write(tmp_path, {"language": "sk"}, "sk.yaml")).language == "sk"
+
+
 @pytest.mark.parametrize("judges", [[], ["parakeet-tdt-0.6b-v3", "parakeet-tdt-0.6b-v3"], ["parakeet-tdt-0.6b-v3", "whisper"]])
 def test_validate_judges(tmp_path, judges):
     with pytest.raises(ConfigError, match=r"^audit\.judges: "):

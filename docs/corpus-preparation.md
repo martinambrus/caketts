@@ -225,5 +225,5 @@ The unit-length estimate (`estimate` in the text stage, which decides the 17 s c
 
 - It does not repair the text from the audio: where the narrator deviates, the clip is dropped (207 of 499 here). A repair from the ASR words is a design item, not built.
 - It does not read what the normalizer cannot read: `|`, `•` and a `/` it cannot place (such as `139/VII`) stop the text stage; list them in a lexicon. The normalizer reads `/` between words ("or"), between numbers and in a ratio such as `Kč/kg`.
-- Only Czech has run on a real book, and the aligner comparison exists for Czech only. The text stage accepts `cs` and `sk`: English appears only as `<en>` spans inside a Czech or Slovak text, and `language: en` loads but stops in the text stage.
+- Only Czech has run on a real book, and the aligner comparison exists for Czech only. The config accepts `language` `cs` and `sk` only (the normalizer's languages): English appears only as `<en>` spans inside a Czech or Slovak text.
 - The manifest's rates and the pauses in `pauses.json` describe this narrator in these recordings; recompute them for another book.
