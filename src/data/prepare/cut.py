@@ -4,7 +4,8 @@ that can never share audio, with uniform pads, measured pauses and the narrator'
 
 Inputs are text/<part>.units.jsonl, align/<part>.align.jsonl and audio/<part>.24k.wav of the work directory;
 outputs are cut/<part>.cuts.jsonl, cut/<part>.rejects.jsonl, cut/clips/<id>.wav, cut/pauses.json and a report.
-Positions are integer samples at the part's sample rate; clips are half-open [start, end).
+Positions are integer samples at the part's sample rate; clips are half-open [start, end). run_cut takes every part of the
+run in one call: the report, the pause medians and the audit's noise floors describe exactly the parts of the last call.
 """
 from __future__ import annotations
 
@@ -451,6 +452,10 @@ def run_cut(work_dir: Path, parts: Sequence[str], cfg: CutConfig = CutConfig()) 
     out = work_dir / "cut"
     clips_dir = out / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
+    stale = sorted({p.name[:-len(".cuts.jsonl")] for p in out.glob("*.cuts.jsonl")} - set(parts))
+    if stale:
+        raise CutError(f"cut/ holds the clips of {stale}, which are not in this call: report.json and pauses.json describe "
+                       f"the whole run, so pass every part of the run in one call or delete the files of the others")
     all_gaps: list = []
     all_commas: list = []
     report: dict = {"parts": {}}
