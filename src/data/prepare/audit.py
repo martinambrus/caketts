@@ -26,6 +26,7 @@ from scipy.signal import resample_poly
 import jiwer
 
 from src.data.prepare.asr import ASR_BACKENDS, AsrConfig, AsrRunner
+from src.data.prepare.cut import CutConfig
 from src.eval.asr_check import normalize_for_asr
 
 CUT_FLAG_REASONS = ("no_quiet_cut", "over_cap")
@@ -53,7 +54,7 @@ class AuditConfig:
     sigmas: float = 3.0
     min_clips: int = 20
     edge_frame_s: float = 0.01
-    edge_db: float = 12.0
+    edge_db: Optional[float] = None
     clip_level: float = 0.98
     clip_run: int = 3
     listen_n: int = 50
@@ -230,9 +231,10 @@ def judge(rows: Sequence[dict], cfg: AuditConfig) -> JudgeResult:
                 found.append(("level_low", "lufs", m["lufs"], level_band[2]))
             elif m["lufs"] > level_band[3]:
                 found.append(("level_high", "lufs", m["lufs"], level_band[3]))
+        edge_db = CutConfig.quiet_db if cfg.edge_db is None else cfg.edge_db
         for code, key in (("edge_noise_start", "edge_start_db"), ("edge_noise_end", "edge_end_db")):
-            if m[key] is not None and m[key] > cfg.edge_db:
-                found.append((code, key, m[key], cfg.edge_db))
+            if m[key] is not None and m[key] > edge_db:
+                found.append((code, key, m[key], edge_db))
         if m["clipped_runs"] and m["clipped_runs"] > 0:
             found.append(("clipping", "clipped_runs", m["clipped_runs"], 0))
         flags = set(r["flags"])

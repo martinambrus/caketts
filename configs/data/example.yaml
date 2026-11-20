@@ -103,7 +103,7 @@ audit:
   sigmas: 3.0  # a rate or loudness this many robust sigmas from the median is flagged
   min_clips: 20  # fewest clips needed for the rate and loudness bands
   edge_frame_s: 0.01  # frame at each clip edge whose level is checked, seconds
-  edge_db: 12.0  # an edge frame this many dB above the part's noise floor is flagged as noisy
+  edge_db: null  # an edge frame this many dB above the part's noise floor is flagged as noisy; null = cut.quiet_db
   clip_level: 0.98  # share of full scale at which a clip sample counts as clipped
   clip_run: 3  # consecutive clipped samples that make a clipping run
   listen_n: 50  # length of the listening list (the riskiest clips)

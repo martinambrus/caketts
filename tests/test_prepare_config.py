@@ -15,7 +15,7 @@ SECTIONS = ("source", "lexicon", "text", "audio", "align", "cut", "audit", "mani
 FED = {"language", "speaker", "use_part_fragments", "work_dir"}
 DERIVED = {
     "text.parts", "text.text_dir", "text.suffix", "text.placement", "text.lexicon", "text.compare_dir",
-    "text.compare_suffix", "lexicon.path", "lexicon.book_dir",
+    "text.compare_suffix", "lexicon.path", "lexicon.book_dir", "audit.edge_db",
 }
 NO_DEFAULT = {"source.orig_dir", "source.epub.path", "lexicon.rewrite_dir"}
 
@@ -282,6 +282,14 @@ def test_validate_and_empty_yaml(tmp_path):
         validate(bad)
     with pytest.raises(ConfigError, match=r"^align: "):
         load_config(write(tmp_path, {"align": {"longform": "nope"}}, "b.yaml"))
+
+
+def test_audit_edge_level_follows_the_cut(tmp_path):
+    base = str(tmp_path)
+    plain = from_mapping({}, base)
+    assert plain.audit.edge_db == plain.cut.quiet_db
+    assert from_mapping({"cut": {"quiet_db": 18.0}}, base).audit.edge_db == 18.0
+    assert from_mapping({"cut": {"quiet_db": 18.0}, "audit": {"edge_db": 12.0}}, base).audit.edge_db == 12.0
 
 
 @pytest.mark.parametrize("judges", [[], ["parakeet-tdt-0.6b-v3", "parakeet-tdt-0.6b-v3"], ["parakeet-tdt-0.6b-v3", "whisper"]])

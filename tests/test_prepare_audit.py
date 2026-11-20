@@ -16,6 +16,7 @@ import soundfile as sf
 from src.data.prepare import audit
 from src.data.prepare.asr import ASR_BACKENDS
 from src.data.prepare.audit import AuditConfig, audio_metrics, cer_stats, judge, run_audit, spell_digits
+from src.data.prepare.cut import CutConfig
 from src.text.num2words_cs import num2words as cs_words
 
 SR = 24000
@@ -237,9 +238,15 @@ class TestJudge:
     def test_review_rows_carry_the_violated_threshold(self):
         res = judge(self.rows_of_verdicts(), CFG)
         assert ("p-00000", "cer", 0.5, pytest.approx(0.05), "cer") in res.review_rows
-        assert ("p-00001", "edge_end_db", 20.0, 12.0, "edge_noise_end") in res.review_rows
+        assert ("p-00001", "edge_end_db", 20.0, 15.0, "edge_noise_end") in res.review_rows
         assert ("p-00002", "cut_flag", 1, 0, "no_quiet_cut") in res.review_rows
         assert not any(r[0] == "p-00004" for r in res.review_rows)
+
+    def test_edge_level_defaults_to_the_cut_quiet_level(self):
+        quiet = CutConfig().quiet_db
+        res = judge([row(0, edge_start_db=quiet - 1.0), row(1, edge_start_db=quiet + 1.0)], CFG)
+        assert res.reasons["p-00000"] == [] and res.reasons["p-00001"] == ["edge_noise_start"]
+        assert ("p-00001", "edge_start_db", quiet + 1.0, quiet, "edge_noise_start") in res.review_rows
 
     def test_review_rows_in_clip_then_reason_order(self):
         rows = [row(0, edge_start_db=20.0, clipped_runs=1, flags=["over_cap"]), row(1, clipped_runs=1)]
@@ -249,13 +256,13 @@ class TestJudge:
 
     def listening_rows(self):
         return [row(0, edge_start_db=20.0), row(1, edge_start_db=100.0), row(2), row(3, edge_start_db=20.0),
-                row(4, flags=["over_cap"]), row(5, edge_start_db=14.0)]
+                row(4, flags=["over_cap"]), row(5, edge_start_db=17.5)]
 
     def test_listening_sorted_by_risk_then_clip_order(self):
         res = judge(self.listening_rows(), dataclasses.replace(CFG, listen_n=4))
         assert [(r[0], r[1]) for r in res.listening] == [(1, "p-00001"), (2, "p-00000"), (3, "p-00003"), (4, "p-00005")]
         assert res.listening[0][2] == pytest.approx(3.0)
-        assert res.listening[1][2] == pytest.approx(1 + 8 / 12)
+        assert res.listening[1][2] == pytest.approx(1 + 5 / 15)
         assert res.listening[0][3] == ["edge_noise_start"]
 
     def test_cut_flag_risk_is_exactly_one(self):

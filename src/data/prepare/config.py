@@ -232,6 +232,8 @@ def from_mapping(mapping: Optional[dict], base_dir: str) -> PipelineConfig:
             sections[name] = None
         else:
             sections[name] = _build(cls, present[name] or {}, name, ctx)
+        if name == "cut":
+            derived["audit.edge_db"] = sections["cut"].quiet_db
     return PipelineConfig(**top, **sections)
 
 
