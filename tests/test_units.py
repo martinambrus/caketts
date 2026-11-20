@@ -5,6 +5,7 @@ from collections import namedtuple
 from functools import lru_cache
 
 import pytest
+from src.text.phonemizer import CzechSlovakPhonemizer
 from src.text.segmenter import Sentence, segment
 from src.text.units import Unit, build_units, estimate_s, quote_depth
 
@@ -572,3 +573,14 @@ def test_estimate_s_hand_values():
     assert estimate_s("a - b.") == pytest.approx(0.538, abs=1e-9)
     assert estimate_s(LONG) == pytest.approx(33.9595, abs=1e-9)
     assert estimate_s(ONLY_COMMA) == pytest.approx(34.4275, abs=1e-9)
+
+
+@pytest.mark.parametrize("key", [k for k, (t, _, _) in QUOTE_DEPTH.items() if not any(c in t for c in "<()[]")])
+def test_quote_depth_agrees_with_quote_tokens(key):
+    text, depth, expected = QUOTE_DEPTH[key]
+    for t in CzechSlovakPhonemizer("cs").tokenize(text):
+        if t.symbol == "❝":
+            depth += 1
+        elif t.symbol == "❞":
+            depth = max(0, depth - 1)
+    assert depth == expected
