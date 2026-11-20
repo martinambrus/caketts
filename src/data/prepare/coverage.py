@@ -2,7 +2,8 @@
 Coverage and split stage of the corpus pipeline (design D5): clips -> train, val, test and one contiguous held-out block
 so that no paragraph, neighbouring text or identical audio sits on both sides, plus counts and hours per tag and split.
 
-Pure functions over items in book order: {id, part, chapter, paragraph, tags, duration_s, eligible, sha256, text}.
+Pure functions over items in book order: {id, part, chapter, paragraph, tags, duration_s, eligible, sha256, text},
+plus the optional "holes" (int >= 0, default 0): the units missing between this item and the previous item of the list.
 A group is one paragraph (part, chapter, paragraph); durations are summed in seconds and reported in hours.
 """
 from __future__ import annotations
@@ -101,6 +102,11 @@ def _distance(a: dict, b: dict) -> float:
     return round(sum(abs(a.get(t, 0.0) - b.get(t, 0.0)) for t in set(a) | set(b)), 12)
 
 
+def _hole_share(block: Sequence[dict]) -> float:
+    holes = sum(x.get("holes", 0) for x in block[1:])
+    return holes / (len(block) + holes)
+
+
 def _heldout_block(items: Sequence[dict], cfg: SplitConfig) -> Optional[list]:
     total_s = _seconds(items)
     target_s = cfg.heldout_share * total_s
@@ -115,12 +121,13 @@ def _heldout_block(items: Sequence[dict], cfg: SplitConfig) -> Optional[list]:
                 for end in range(start, len(run)):
                     acc += _seconds(run[end])
                     if acc >= target_s - EPS:
-                        candidates.append(_flat(run[start:end + 1]))
+                        if acc <= 2 * target_s + EPS:
+                            candidates.append(_flat(run[start:end + 1]))
                         break
     if not candidates:
         return None
     corpus = _shares(items)
-    return min(candidates, key=lambda c: (_distance(_shares(c), corpus), _hash(cfg.seed, c[0]["id"])))
+    return min(candidates, key=lambda c: (_hole_share(c), _distance(_shares(c), corpus), _hash(cfg.seed, c[0]["id"])))
 
 
 def make_split(items: Sequence[dict], cfg: SplitConfig) -> SplitResult:

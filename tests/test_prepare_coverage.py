@@ -357,3 +357,57 @@ def test_import_is_light():
             "sys.exit(1 if bad else 0)")
     env = {**os.environ, "PYTHONPATH": os.getcwd()}
     assert subprocess.run([sys.executable, "-c", code], env=env).returncode == 0
+
+
+def chapter_items(chapter, n, dur, n_tagged, holes=None):
+    holes = holes or {}
+    out = [it(f"c{chapter}-{i}", i, ["a"] if i < n_tagged else [], dur, chapter=chapter) for i in range(n)]
+    for i, h in holes.items():
+        out[i]["holes"] = h
+    return out
+
+
+def heldout_chapter(items, share):
+    res = make_split(items, SplitConfig(heldout_share=share))
+    return None if res.heldout is None else res.heldout["chapter"]
+
+
+class TestHeldoutHoles:
+    def two_chapters(self, holes0=None):
+        return (chapter_items(0, 10, 10, 6, holes0) + chapter_items(1, 10, 10, 0)
+                + chapter_items(2, 40, 10, 20))
+
+    def test_window_overshooting_the_upper_bound_is_skipped(self):
+        items = ([it("big", 0, ["a", "b"], 50)]
+                 + [it(f"p{i}", i + 1, ["a"] if i < 5 else ["b"], 10) for i in range(10)])
+        res = make_split(items, SplitConfig(heldout_share=0.05))
+        assert res.heldout["paragraphs"] == 1 and res.assignment["big"] != "heldout"
+
+    def test_no_heldout_when_every_window_overshoots(self):
+        items = [it(f"big{i}", i, ["a"], 50) for i in range(3)]
+        assert make_split(items, SplitConfig(heldout_share=0.05)).heldout is None
+
+    def test_fewer_holes_beat_a_nearer_tag_mix(self):
+        assert heldout_chapter(self.two_chapters(), 0.2) == 0
+        assert heldout_chapter(self.two_chapters({3: 1, 4: 1}), 0.2) == 1
+
+    def test_hole_share_not_hole_count(self):
+        def corpus(holes_a, holes_b):
+            return (chapter_items(0, 10, 40, 5, holes_a) + chapter_items(1, 40, 10, 0, holes_b)
+                    + chapter_items(2, 40, 40, 20))
+        assert heldout_chapter(corpus({}, {}), 0.15) == 0
+        assert heldout_chapter(corpus({3: 1, 4: 1}, {5: 1, 6: 1, 7: 1}), 0.15) == 1
+
+    def test_holes_of_the_first_item_lie_outside_the_block(self):
+        assert heldout_chapter(self.two_chapters({0: 5}), 0.2) == 0
+
+    def test_invariants_and_determinism_with_holes(self):
+        items = make_corpus()
+        rng = random.Random(3)
+        for x in items:
+            x["holes"] = rng.randint(0, 3)
+        cfg = SplitConfig(seed=2)
+        res = make_split(items, cfg)
+        assert res == make_split(items, cfg)
+        check_split(items, res.assignment, {x["id"]: x["sha256"] for x in items}, excluded=res.excluded)
+        assert res.heldout is not None

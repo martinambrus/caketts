@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
+from src.data.prepare.coverage import SplitConfig
 from src.data.prepare.manifest import ManifestConfig, clip_word_times, run_manifest, tempo_from_words
 from src.data.tempo import tempo_from_alignment
 from src.text.phonemizer import CzechSlovakPhonemizer
@@ -22,6 +23,7 @@ VERB = ["stál", "čekal", "zpíval", "seděl", "hledal", "pracoval", "spal", "o
 OBJ = ["u řeky", "na kopci", "před domem", "v lese", "za městem", "u cesty", "na louce", "pod mostem"]
 SPLITS = ("train", "val", "test", "heldout")
 G2P = CzechSlovakPhonemizer("cs")
+HELD_CFG = ManifestConfig(split=SplitConfig(heldout_share=0.25))
 
 
 def sentence(i, q=False):
@@ -415,11 +417,13 @@ def test_rows_without_word_times_omit_the_rates(base):
         assert set(med) == {"articulation_rate", "pause_ratio"}
 
 
-def test_heldout_holes_count_the_dropped_clips_inside_its_span(base, tmp_path):
-    held = manifest_rows(base.work)["heldout"]
-    order = [c["id"] for c in base.cuts]
+def test_heldout_holes_count_the_dropped_clips_inside_its_span(tmp_path):
+    w = build_work(tmp_path / "held", drops=(3, 13, 24, 33))
+    report = run_manifest(w.work, PARTS, HELD_CFG)
+    held = manifest_rows(w.work)["heldout"]
+    order = [c["id"] for c in w.cuts]
     at = sorted(order.index(r["id"]) for r in held)
-    holes = base.report["heldout_holes"]
+    holes = report["heldout_holes"]
     assert holes["span_clips"] == at[-1] - at[0] + 1
     assert holes["dropped_clips"] == holes["span_clips"] - len(held) > 0
     assert holes["cut_rejected_units"] == 0
@@ -510,3 +514,23 @@ def test_light_import():
                          cwd=str(Path(__file__).resolve().parents[1]))
     assert out.returncode == 0, out.stderr
     assert out.stdout.strip() == "0"
+
+
+def test_heldout_avoids_the_chapter_with_dropped_clips_inside(tmp_path):
+    w = build_work(tmp_path, drops=(14,))
+    rep = run_manifest(w.work, PARTS, HELD_CFG)
+    assert (rep["heldout"]["part"], rep["heldout"]["chapter"]) != ("pa", 1)
+    assert rep["heldout_holes"]["dropped_clips"] == 0
+
+
+def test_heldout_avoids_the_chapter_with_a_rejected_unit_inside(tmp_path):
+    w = build_work(tmp_path, drops=(0,))
+    gone = w.cuts[14]
+    cuts = w.work / "cut" / "pa.cuts.jsonl"
+    cuts.write_text(jsonl([r for r in read_jsonl(cuts) if r["id"] != gone["id"]]), encoding="utf-8")
+    w.audit = [a for a in w.audit if a["id"] != gone["id"]]
+    write_audit(w)
+    (w.work / "cut" / "pa.rejects.jsonl").write_text(jsonl([{"id": u, "reason": "low_conf"} for u in gone["units"]]))
+    rep = run_manifest(w.work, PARTS, HELD_CFG)
+    assert (rep["heldout"]["part"], rep["heldout"]["chapter"]) != ("pa", 1)
+    assert rep["heldout_holes"]["cut_rejected_units"] == 0
