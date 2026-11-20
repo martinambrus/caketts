@@ -506,6 +506,9 @@ QUOTE_DEPTH = {
     "apostrophe-curly": ("d’Artagnan", 0, 0),
     "span-blanked": ("<en>„hi</en> Ahoj", 0, 0),
     "span-blanked-inside-quote": ('„Ahoj <cs>"</cs> světe', 0, 1),
+    "span-after-opener": ('"<en>Harry</en> a Ron', 0, 1),
+    "span-between-quotes": ('"<en>Harry</en>" řekl', 0, 0),
+    "apostrophe-after-span": ("<en>Harry</en>'s dům", 0, 0),
     "carry-closes": ("Ahoj.“", 1, 0),
     "carry-stays": ("Dál.", 2, 2),
     "carry-adds": ("„Ahoj", 1, 2),
@@ -575,7 +578,7 @@ def test_estimate_s_hand_values():
     assert estimate_s(ONLY_COMMA) == pytest.approx(34.4275, abs=1e-9)
 
 
-@pytest.mark.parametrize("key", [k for k, (t, _, _) in QUOTE_DEPTH.items() if not any(c in t for c in "<()[]")])
+@pytest.mark.parametrize("key", [k for k, (t, _, _) in QUOTE_DEPTH.items() if not any(c in t for c in "()[]")])
 def test_quote_depth_agrees_with_quote_tokens(key):
     text, depth, expected = QUOTE_DEPTH[key]
     for t in CzechSlovakPhonemizer("cs").tokenize(text):

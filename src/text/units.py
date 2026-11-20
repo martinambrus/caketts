@@ -69,7 +69,7 @@ def estimate_s(text: str, a: float = -0.70, b: float = 0.0765, c: float = 0.297,
 
 def _depths(text: str, depth: int) -> List[int]:
     """The quote and bracket depth after each character of text, entering with `depth`."""
-    text = _SPAN.sub(lambda m: " " * len(m.group()), text)
+    text = _SPAN.sub(lambda m: "x" * len(m.group()), text)  # a span counts as a word, its marks are left alone
     depths = []
     for i in range(len(text)):
         role = mark_role(text, i)
