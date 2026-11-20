@@ -89,11 +89,18 @@ class AudioProcessor:
 
     # ---- trimming ------------------------------------------------------------------------
     def trim(self, wav: torch.Tensor, speech_start_s: float, speech_end_s: float,
-             pad_s: float = 0.15) -> torch.Tensor:
-        """Keep [first speech - pad, last speech + pad]. Bounds from a forced aligner are best."""
+             pad_s: float = 0.15, prev_cut_s: Optional[float] = None,
+             next_cut_s: Optional[float] = None) -> torch.Tensor:
+        """Keep [first speech - pad, last speech + pad]. Bounds from a forced aligner are best.
+        Pass the cut point shared with each neighbouring clip (the same value to both clips) and
+        neither clip reaches past it, so two clips never share a sample."""
         sr = self.cfg.sample_rate
         a = max(0, int(round((speech_start_s - pad_s) * sr)))
         b = min(wav.shape[-1], int(round((speech_end_s + pad_s) * sr)))
+        if prev_cut_s is not None:
+            a = max(a, int(round(prev_cut_s * sr)))
+        if next_cut_s is not None:
+            b = min(b, int(round(next_cut_s * sr)))
         return wav[..., a:b]
 
     def detect_speech_bounds(self, wav: torch.Tensor, noise_floor_db: Optional[float] = None,

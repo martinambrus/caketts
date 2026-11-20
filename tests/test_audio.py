@@ -101,3 +101,16 @@ class TestTrimming:
         assert start <= 0.51 and end >= 1.49
         trimmed = ap.trim(wav, start, end)
         assert trimmed.shape[-1] >= int((1.0 + 0.3) * sr) - 1
+
+    def test_neighbouring_clips_never_share_a_sample(self, ap):
+        """A 100 ms pause is shorter than two 150 ms pads: both clips stop at the cut they share."""
+        sr = ap.cfg.sample_rate
+        wav = torch.arange(3 * sr, dtype=torch.float32).unsqueeze(0)  # every sample holds its own index
+        first = ap.trim(wav, 0.5, 1.5, next_cut_s=1.55)
+        second = ap.trim(wav, 1.6, 2.5, prev_cut_s=1.55)
+        assert first[0, -1] + 1 == second[0, 0] == round(1.55 * sr)
+        assert first[0, 0] == round(0.35 * sr) and second[0, -1] + 1 == round(2.65 * sr)
+
+    def test_cut_points_beyond_the_pads_change_nothing(self, ap):
+        wav = speechlike(3.0)
+        assert torch.equal(ap.trim(wav, 0.5, 1.5, prev_cut_s=0.0, next_cut_s=3.0), ap.trim(wav, 0.5, 1.5))
