@@ -6,7 +6,7 @@ It was built and measured on one Czech audiobook of 9.09 hours (10 parts, one na
 
 ## What you need
 
-- **Recordings:** one WAV file per part, `raw/<part>.wav`. A part is a chapter or a session; the stages stream the audio, and parts of 26 to 60 minutes were used. Any sample rate; stereo is mixed to mono. Name the parts so that their natural order (`a2` before `a10`) is the book order: the split and the held-out block follow it.
+- **Recordings:** one WAV file per part, `raw/<part>.wav`. A part is a chapter or a session; the stages stream the audio, and parts of 26 to 60 minutes were used. Any sample rate; stereo is mixed to mono. Name the parts so that their natural order (`a2` before `a10`) is the book order: the split and the held-out block follow it. Keep a part under about 12,000 words (roughly 2 hours of narration): the align stage matches the text words to the ASR words in a table of at most 150 million cells and stops with `ValueError: split the part` above that.
 - **The text of each part, as the narrator read it.** The pipeline never repairs the text from the audio. Where the narrator departs from the book, the clip is dropped (207 of the 499 clips dropped in the first book). Text the narrator read is worth more than any later fix: see "Choosing the text" below.
 - **A GPU is recommended.** On one 60-minute part the ASR pass took 2 minutes on a 6 GB NVIDIA GPU; on the CPU of the same machine the ASR pass took 17 minutes and the alignment 38 more. The whole first book took 42 minutes on the GPU.
 - Python 3.13 and [uv](https://docs.astral.sh/uv/); `espeak-ng` comes with the project through `espeakng-loader`.
