@@ -3058,8 +3058,13 @@ Open items for **native review**, which is not automated:
 Create src/text/phonemizer.py exactly as the reference below, and tests/test_phonemizer.py.
 Requirements it satisfies:
  - espeak-ng codes cs, sk, en-us ('en' alone crashes espeak-ng)
- - output is a list of Tokens (phone | stress | boundary | punct), each with a language ID
+ - output is a list of Tokens (phone | stress | boundary | punct | quote), each with a language ID
  - stress, word boundaries and punctuation are never glued onto phones
+ - a quote mark becomes OPEN_QUOTE or CLOSE_QUOTE, decided by its position and not by its glyph
+   (mark_role, which src/text/units.py uses as well), so direct speech is visible to the model; an
+   apostrophe is none, and a mark beside an <en> span has the language of the text around it. The two
+   tokens only add to the output: the phones, boundaries and punctuation are those of the text without
+   the marks (the old Slovak opening comma of ,Ahoj!' is the one mark that replaces a token, the comma)
  - <en>...</en> spans are phonemized as English, as whole phrases (weak forms stay right)
  - the lexicon is applied per word BEFORE espeak-ng; cs/sk are phonemized per word (cached),
    so orthography-conditioned rules always see the right word
@@ -3088,6 +3093,7 @@ What this module guarantees (and the v1 plan did not):
       - Slovak 'ô' split into two vowels [u o]                       -> merged to [u̯o]
       - voicing at word boundaries (prepositions k/s/v/z, final
         obstruents) left inconsistent                                -> fixed per language
+  * quote marks become open/close tokens by position (apostrophes do not)
   * cs/sk stress marks dropped (stress is fixed on the first syllable; espeak-ng
     puts marks on the second half of diphthongs, e.g. "viem" -> v i ˈe m)
   * a vocabulary built from real espeak-ng output and STRICT id lookup:
@@ -3161,11 +3167,49 @@ _PUNCT_MAP = {
     "(": ",", ")": ",", "[": ",", "]": ",",
 }
 _QUOTES = set("\"'„“”‚‘’«»‹›`´")
+OPEN_QUOTE, CLOSE_QUOTE = "❝", "❞"
+QUOTE_TOKENS = (OPEN_QUOTE, CLOSE_QUOTE)
 
-SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS]
+SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS, *QUOTE_TOKENS]
 
 _WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
+_MARK_RE = re.compile(r"[\"'„“”‚‘’«»‹›,]")
+_OPENING_CONTEXT = frozenset(" \t\n—–-([„‚“‘»«‹›\"'")
+
+
+def mark_role(text: str, i: int) -> Optional[str]:
+    """"open" or "close" for the quote or bracket mark at text[i], decided by its position; None for any other character
+    and for a mark between two letters (an apostrophe). „ ‚ ( [ open and ) ] ” ’ close; “ ‘ » « ‹ › " ' open after the start,
+    a space, a dash or an opening mark when a non-space follows, and close otherwise; an old Slovak ,Ahoj!' opens with a
+    comma after a space."""
+    ch = text[i]
+    prev = text[i - 1] if i else " "
+    nxt = text[i + 1] if i + 1 < len(text) else " "
+    if ch in "„‚([":
+        return "open"
+    if ch in ")]":
+        return "close"
+    if ch in "“”‘’»«‹›\"'":
+        if prev.isalnum() and nxt.isalnum():
+            return None
+        if ch in "”’":
+            return "close"
+        return "open" if (prev in _OPENING_CONTEXT and not nxt.isspace()) else "close"
+    if ch == "," and prev in " \t\n" and nxt.isalpha():
+        return "open"
+    return None
+
+
+def _mark_quotes(text: str) -> str:
+    masked = _SPAN_RE.sub(lambda m: "x" * len(m.group()), text)  # a span counts as a word, its marks are left alone
+
+    def token(m: "re.Match") -> str:
+        role = mark_role(masked, m.start())
+        return m.group() if role is None else (OPEN_QUOTE if role == "open" else CLOSE_QUOTE)
+
+    return _MARK_RE.sub(token, text)
+
 
 # Paired obstruents in espeak-ng 1.52 cs/sk output (voiced -> voiceless)
 VOICED_TO_VOICELESS = {
@@ -3191,7 +3235,7 @@ def _nfc(s: str) -> str:
 class Token:
     symbol: str
     lang: str
-    kind: str  # 'phone' | 'stress' | 'boundary' | 'punct'
+    kind: str  # 'phone' | 'stress' | 'boundary' | 'punct' | 'quote'
 
     @property
     def lang_id(self) -> int:
@@ -3266,6 +3310,10 @@ def _first_phone(tokens: Sequence[Token], start: int) -> Optional[Token]:
     return None
 
 
+def _last_unquoted(tokens: Sequence[Token]) -> Optional[Token]:
+    return next((t for t in reversed(tokens) if t.kind != "quote"), None)
+
+
 def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
     """
     Regressive voicing assimilation at word boundaries for Czech and Slovak.
@@ -3274,7 +3322,7 @@ def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
       next word starts with a voicing trigger (obstruent except v/f/ř) -> copy its voicing
       next is punctuation or end of input (pause)                    -> voiceless
       next word starts with a vowel or sonorant: Czech -> voiceless, Slovak -> voiced
-    Language switches (e.g. into an English span) count as a pause.
+    Language switches (e.g. into an English span) count as a pause. Quote tokens are transparent.
     """
     out = list(tokens)
     n = len(out)
@@ -3294,6 +3342,8 @@ def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
             k0 -= 1
         if k0 <= j:
             nxt_idx = j + 1
+            while nxt_idx < n and out[nxt_idx].kind == "quote":
+                nxt_idx += 1
             voiced: Optional[bool]
             if nxt_idx >= n or out[nxt_idx].kind == "punct":
                 voiced = False  # pause
@@ -3435,20 +3485,25 @@ class CzechSlovakPhonemizer:
     # ---- public API ----------------------------------------------------------------------
     def tokenize(self, text: str) -> List[Token]:
         text = _nfc(text).replace("...", "…")
+        marked = _mark_quotes(text)
         tokens: List[Token] = []
         pos = 0
         spans: List[Tuple[str, str]] = []
-        for m in _SPAN_RE.finditer(text):
+        for m in _SPAN_RE.finditer(marked):
             if m.start() > pos:
-                spans.append((self.language, text[pos:m.start()]))
+                spans.append((self.language, marked[pos:m.start()]))
             spans.append((m.group(1), m.group(2)))
             pos = m.end()
-        if pos < len(text):
-            spans.append((self.language, text[pos:]))
+        if pos < len(marked):
+            spans.append((self.language, marked[pos:]))
 
         def add_word(w_tokens: List[Token]) -> None:
-            if tokens and tokens[-1].kind in ("phone", "stress"):
-                tokens.append(Token(WORD_BOUNDARY, w_tokens[0].lang, "boundary"))
+            last = _last_unquoted(tokens)
+            if last is not None and last.kind in ("phone", "stress"):
+                at = len(tokens)
+                while tokens[at - 1].symbol == OPEN_QUOTE:
+                    at -= 1
+                tokens.insert(at, Token(WORD_BOUNDARY, w_tokens[0].lang, "boundary"))
             tokens.extend(w_tokens)
 
         for lang, chunk in spans:
@@ -3483,6 +3538,9 @@ class CzechSlovakPhonemizer:
 
     def _emit_punct(self, between: str, lang: str, tokens: List[Token], text: str) -> None:
         for ch in between:
+            if ch in QUOTE_TOKENS:
+                tokens.append(Token(ch, lang, "quote"))
+                continue
             if ch.isspace() or ch in self.IGNORABLE:
                 continue
             if ch == "-":
@@ -3496,7 +3554,8 @@ class CzechSlovakPhonemizer:
                 raise ValueError(f"unnormalized character {ch!r} in {text!r}; run the normalizer first")
             if mapped is None:
                 continue
-            if tokens and tokens[-1].kind == "punct" and tokens[-1].symbol == mapped:
+            last = _last_unquoted(tokens)
+            if last is not None and last.kind == "punct" and last.symbol == mapped:
                 continue  # collapse repeats like ",," or ".."
             tokens.append(Token(mapped, lang, "punct"))
 
@@ -3577,8 +3636,8 @@ Re-run the review after the first listening test (Step 14) and after adding new 
 ```text
 Claude Code Prompt 3.3: Create scripts/build_vocab.py: tokenize every training transcript in
 each language plus lexicon entries and a coverage text per language (a few hundred phonetically
-rich sentences, including English ones), then save lexicon/vocab.json with build_vocabulary().
-Rebuild the vocabulary only before pretraining; after that, new symbols mean a G2P change that
+rich sentences, including English ones), then save lexicon/vocab.json with build_vocabulary(). The two
+quote tokens are special tokens, always in it. Rebuild the vocabulary only before pretraining; after that, new symbols mean a G2P change that
 must be reviewed.
 ```
 
@@ -3591,7 +3650,7 @@ import pytest
 
 from src.text.phonemizer import (
     CzechSlovakPhonemizer, PUNCT_TOKENS, STRESS_MARKS, WORD_BOUNDARY,
-    UnknownSymbolError, build_vocabulary, tokens_to_ids,
+    UnknownSymbolError, build_vocabulary, mark_role, tokens_to_ids,
 )
 
 CS = CzechSlovakPhonemizer("cs")
@@ -3782,6 +3841,117 @@ class TestVocabulary:
 
     def test_vocabulary_is_deterministic(self, vocab):
         assert build_vocabulary(COVERAGE) == vocab
+
+
+class TestMarkRole:
+    @pytest.mark.parametrize("text,i,expected", [
+        ("„a“", 0, "open"), ("„a“", 2, "close"), ("‚a‘", 0, "open"), ("‚a’", 2, "close"),
+        ("(a)", 0, "open"), ("(a)", 2, "close"), ("[a]", 0, "open"), ("[a]", 2, "close"),
+        ("»a«", 0, "open"), ("»a«", 2, "close"), ("«a»", 0, "open"), ("«a»", 2, "close"),
+        ('"a"', 0, "open"), ('"a"', 2, "close"), ('x "a" y', 2, "open"), ('x "a" y', 4, "close"),
+        ("—\"a", 1, "open"), ("„\"a", 1, "open"), ('a" "b', 1, "close"), ('a" "b', 3, "open"),
+        ("d'a", 1, None), ("d’a", 1, None), ('a"b', 1, None),
+        ("a, b", 1, None), ("a ,b", 2, "open"), ("a ,1", 2, None), ("a", 0, None), (" ", 0, None),
+        ("a”", 1, "close"), ("a ”b", 2, "close"),
+    ])
+    def test_mark_role(self, text, i, expected):
+        assert mark_role(text, i) == expected
+
+
+def quotes(tokens):
+    return [t.symbol for t in tokens if t.kind == "quote"]
+
+
+def without_quotes(tokens):
+    return [(t.symbol, t.lang, t.kind) for t in tokens if t.kind != "quote"]
+
+
+def plain(tokens):
+    return [(t.symbol, t.lang, t.kind) for t in tokens]
+
+
+class TestQuotes:
+    @pytest.mark.parametrize("text", ["Řekl: „Ano.“", 'Řekl: "Ano."', "Řekl: “Ano.”", "Řekl: »Ano.«", "Řekl: «Ano.»"])
+    def test_every_style_by_position(self, text):
+        assert quotes(CS.tokenize(text)) == ["❝", "❞"]
+
+    def test_nested(self):
+        assert quotes(CS.tokenize("„Řekl ‚ano‘.“")) == ["❝", "❝", "❞", "❞"]
+
+    def test_old_slovak_comma_quote(self):
+        assert quotes(SK.tokenize("Povedal ,ahoj!' a odišiel.")) == ["❝", "❞"]
+
+    def test_ascii_quote_opens_then_closes(self):
+        toks = CS.tokenize('"Ano"')
+        assert [t.symbol for t in toks if t.kind in ("quote", "boundary")] == ["❝", "❞"]
+        assert toks[0].symbol == "❝" and toks[-1].symbol == "❞"
+
+    @pytest.mark.parametrize("g2p,text", [
+        (CS, "d'Artagnan"), (CS, "d’Artagnan"), (EN, "the judge's window"), (CS, 'a"b'),
+        (CS, "a`b"), (CS, "a´b"), (CS, "a `b` c"), (EN, "<en>Harry's</en>"), (CS, 'řekl <en>"hi"</en>')])
+    def test_not_quotes(self, g2p, text):
+        assert quotes(g2p.tokenize(text)) == []
+
+    def test_unit_ending_inside_a_quote(self):
+        assert quotes(CS.tokenize("Rozumíš?“ zašeptala.")) == ["❞"]
+
+    def test_unit_starting_inside_a_quote(self):
+        assert quotes(CS.tokenize("„Ne. Nikdy.")) == ["❝"]
+
+    @pytest.mark.parametrize("text", ["„<en>Harry Potter</en>“ řekl.", '"<en>Harry Potter</en>" řekl.'])
+    def test_around_an_english_span(self, text):
+        toks = CS.tokenize(text)
+        assert [(t.symbol, t.lang) for t in toks if t.kind == "quote"] == [("❝", "cs"), ("❞", "cs")]
+        first = next(i for i, t in enumerate(toks) if t.kind == "phone")
+        last = max(i for i, t in enumerate(toks) if t.kind == "phone" and t.lang == "en")
+        assert toks[first - 1].symbol == "❝" and toks[last + 1].symbol == "❞"
+        assert toks[first].lang == "en"
+
+    def test_boundaries_between_words(self):
+        syms = symbols(CS.tokenize("řekl „ano“ a"))
+        o, c = syms.index("❝"), syms.index("❞")
+        assert syms[o - 1] == "|" and syms[c + 1] == "|"
+        assert "|" not in syms[o:c]
+        assert syms[c + 2] != "|" and syms[o - 2] != "|"
+
+    def test_no_boundary_after_closer_following_punct(self):
+        syms = symbols(CS.tokenize("„Ano!“ řekl."))
+        assert syms[syms.index("❞") - 1] == "!"
+        assert syms[syms.index("❞") + 1] != "|"
+
+    @pytest.mark.parametrize("g2p,marked,bare", [
+        (CS, "řekl „ano“ a", "řekl ano a"),
+        (SK, "rok“ a", "rok a"),
+        (CS, "rok „dobrý“", "rok dobrý"),
+        (CS, "„Ano!“ řekl.", "Ano! řekl."),
+        (CS, "Řekl: „Ano.“", "Řekl: Ano."),
+        (CS, "řekl „…a pak“", "řekl …a pak"),
+        (CS, "„Počkej…“ „…a pak“", "Počkej… …a pak"),
+    ])
+    def test_phones_and_boundaries_unchanged(self, g2p, marked, bare):
+        assert without_quotes(g2p.tokenize(marked)) == plain(g2p.tokenize(bare))
+
+    @pytest.mark.parametrize("g2p,text", [(CS, s) for s in COVERAGE["cs"]] + [(SK, s) for s in COVERAGE["sk"]])
+    def test_quotes_around_any_run_of_words_only_add_tokens(self, g2p, text):
+        pieces, base = text.split(" "), g2p.tokenize(text)
+        for i in range(len(pieces)):
+            for j in range(i, len(pieces)):
+                parts = list(pieces)
+                parts[i] = "„" + parts[i]
+                parts[j] += "“"
+                toks = g2p.tokenize(" ".join(parts))
+                assert len(quotes(toks)) == len(quotes(base)) + 2 and without_quotes(toks) == without_quotes(base), (i, j)
+
+    def test_kind_and_ordinary_punct(self):
+        toks = CS.tokenize("„Ne, ano.“")
+        assert {t.kind for t in toks if t.symbol in ("❝", "❞")} == {"quote"}
+        assert [t.symbol for t in toks if t.kind == "punct"] == [",", "."]
+
+    def test_vocabulary_has_both_tokens(self):
+        v = build_vocabulary({"cs": ["Ahoj."]})
+        assert (v["❝"], v["❞"]) == (len(PUNCT_TOKENS) + 5, len(PUNCT_TOKENS) + 6)
+        ids, _ = tokens_to_ids(CS.tokenize("„Ahoj.“"), v)
+        assert v["❝"] in ids and v["❞"] in ids
 ```
 
 ---
@@ -4023,12 +4193,15 @@ Not built: a repair of the text from the ASR words where the narrator departs fr
 
 ```text
 Claude Code Prompt 4.3: Create src/data/dataset.py exactly as the reference below.
- - filter_manifest DROPS over-length / too-short / impossible utterances and reports them;
+ - filter_manifest DROPS over-length / too-short / impossible utterances and reports them; a clip has
+   as many frames as its mel does (samples // hop), so "impossible" agrees with the dataset's own check;
    the dataset never truncates mel or tokens.
  - Strict symbol lookup (UnknownSymbolError names the utterance); language IDs per token.
  - Mel targets are normalised with corpus statistics (corpus_mel_stats: rows spread evenly over the
    set, not the first N, which are the first chapters), padded with 0. The mel cache file is named
-   by the clip id and a hash of its audio, so a re-cut under the same id never loads an old mel.
+   by the clip id and the sha256 of its audio (the manifest row's own, else a hash of the file), so a
+   re-cut under the same id never loads an old mel and a cached mel of a row with a sha256 is served
+   without reading the WAV.
  - Batches carry speaker_ids, boundary_ids and rates for the conditioning in Step 8.
 ```
 
@@ -4083,7 +4256,8 @@ class FilterReport:
 
 
 def load_manifest(path: str) -> List[Dict]:
-    """JSONL, one utterance per line. Required: id, audio, text, lang. See the plan, Step 4."""
+    """JSONL, one utterance per line. Required: id, audio, text, lang. The sha256 of a row's audio, when it has one, names
+    its mel cache file. See the plan, Step 4."""
     rows = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -4103,7 +4277,7 @@ def filter_manifest(rows: Sequence[Dict], n_tokens: Dict[str, int], hop_s: float
     kept, too_long, too_short, impossible = [], [], [], []
     for r in rows:
         dur = float(r["duration_s"])
-        frames = int(dur / hop_s)
+        frames = int(dur / hop_s + 1e-6)  # n // hop of the mel; the epsilon covers the float error of dur / hop_s
         if dur > max_duration_s:
             too_long.append(r["id"])
         elif dur < min_duration_s:
@@ -4140,7 +4314,7 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            digest = row.get("sha256") or hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
             p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
@@ -4261,10 +4435,10 @@ class TempoLabel:
 def tempo_from_alignment(kinds: Sequence[str], durations_frames: Sequence[int], hop_s: float,
                          min_pause_s: float = 0.12) -> TempoLabel:
     """
-    kinds: token kinds from the phonemizer ('phone' | 'punct' | 'boundary' | 'stress')
+    kinds: token kinds from the phonemizer ('phone' | 'punct' | 'boundary' | 'stress' | 'quote')
     durations_frames: frames aligned to each token (MAS / forced aligner)
     A punctuation/boundary token longer than min_pause_s counts as a pause; shorter ones
-    (and all phones) count as speech time.
+    (and all phones and quote tokens) count as speech time.
     """
     n_phones, speech_s, pause_s = 0, 0.0, 0.0
     for k, d in zip(kinds, durations_frames):
@@ -4417,14 +4591,16 @@ class TestTrimming:
 ```python
 # tests/test_data_pipeline.py
 """Data pipeline: drop-don't-crop filtering, strict symbols, conditioning carried into batches."""
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
 import torch
 
-from src.data.audio import AudioProcessor
+from src.data.audio import AudioProcessor, MelConfig
 from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
@@ -4469,6 +4645,16 @@ def test_filter_drops_impossible_alignments(g2p):
     rows = [{"id": "x", "text": "Rozhlas vysílá zprávy.", "lang": "cs", "duration_s": 0.6}]
     n = token_counts(rows, g2p)
     kept, report = filter_manifest(rows, n, hop_s=0.1, min_duration_s=0.1)  # 6 frames < ~20 tokens
+    assert kept == [] and report.impossible_alignment == ["x"]
+
+
+@pytest.mark.parametrize("sr,n", [(24000, 10240), (22050, 3840), (22050, 7680), (16000, 11008)])
+def test_filter_counts_the_frames_the_mel_has(sr, n):
+    frames = AudioProcessor(MelConfig(sample_rate=sr)).compute_mel(torch.zeros(1, n)).shape[1]
+    rows = [{"id": "x", "duration_s": n / sr}]
+    kept, _ = filter_manifest(rows, {"x": frames}, hop_s=256 / sr, min_duration_s=0.0)
+    assert kept == rows
+    kept, report = filter_manifest(rows, {"x": frames + 1}, hop_s=256 / sr, min_duration_s=0.0)
     assert kept == [] and report.impossible_alignment == ["x"]
 
 
@@ -4535,6 +4721,38 @@ def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
     assert ds._mel(row).shape[1] == ap.n_frames(SR)
     sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
     assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def test_mel_cache_does_not_read_the_audio_when_the_row_has_its_sha256(tmp_path, g2p, monkeypatch):
+    ds, row = _cached_dataset(tmp_path, g2p, AudioProcessor(), tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    ds._mel(row)
+    reads, read_bytes = [], Path.read_bytes
+    monkeypatch.setattr(Path, "read_bytes", lambda self: (reads.append(self), read_bytes(self))[1])
+    ds._mel(row)
+    assert reads == []
+
+
+def test_mel_cache_is_keyed_by_the_sha256_of_the_row(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "b" * 64})
+    assert len(calls) == 2
+
+
+def test_mel_cache_follows_a_recut_that_the_manifest_row_names(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel({**row, "sha256": _sha256(tmp_path / "u.wav")}).shape[1] == ap.n_frames(SR // 2)
 
 
 def _stats_dataset(tmp_path, g2p, amplitudes):

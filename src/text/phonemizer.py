@@ -14,6 +14,7 @@ What this module guarantees (and the v1 plan did not):
       - Slovak 'ô' split into two vowels [u o]                       -> merged to [u̯o]
       - voicing at word boundaries (prepositions k/s/v/z, final
         obstruents) left inconsistent                                -> fixed per language
+  * quote marks become open/close tokens by position (apostrophes do not)
   * cs/sk stress marks dropped (stress is fixed on the first syllable; espeak-ng
     puts marks on the second half of diphthongs, e.g. "viem" -> v i ˈe m)
   * a vocabulary built from real espeak-ng output and STRICT id lookup:
@@ -87,11 +88,49 @@ _PUNCT_MAP = {
     "(": ",", ")": ",", "[": ",", "]": ",",
 }
 _QUOTES = set("\"'„“”‚‘’«»‹›`´")
+OPEN_QUOTE, CLOSE_QUOTE = "❝", "❞"
+QUOTE_TOKENS = (OPEN_QUOTE, CLOSE_QUOTE)
 
-SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS]
+SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS, *QUOTE_TOKENS]
 
 _WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
+_MARK_RE = re.compile(r"[\"'„“”‚‘’«»‹›,]")
+_OPENING_CONTEXT = frozenset(" \t\n—–-([„‚“‘»«‹›\"'")
+
+
+def mark_role(text: str, i: int) -> Optional[str]:
+    """"open" or "close" for the quote or bracket mark at text[i], decided by its position; None for any other character
+    and for a mark between two letters (an apostrophe). „ ‚ ( [ open and ) ] ” ’ close; “ ‘ » « ‹ › " ' open after the start,
+    a space, a dash or an opening mark when a non-space follows, and close otherwise; an old Slovak ,Ahoj!' opens with a
+    comma after a space."""
+    ch = text[i]
+    prev = text[i - 1] if i else " "
+    nxt = text[i + 1] if i + 1 < len(text) else " "
+    if ch in "„‚([":
+        return "open"
+    if ch in ")]":
+        return "close"
+    if ch in "“”‘’»«‹›\"'":
+        if prev.isalnum() and nxt.isalnum():
+            return None
+        if ch in "”’":
+            return "close"
+        return "open" if (prev in _OPENING_CONTEXT and not nxt.isspace()) else "close"
+    if ch == "," and prev in " \t\n" and nxt.isalpha():
+        return "open"
+    return None
+
+
+def _mark_quotes(text: str) -> str:
+    masked = _SPAN_RE.sub(lambda m: "x" * len(m.group()), text)  # a span counts as a word, its marks are left alone
+
+    def token(m: "re.Match") -> str:
+        role = mark_role(masked, m.start())
+        return m.group() if role is None else (OPEN_QUOTE if role == "open" else CLOSE_QUOTE)
+
+    return _MARK_RE.sub(token, text)
+
 
 # Paired obstruents in espeak-ng 1.52 cs/sk output (voiced -> voiceless)
 VOICED_TO_VOICELESS = {
@@ -117,7 +156,7 @@ def _nfc(s: str) -> str:
 class Token:
     symbol: str
     lang: str
-    kind: str  # 'phone' | 'stress' | 'boundary' | 'punct'
+    kind: str  # 'phone' | 'stress' | 'boundary' | 'punct' | 'quote'
 
     @property
     def lang_id(self) -> int:
@@ -192,6 +231,10 @@ def _first_phone(tokens: Sequence[Token], start: int) -> Optional[Token]:
     return None
 
 
+def _last_unquoted(tokens: Sequence[Token]) -> Optional[Token]:
+    return next((t for t in reversed(tokens) if t.kind != "quote"), None)
+
+
 def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
     """
     Regressive voicing assimilation at word boundaries for Czech and Slovak.
@@ -200,7 +243,7 @@ def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
       next word starts with a voicing trigger (obstruent except v/f/ř) -> copy its voicing
       next is punctuation or end of input (pause)                    -> voiceless
       next word starts with a vowel or sonorant: Czech -> voiceless, Slovak -> voiced
-    Language switches (e.g. into an English span) count as a pause.
+    Language switches (e.g. into an English span) count as a pause. Quote tokens are transparent.
     """
     out = list(tokens)
     n = len(out)
@@ -220,6 +263,8 @@ def apply_voicing_rules(tokens: List[Token]) -> List[Token]:
             k0 -= 1
         if k0 <= j:
             nxt_idx = j + 1
+            while nxt_idx < n and out[nxt_idx].kind == "quote":
+                nxt_idx += 1
             voiced: Optional[bool]
             if nxt_idx >= n or out[nxt_idx].kind == "punct":
                 voiced = False  # pause
@@ -361,20 +406,25 @@ class CzechSlovakPhonemizer:
     # ---- public API ----------------------------------------------------------------------
     def tokenize(self, text: str) -> List[Token]:
         text = _nfc(text).replace("...", "…")
+        marked = _mark_quotes(text)
         tokens: List[Token] = []
         pos = 0
         spans: List[Tuple[str, str]] = []
-        for m in _SPAN_RE.finditer(text):
+        for m in _SPAN_RE.finditer(marked):
             if m.start() > pos:
-                spans.append((self.language, text[pos:m.start()]))
+                spans.append((self.language, marked[pos:m.start()]))
             spans.append((m.group(1), m.group(2)))
             pos = m.end()
-        if pos < len(text):
-            spans.append((self.language, text[pos:]))
+        if pos < len(marked):
+            spans.append((self.language, marked[pos:]))
 
         def add_word(w_tokens: List[Token]) -> None:
-            if tokens and tokens[-1].kind in ("phone", "stress"):
-                tokens.append(Token(WORD_BOUNDARY, w_tokens[0].lang, "boundary"))
+            last = _last_unquoted(tokens)
+            if last is not None and last.kind in ("phone", "stress"):
+                at = len(tokens)
+                while tokens[at - 1].symbol == OPEN_QUOTE:
+                    at -= 1
+                tokens.insert(at, Token(WORD_BOUNDARY, w_tokens[0].lang, "boundary"))
             tokens.extend(w_tokens)
 
         for lang, chunk in spans:
@@ -409,6 +459,9 @@ class CzechSlovakPhonemizer:
 
     def _emit_punct(self, between: str, lang: str, tokens: List[Token], text: str) -> None:
         for ch in between:
+            if ch in QUOTE_TOKENS:
+                tokens.append(Token(ch, lang, "quote"))
+                continue
             if ch.isspace() or ch in self.IGNORABLE:
                 continue
             if ch == "-":
@@ -422,7 +475,8 @@ class CzechSlovakPhonemizer:
                 raise ValueError(f"unnormalized character {ch!r} in {text!r}; run the normalizer first")
             if mapped is None:
                 continue
-            if tokens and tokens[-1].kind == "punct" and tokens[-1].symbol == mapped:
+            last = _last_unquoted(tokens)
+            if last is not None and last.kind == "punct" and last.symbol == mapped:
                 continue  # collapse repeats like ",," or ".."
             tokens.append(Token(mapped, lang, "punct"))
 

@@ -26,10 +26,10 @@ class TempoLabel:
 def tempo_from_alignment(kinds: Sequence[str], durations_frames: Sequence[int], hop_s: float,
                          min_pause_s: float = 0.12) -> TempoLabel:
     """
-    kinds: token kinds from the phonemizer ('phone' | 'punct' | 'boundary' | 'stress')
+    kinds: token kinds from the phonemizer ('phone' | 'punct' | 'boundary' | 'stress' | 'quote')
     durations_frames: frames aligned to each token (MAS / forced aligner)
     A punctuation/boundary token longer than min_pause_s counts as a pause; shorter ones
-    (and all phones) count as speech time.
+    (and all phones and quote tokens) count as speech time.
     """
     n_phones, speech_s, pause_s = 0, 0.0, 0.0
     for k, d in zip(kinds, durations_frames):
