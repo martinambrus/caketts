@@ -56,8 +56,8 @@ uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv;
 # NVIDIA GPU instead: uv sync --group align --group cu130 --no-group cpu   (CUDA 13 build of torch; then run with uv run --no-sync)
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
 git -C "${BIGVGAN_DIR:-third_party/BigVGAN}" checkout 7d2b454     # the commit the tests ran with
-uv run pytest tests/ -q -m "not slow"   # 2560 tests, about 40 s on CPU
-uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 40 s
+uv run pytest tests/ -q -m "not slow"   # 3428 tests, about 100 s on one CPU thread
+uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 25 s more
 ```
 
 The first test run downloads the text normalizer's Stanza models for Czech and Slovak (250 MB) into `~/.cache/stanza`. Stanza fetches them through huggingface_hub, which keeps a second copy in `~/.cache/huggingface/hub`; delete its `models--stanfordnlp--stanza-*` folders to free that space.
