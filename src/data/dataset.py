@@ -13,6 +13,7 @@ Fixes relative to v1:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -101,7 +102,8 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            p = self.cache / f"{row['id']}.pt"
+            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
         mel = self.audio.compute_mel(self.audio.load_audio(row["audio"]))
@@ -153,10 +155,11 @@ class TTSCollator:
 
 
 def corpus_mel_stats(dataset: TTSDataset, max_items: int = 2000) -> Tuple[float, float]:
-    """Scalar mean/std of log-mel over (a sample of) the training set, as in Matcha-TTS."""
+    """Scalar mean/std of log-mel over (an even sample of) the training set, as in Matcha-TTS."""
     s, s2, n = 0.0, 0.0, 0
-    for i in range(min(len(dataset), max_items)):
-        m = dataset._mel(dataset.rows[i])
+    count = min(len(dataset), max_items)
+    for i in range(count):
+        m = dataset._mel(dataset.rows[i * len(dataset) // count])
         s += m.sum().item(); s2 += (m ** 2).sum().item(); n += m.numel()
     mean = s / n
     return mean, (s2 / n - mean ** 2) ** 0.5

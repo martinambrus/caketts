@@ -7,7 +7,7 @@ import soundfile as sf
 import torch
 
 from src.data.audio import AudioProcessor
-from src.data.dataset import TTSCollator, TTSDataset, filter_manifest, load_manifest
+from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
 SR = 24000
@@ -88,3 +88,59 @@ def test_collator_carries_conditioning(corpus, g2p):
     t_len = batch["phoneme_lengths"]
     assert (batch["phoneme_ids"][0, t_len[0]:] == 0).all()
     assert (batch["mels"][2, :, batch["mel_lengths"][2]:] == 0).all()
+
+
+def _tone(seconds, freq=150.0):
+    t = np.arange(int(seconds * SR)) / SR
+    return (0.1 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+
+
+def _cached_dataset(tmp_path, g2p, ap, wav, seconds):
+    sf.write(wav, _tone(seconds), SR)
+    row = {"id": "u", "audio": str(wav), "text": "Ano.", "lang": "cs"}
+    ds = TTSDataset([row], ap, {}, g2p, speaker_ids={"narrator": 0}, mel_cache_dir=str(tmp_path / "mels"))
+    return ds, row
+
+
+def test_mel_cache_is_reused_while_the_audio_is_unchanged(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    first, second = ds._mel(row), ds._mel(row)
+    assert len(calls) == 1 and torch.equal(first, second)
+
+
+def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _stats_dataset(tmp_path, g2p, amplitudes):
+    rows = []
+    for i, amp in enumerate(amplitudes):
+        path = tmp_path / f"s{i}.wav"
+        sf.write(path, (amp * np.random.default_rng(i).standard_normal(SR // 2)).astype(np.float32), SR)
+        rows.append({"id": f"s{i}", "audio": str(path), "text": "Ano.", "lang": "cs"})
+    return TTSDataset(rows, AudioProcessor(), {}, g2p, speaker_ids={"narrator": 0})
+
+
+def _mean_of(ds, indices):
+    mels = [ds._mel(ds.rows[i]) for i in indices]
+    return sum(m.sum().item() for m in mels) / sum(m.numel() for m in mels)
+
+
+def test_mel_stats_sample_evenly_over_the_whole_set(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01] * 4 + [0.3] * 4)
+    mean, std = corpus_mel_stats(ds, max_items=4)
+    assert mean == pytest.approx(_mean_of(ds, [0, 2, 4, 6]))
+    assert abs(mean - _mean_of(ds, [0, 1, 2, 3])) > 1.0 and std > 0
+
+
+def test_mel_stats_use_every_row_when_the_limit_allows(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01, 0.05, 0.1, 0.3, 0.02])
+    assert corpus_mel_stats(ds, max_items=50)[0] == pytest.approx(_mean_of(ds, range(5)))
+    assert corpus_mel_stats(ds, max_items=5)[0] == pytest.approx(_mean_of(ds, range(5)))
