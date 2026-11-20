@@ -21,6 +21,22 @@ def find(pairs, form, spoken=None):
     return found
 
 
+def test_readability_probe_leaves_no_log_record_to_the_last_resort_handler(normalizer, monkeypatch):
+    import logging
+
+    from src.data.prepare import lexicon
+    unhandled = []
+
+    class Count(logging.Handler):
+        def emit(self, record):
+            unhandled.append(record)
+
+    monkeypatch.setattr(logging.getLogger(), "handlers", [])
+    monkeypatch.setattr(logging, "lastResort", Count(logging.WARNING))
+    assert lexicon._fails(normalizer, "2251. 717/AB/C-D/3")
+    assert unhandled == []
+
+
 def test_respelling_twice_is_consistent_and_applied(normalizer):
     pairs = pairs_of(normalizer, "Jack přišel domů. Potom šel Jack pryč.", "Džek přišel domů. Potom šel Džek pryč.")
     assert pairs == [{"book_form": "Jack", "spoken_form": "Džek", "category": "respelling", "count": 2,

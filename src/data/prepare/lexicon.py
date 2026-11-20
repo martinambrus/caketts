@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import difflib
+import logging
 import os
 import re
 import unicodedata
@@ -42,10 +43,17 @@ def _prepare(text: str) -> str:
 
 
 def _fails(normalizer, text: str) -> bool:
+    logger = logging.getLogger(TextNormalizer.__module__)
+    quiet, propagate = logging.NullHandler(), logger.propagate
+    logger.addHandler(quiet)
+    logger.propagate = False
     try:
         normalizer.normalize(text)
     except ValueError:
         return True
+    finally:
+        logger.propagate = propagate
+        logger.removeHandler(quiet)
     return False
 
 
