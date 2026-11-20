@@ -21,6 +21,7 @@ from typing import Iterable, Optional, Sequence
 import numpy as np
 import soundfile as sf
 
+from src.data.prepare.gold import _load_word_mids
 from src.text.phonemizer import _SPAN_RE, _WORD_RE
 
 GAP_TYPES = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
@@ -398,8 +399,12 @@ def pause_stats(gaps: Sequence[tuple[str, float]], commas: Sequence[float]) -> d
     return out
 
 
+def _holds_word_mid(mids: Optional[np.ndarray], lo: int, hi: int, sr: int) -> bool:
+    return (mids is not None) and bool(((mids >= lo / sr) & (mids < hi / sr)).any())
+
+
 def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans: Sequence[dict],
-              cfg: CutConfig = CutConfig()) -> PartPlan:
+              cfg: CutConfig = CutConfig(), word_mids: Optional[np.ndarray] = None) -> PartPlan:
     units, spans = split_over_cap(units, spans, cfg, sr)
     seq, rejects = validate_spans(part, units, spans, sr)
     F, pad = round(cfg.frame_s * sr), to_sample(cfg.pad_s, sr)
@@ -458,8 +463,13 @@ def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans:
         room = max(0, round(cfg.max_clip_s * sr) - (b - a))
         a0 = a
         a = quiet_start(pcm, a, cuts[k], quiet[k], floor, cfg.quiet_db, F, room)
+        if _holds_word_mid(word_mids, a, a0, sr):
+            a = a0
+        b0 = b
         b = quiet_end(pcm, b, cuts[k + 1], quiet[k + 1] if k + 1 < len(quiet) else True, floor, cfg.quiet_db, F,
                       room - (a0 - a))
+        if _holds_word_mid(word_mids, b0, b, sr):
+            b = b0
         flags = set()
         gb = ga = None
         if k > 0:
@@ -536,7 +546,7 @@ def run_cut(work_dir: Path, parts: Sequence[str], cfg: CutConfig = CutConfig()) 
         pcm, sr = sf.read(str(wav), dtype="int16")
         units = _read_jsonl(work_dir / "text" / f"{part}.units.jsonl")
         spans = _read_jsonl(work_dir / "align" / f"{part}.align.jsonl")
-        plan = plan_part(part, pcm, sr, units, spans, cfg)
+        plan = plan_part(part, pcm, sr, units, spans, cfg, _load_word_mids(work_dir / "align" / f"{part}.asr.json"))
         cuts_path = out / f"{part}.cuts.jsonl"
         if cuts_path.exists():
             for r in _read_jsonl(cuts_path):

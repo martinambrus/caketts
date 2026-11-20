@@ -1398,3 +1398,35 @@ def test_both_edges_of_one_gap_loud_do_not_overlap():
     assert n1.end_sample <= n2.start_sample
     cut.check_clips(plan.clips, len(pcm), round(CutConfig().search_s * SR) + F)
     cut.check_unique_hashes([(c.id, c.sha256) for c in plan.clips])
+
+
+def _noisy_edges_plan(word_mids):
+    d = std()
+    spans = stub_spans(d["units"], d["truth"], 0.02, 3)
+    base = cut.plan_part("p", d["pcm"], SR, d["units"], spans, CutConfig())
+    c = next(c for c in base.clips if c.units == ["p-00001", "p-00002"])
+    pcm = burst(d["pcm"], c.start_sample, c.start_sample + 2 * F, 1)
+    pcm = burst(pcm, c.end_sample - 2 * F, c.end_sample, 2)
+    plan = cut.plan_part("p", pcm, SR, d["units"], spans, CutConfig(), word_mids=word_mids(c))
+    return c, next(x for x in plan.clips if x.id == c.id)
+
+
+@pytest.mark.parametrize("side", ["start", "end"])
+def test_extension_does_not_take_an_asr_word_midpoint_into_the_clip(side):
+    mid = lambda c: np.array([(c.start_sample - F // 2) / SR if side == "start" else (c.end_sample + F // 2) / SR])
+    c, t = _noisy_edges_plan(mid)
+    if side == "start":
+        assert t.start_sample == c.start_sample and t.end_sample == c.end_sample + F
+    else:
+        assert t.end_sample == c.end_sample and t.start_sample == c.start_sample - F
+
+
+def test_asr_midpoint_inside_the_clips_own_speech_does_not_block_the_extension():
+    inside = lambda c: np.array([(c.speech_start + F) / SR, (c.speech_end - F) / SR])
+    c, t = _noisy_edges_plan(inside)
+    assert (t.start_sample, t.end_sample) == (c.start_sample - F, c.end_sample + F)
+
+
+def test_no_asr_cache_keeps_the_extension():
+    c, t = _noisy_edges_plan(lambda c: None)
+    assert (t.start_sample, t.end_sample) == (c.start_sample - F, c.end_sample + F)
