@@ -17,6 +17,7 @@ It has two hard requirements:
 | [`docs/research/tts_breakthroughs_since_late_2025.md`](docs/research/tts_breakthroughs_since_late_2025.md) | The research report behind the v2 changes |
 | [`NUM2WORDS_CHANGES.md`](NUM2WORDS_CHANGES.md) | Slovak and Czech number-to-words v2: every change against v1, the sources, and the decisions from the native-speaker review |
 | `src/`, `tests/`, `scripts/` | The reference implementation. These are the plan's tested code blocks as files. |
+| [`docs/corpus-preparation.md`](docs/corpus-preparation.md) | The walkthrough of the corpus preparation (Step 4.2): from recordings and book text to cut, audited training clips and a split manifest, with the results on the first book |
 | `docs/research/num2words_spec_*.md`, `docs/NUM2WORDS_v1_v2_diff.csv` | Research notes and the full v1 → v2 diff for the number modules |
 
 The first commit holds the v1 plan and the v1 number modules, so `git log -p` shows what changed in v2.
@@ -31,6 +32,7 @@ These parts are implemented and tested on CPU:
 - Text normalization: numbers, dates, times, currency, units, Roman numerals, abbreviations and English spans, with a Stanza tagger for case, gender and animacy
 - Sentence segmentation with paragraph and chapter boundary labels
 - Audio preprocessing with BigVGAN's exact mel spectrogram
+- Corpus preparation: recordings and book text to aligned, cut and audited clips and a split manifest, run on a 9-hour Czech audiobook ([walkthrough](docs/corpus-preparation.md)); its tests use stub models, the whole-book run used a GPU
 - The data pipeline
 - The Matcha-TTS components: text encoder, duration predictor, MAS, OT-CFM decoder
 - The SSL discriminator
@@ -40,7 +42,7 @@ These parts are implemented and tested on CPU:
 These are still prompts with acceptance criteria in the plan:
 
 - The G2P review and vocabulary scripts
-- Corpus preparation and the tempo-labelling script
+- The tempo-labelling script
 - The vocoder wrapper
 - The training loops and stages
 - Book-length inference

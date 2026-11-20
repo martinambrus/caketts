@@ -60,13 +60,13 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 ### Reference implementation status
 
-Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
+Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`. The corpus preparation (Step 4.2: `src/data/prepare/`, `src/text/units.py`, `scripts/prepare_corpus.py`, `configs/data/example.yaml`) has no code block here: its files are the reference, and its prompt says what they do.
 
 **2561 tests:** 102 for the TTS components, 104 for num2words, 2165 for the text normalizer, 186 for the segmenter and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
-Not tested here (no GPU and no large model downloads): real XLS-R weights, BigVGAN inference, NeMo ASR models and multi-GPU training. Those steps are prompts with acceptance criteria.
+Not tested in CI (no GPU, no large model downloads): real XLS-R weights, BigVGAN inference, multi-GPU training and the ASR judges on synthetic speech (Steps 12 and 14). Those steps are prompts with acceptance criteria. The corpus preparation is tested there with stub models; with the models present its tests also run Parakeet, and the whole pipeline ran on a GPU on the first book (`docs/corpus-preparation.md`).
 
 ---
 
@@ -96,6 +96,7 @@ Not tested here (no GPU and no large model downloads): real XLS-R weights, BigVG
 ```
 czech_slovak_tts/
 ├── configs/
+│   ├── data/example.yaml            # corpus preparation, one YAML per book, every key at its default (Step 4.2)
 │   ├── model/matcha_base.yaml
 │   ├── training/{pretrain.yaml, finetune_narrator.yaml, vocoder.yaml, adversarial.yaml}
 │   └── inference/inference.yaml
@@ -103,8 +104,10 @@ czech_slovak_tts/
 │   ├── lexicon.json                 # {"cs": {...}, "sk": {...}, "en": {...}} word -> phones
 │   └── vocab.json                   # built from real espeak-ng output (Step 3.3)
 ├── src/
-│   ├── text/      normalizer.py  segmenter.py  num2words_cs.py  num2words_sk.py  phonemizer.py
-│   ├── data/      audio.py  dataset.py  tempo.py  prepare.py
+│   ├── text/      normalizer.py  segmenter.py  units.py  num2words_cs.py  num2words_sk.py  phonemizer.py
+│   ├── data/      audio.py  dataset.py  tempo.py
+│   │   └── prepare/  source.py  lexicon.py  text.py  audio.py  align/{interface,ctc,longform,types}.py  asr.py
+│   │                 cut.py  audit.py  coverage.py  manifest.py  gold.py  config.py   # Step 4.2, one module per stage
 │   ├── model/     text_encoder.py  duration.py  flow_matching.py  matcha_tts.py  discriminators.py
 │   ├── vocoder/   bigvgan.py
 │   ├── training/  trainer.py  stages.py
@@ -114,11 +117,14 @@ czech_slovak_tts/
 │                  test_eval_and_discriminator.py  test_integration.py
 │                  test_num2words_sk.py  test_num2words_cs.py
 │                  test_environment.py  test_text_normalization.py  test_segmenter.py  test_report.py
-│                  fixtures/mel_basis_24k_100.npz
+│                  test_units.py  test_align.py  test_asr.py  test_cut.py
+│                  test_prepare_{source,lexicon,text,audio,config,audit,coverage,manifest,gold,pipeline,all}.py
+│                  fixtures/mel_basis_24k_100.npz  fixtures/audit_single_judge.json
 ├── scripts/       prepare_corpus.py  build_vocab.py  g2p_review.py  cldr_crosscheck.py
 │                  validate_all_sk.py  validate_all_cs.py
 │                  train.py  tempo_labels.py  synthesize_book.py  evaluate.py
 ├── NUM2WORDS_CHANGES.md             # num2words v2: changes, sources, native-review decisions
+├── docs/corpus-preparation.md       # the walkthrough of Step 4.2 for any book
 ├── third_party/BigVGAN/             # git clone https://github.com/NVIDIA/BigVGAN, then check out 7d2b454 (Prompt 1.1)
 ├── pyproject.toml                   # dependencies (uv); uv.lock pins every version (Prompt 1.1)
 ├── uv.lock
@@ -3939,40 +3945,74 @@ class AudioProcessor:
         return n_samples // self.cfg.hop_length
 ```
 
-## 4.2 Corpus preparation (narrator + pretraining data)
+## 4.2 Claude Code Prompt 4.2: Corpus preparation (v2: done)
 
 ```text
-Claude Code Prompt 4.2: Create src/data/prepare.py and scripts/prepare_corpus.py:
+Create the corpus preparation of the narrator's books: one module per stage in src/data/prepare/, the
+unit builder src/text/units.py (shared with Step 12), the entry point scripts/prepare_corpus.py <stage>
+--config <yaml> (stage: source, lexicon, text, audio, align, cut, audit, manifest, gold or all) and
+configs/data/example.yaml, which lists every key at its default; the YAML only overrides. Every stage
+reads only the files of the stages before it in work_dir and writes its own, with a report.json and
+report.md (the lexicon stage writes only its TSV). The same inputs give the same files, the timings in
+the reports aside. A report holds counts, ids and numbers, never the book's text. Every model behind a
+stage is chosen by config. docs/corpus-preparation.md is the walkthrough for any book and records the
+licence of each model (a CC-BY-NC weight is the user's call per run).
 
- 1. Loudness: normalise each source file (chapter/session) to -23 LUFS (AudioProcessor.normalize_loudness).
- 2. Long-form alignment of chapter audio to book text:
-      - Czech/English: Montreal Forced Aligner has pretrained models; Slovak has none.
-      - All three: CTC forced alignment with torchaudio's MMS_FA bundle (romanise cs/sk text with
-        uroman or unidecode first), or NVIDIA NeMo Forced Aligner with Parakeet-TDT-0.6B-v3,
-        which covers Czech and Slovak and gives word and character timestamps.
- 3. Segment at sentence boundaries (Step 2.3). Cut in the middle of the inter-sentence pause and
-    record boundary = mid | para_end | chapter_end. Use identical rules for every session.
- 4. Trim each clip from its word timestamps with fixed 150 ms pads (AudioProcessor.trim).
- 5. ASR audit: transcribe every clip with Parakeet-TDT-0.6B-v3 and compute CER against the
-    normalised text. Compute the narrator's median CER, then send clips above median + 5 points
-    to review. The narrator departing from the text is the most common cause, so fix the text,
-    not the audio. Drop clips that cannot be fixed.
- 6. Write a JSONL manifest, one line per clip:
-    {"id", "audio", "text" (normalised, with <en> spans), "lang", "speaker", "session",
-     "boundary", "duration_s", "articulation_rate", "pause_ratio"}   (rates: Step 4.4)
- 7. Filter with filter_manifest (Step 4.3): drop over-length (default > 20 s), too-short (< 0.5 s)
-    and impossible clips (fewer frames than tokens). Log the report; never crop.
-
-Pretraining data (optional, recommended for robustness on rare words, names and numbers):
- - Slovak: SloPalSpeech (LREC 2026), 2,806 h of parliament speech, CC BY 4.0. It was filtered
-   only at 40% WER, so re-filter to CER < 5% with the audit above. EuroSpeech-SK (about 2,554 h
-   at CER < 20%) comes from the same parliament: deduplicate by session before combining.
- - Czech: ParlaSpeech-CZ (1,218 h, 555 speakers, CC BY-SA 4.0) and ParCzech4Speech (up to 2,695 h, CC BY).
- - English: LibriTTS-R.
- - Parliament audio is formal, male-heavy and often MP3-sourced. Use it to learn alignment and
-   durations; keep it out of the narrator fine-tune.
- - Hold out the 2 h CC0 Czech LibriVox single-speaker set as a read-literature test set.
+ 1. source (optional): the EPUB as the book text, cut into the parts of the recordings at the word, with
+    its chapters placed into the narrator's own texts. lexicon (optional): the forms the book prints and
+    the narrator did not say, learned from a rewrite that matches the narration, as a TSV with an apply
+    column (a hand-written one works too).
+ 2. text: the whole part through the normaliser in one call (Prompt 2.2), the segmenter (Prompt 2.3) and
+    src/text/units.py. A unit is one sentence, except that a quote or bracket still open keeps the next
+    sentence of its paragraph while the estimated length stays within 17 s; a longer unit is cut after a
+    clause mark; a unit never crosses a paragraph. Every guessed reading goes to review_readings.csv. A
+    character with no reading stops the stage and lists the paragraphs (skip_unreadable blanks them).
+ 3. audio: per part, streamed: mono, -23 LUFS (EBU R128) over the whole part, a peak limiter for the few
+    peaks above 0.99 instead of a lower gain, 24 kHz (the clips) and 16 kHz (aligner and ASR) PCM_16.
+ 4. align: CTC forced alignment of each unit's words (torchaudio.functional.forced_align on a wav2vec2-style
+    model: xls-r-cs, mms-300m or mms-1b-all) in blocks of at most 10 min planned from an ASR pass
+    (Parakeet-TDT-0.6B-v3 with word times, cached) that is matched to the text. Text the narrator skipped and speech that is not in
+    the text become gaps. Each unit is ok, low_conf or unmatched by the part's own scores; only ok units are
+    cut. NeMo Forced Aligner cannot be used: it takes CTC or hybrid models only, not the pure-TDT Parakeet.
+ 5. cut: the aligner's spans lie inside the speech, so the speech edges move to the energy edges; the cut
+    point is the centre of the longest quiet run of the gap; each clip keeps a 150 ms pad that never passes
+    the cut point. A gap under two pads merges the units (same paragraph, within 17 s estimated and 20 s
+    measured) or flags short_pause; no quiet run flags no_quiet_cut; a clip over 20 s is split at a word
+    pause. Hard assertions: no two clips share a sample, every clip holds its words, every clip hash is
+    unique over the corpus. cut/pauses.json holds the narrator's median pause per type (comma, sentence,
+    paragraph, chapter) and the pad, for Step 12 rule 7.
+ 6. audit: two independent judges (Parakeet-TDT-0.6B-v3 and Canary-1B-v2, neither the aligner) transcribe
+    every clip. A judge flags a clip whose CER (digits spelled) exceeds its own corpus median + 0.05 (a clip
+    of at most 30 characters also needs 3 edits), and a clip is dropped only when every judge flags it.
+    The narrator departing from the text is the most common cause: fix the text, not the audio, or drop
+    the clip. Rate, edge noise, clipping, level and the cut flags go to review.csv, the 50 riskiest clips
+    to listening.csv.
+ 7. manifest: one JSONL per split, one line per clip:
+    {"id", "audio", "text" (normalised, with <en> spans), "lang", "speaker", "session" (the part),
+     "boundary", "duration_s", "articulation_rate", "pause_ratio" (from the aligner's word times, first
+     word to last), "gap_before_s", "gap_after_s", "tags", "split", "audit", "cer", "units", "paragraph",
+     "chapter", "flags", "n_tokens", "sha256"}
+    filter_manifest (Step 4.3) drops over-length (> 20 s), too-short (< 0.5 s) and impossible clips and
+    never crops. The split gives val and test whole paragraphs to a quota per tag (min(5, 10%), rarest tag
+    first), one contiguous held-out block of one chapter (about 4% of the hours), and train the rest. No
+    paragraph, text of four words or more, or audio is in two splits. coverage.md counts clips and hours
+    per tag and split.
+ 8. gold (optional): scores the cut against speech a person verified (a JSON file, or Audacity labels of
+    the pauses). No matched span may lose an ASR-confirmed word; the unsafe-cut rate is for information.
 ```
+
+Decisions and results on the first book (Czech, 10 parts, 9.091 h, one narrator; the details are in `docs/corpus-preparation.md`):
+
+- **v1 trains from scratch on this narrator** (Step 11): the public pretraining corpora moved to Step 15. NeMo Forced Aligner with Parakeet-TDT, which an earlier draft of this prompt named, cannot work: it takes CTC or hybrid models only.
+- **Text:** the narrator's rewrite of the book with the EPUB's chapters placed into it. On two parts, 94.7% of the units align (`ok`), against 75.7% for the EPUB text with a lexicon learned from the rewrite, and the audit drops 11.9% against 22.3%. 81% of the EPUB failures are text the narrator skipped or changed.
+- **Aligner:** `xls-r-cs` (Czech, Apache-2.0) aligns 95.4% of the units, `mms-1b-all` 91.3% and `mms-300m` (the code default, CC-BY-NC) 86.5%. All three give refined clip edges within 10 ms (median) of the gold.
+- **Audit:** two judges. One judge drops 22.2% of the clips of two parts and about half of those drops are false (numbers, short interjections, recognition errors); two judges drop 12.9%.
+- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.6% and informational): it is 2 of 153 matched spans, both diagnosed.
+- **Validation sets:** a paragraph with a clip flagged `short_pause`, `no_quiet_cut` or `over_cap` stays out of val and test (7.0% of the clips are `short_pause`), so the evaluation clips have uniform edges; those clips still train. One test quota (parenthesis) is unmet. The book has no digits after normalisation, so there are no number, date or abbreviation clips.
+- **Result:** 9.091 h of recordings, 4,952 units, 4,721 aligned `ok`, 4,586 clips (7.360 h with pads), 499 dropped by the audit, 4,086 clips kept: 6.613 h (72.7%), of which train 6.068 h, val 0.099 h, test 0.118 h and held-out 0.327 h. One cold run takes 42 min and 5.46 GiB of RAM on one 6 GB GPU.
+- **Pauses** (`cut/pauses.json`, breath-free): sentence 0.95 s, paragraph 1.73 s, chapter 2.93 s, comma 0.10 s.
+
+Not built: a repair of the text from the ASR words where the narrator departs from it (207 of the 499 audit drops), and a normaliser reading for `|`, `•` and a `/` it cannot place (`docs/normalizer-backlog.md`).
 
 ## 4.3 Dataset and collator
 
@@ -3981,7 +4021,9 @@ Claude Code Prompt 4.3: Create src/data/dataset.py exactly as the reference belo
  - filter_manifest DROPS over-length / too-short / impossible utterances and reports them;
    the dataset never truncates mel or tokens.
  - Strict symbol lookup (UnknownSymbolError names the utterance); language IDs per token.
- - Mel targets are normalised with corpus statistics (corpus_mel_stats), padded with 0.
+ - Mel targets are normalised with corpus statistics (corpus_mel_stats: rows spread evenly over the
+   set, not the first N, which are the first chapters), padded with 0. The mel cache file is named
+   by the clip id and a hash of its audio, so a re-cut under the same id never loads an old mel.
  - Batches carry speaker_ids, boundary_ids and rates for the conditioning in Step 8.
 ```
 
@@ -4164,6 +4206,8 @@ The ElevenLabs symptoms (slowing over the last sentences, and a "slow mode" on s
 - **Pause ratio.**
 
 Both are fixed at inference to the narrator's median, so the model cannot pick a slow mode from the meaning of the text or from session noise.
+
+Step 4.2 already writes both into every manifest row, from the aligner's word times of the clip (first word to last word, so the 150 ms pads are excluded; `tempo_from_alignment` in `src/data/tempo.py`, called by `src/data/prepare/manifest.py`). Labels computed from MAS durations count the pads: the leading pad as speech and the trailing pad as a pause. Measured on 596 kept clips of two parts of the first book, that lowers the articulation rate by 0.65 phones/s (4%) and raises the pause ratio by 0.019 (by 0.075 to 0.085 on clips under 2.5 s). Subtract each clip's pads (`pad_start_s`, `pad_end_s` in `cut/<part>.cuts.jsonl`) from its first and last token, or check the labels against the manifest rates, before `inference_rate` is set.
 
 ```text
 Claude Code Prompt 4.4: Create src/data/tempo.py as below and scripts/tempo_labels.py:

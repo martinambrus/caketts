@@ -2,7 +2,7 @@
 # A path is resolved against the directory of this file. Sections source, lexicon and gold are optional:
 # delete a section you do not use. Any other section can be deleted too and then takes its defaults.
 
-language: cs               # language code of the book (cs, sk, en); fed to text, align, align.asr, audit and manifest
+language: cs               # language code of the book (cs or sk: the text normalizer has no other); fed to text, align, align.asr, audit and manifest
 speaker: narrator          # speaker id written to every manifest row
 use_part_fragments: false  # keep the clips that start or end inside a sentence at a part border; fed to text and manifest
 raw_dir: raw               # directory with the recordings <part>.wav
