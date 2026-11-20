@@ -228,6 +228,18 @@ def test_value_error_lists_every_failing_block_and_code_point(tmp_path):
     assert not (out / "p1.units.jsonl").exists()
 
 
+def test_skip_unreadable_drops_only_the_failing_blocks_and_reports_them(tmp_path):
+    report, out = run(tmp_path, {"p1": book("Dva ≈ tři.", "Dobrý den.", "Čtyři ☃ a ∑ pět.", "Přišel domů.")},
+                      skip_unreadable=True)
+    assert report["status"] == "ok"
+    assert report["parts"]["p1"]["skipped_blocks"] == [
+        {"part": "p1", "line": 1, "block": 1, "codepoints": ["U+2248"]},
+        {"part": "p1", "line": 5, "block": 3, "codepoints": ["U+2603", "U+2211"]}]
+    rows = units_of(out)
+    assert [r["text"] for r in rows] == ["Dobrý den.", "Přišel domů."]
+    assert [r["source"]["line_start"] for r in rows] == [3, 7]
+
+
 def test_failure_path_leaves_no_log_record_to_the_last_resort_handler(tmp_path, monkeypatch):
     unhandled = []
 

@@ -81,6 +81,7 @@ class TextConfig:
     lexicon: Optional[str] = None
     compare_dir: Optional[str] = None
     compare_suffix: str = ".txt.orig"
+    skip_unreadable: bool = False
 
 
 class TextStageError(Exception):
@@ -468,6 +469,7 @@ def _process_part(cfg, normalizer, placement, name: str, estimate, entries=None)
     given = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
     given_lines = given.splitlines()
     blocks = _blocks(given_lines)
+    skipped = []
     started = time.perf_counter()
     try:
         normalised, records = _normalise_logged(normalizer, given)
@@ -475,7 +477,17 @@ def _process_part(cfg, normalizer, placement, name: str, estimate, entries=None)
         failures = _failures_by_block(normalizer, name, given_lines)
         if not failures:
             failures = [{"part": name, "line": 1, "block": 0, "codepoints": []}]
-        return {"failed": failures, "format": fmt}
+        if not (cfg.skip_unreadable and all(f["block"] for f in failures)):
+            return {"failed": failures, "format": fmt}
+        drop = {i for f in failures for i in range(blocks[f["block"] - 1][1], blocks[f["block"] - 1][2] + 1)}
+        given_lines = ["" if i in drop else line for i, line in enumerate(given_lines)]
+        given = "\n".join(given_lines) + ("\n" if given.endswith("\n") else "")
+        blocks = _blocks(given_lines)
+        try:
+            normalised, records = _normalise_logged(normalizer, given)
+        except ValueError:
+            return {"failed": failures, "format": fmt}
+        skipped = failures
     seconds = time.perf_counter() - started
     norm_lines = normalised.splitlines()
     if len(norm_lines) != len(given_lines):
@@ -512,7 +524,8 @@ def _process_part(cfg, normalizer, placement, name: str, estimate, entries=None)
         "headings": len({(s.chapter, s.paragraph) for s in sentences if s.heading}), "sentences": len(sentences),
         "clause_cuts": sum(u.pause == "clause" for u in units),
         "chapter_starts": chapter_starts, "config_headings": config_headings, "normalise_s": seconds,
-        "lexicon_replacements": replaced if entries is not None else None, "comparison": comparison}
+        "lexicon_replacements": replaced if entries is not None else None, "comparison": comparison,
+        "skipped_blocks": skipped}
 
 
 # ---- report ------------------------------------------------------------------------------------------------
@@ -655,7 +668,7 @@ def run_text_stage(cfg: TextConfig) -> dict:
         d = done[name]
         d["units_not_nfc"] = sum(u.text != unicodedata.normalize("NFC", u.text) for u in d["units"])
         parts[name] = {**_stats(d["rows"], d), "format": d["format"], "chapter_starts": d["chapter_starts"],
-                       "config_headings": d["config_headings"],
+                       "config_headings": d["config_headings"], "skipped_blocks": d["skipped_blocks"],
                        "timing": {"normalise_s": round(d["normalise_s"], 3), "peak_rss_mib": _rss()}}
         if entries is not None:
             parts[name]["lexicon_replacements"] = d["lexicon_replacements"]
