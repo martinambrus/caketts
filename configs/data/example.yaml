@@ -79,13 +79,14 @@ cut:
   frame_s: 0.010  # frame of the energy measure, seconds
   search_s: 0.08  # how far from an aligner edge the energy edge of the speech is searched, seconds
   min_quiet_s: 0.04  # shortest quiet stretch that can hold a cut point, seconds
-  quiet_db: 12.0  # a frame up to this many dB above the part's noise floor is quiet
+  quiet_db: 15.0  # a frame up to this many dB above the part's noise floor is quiet (the speech level above it is speech)
   speech_db: 15.0  # a frame at least this many dB above the noise floor is speech
   floor_percentile: 5.0  # percentile of the part's frame levels taken as the noise floor
   max_est_s: 17.0  # two units merge across a short pause only up to this estimated duration, seconds
   max_clip_s: 20.0  # a measured unit longer than this is cut at a pause, else the clip is flagged over_cap, seconds
   min_split_words: 3  # fewest words on each side of such a cut
   close_s: 0.03  # a dip in the speech level up to this long is bridged when following a speech edge, seconds
+  bridge_s: 0.35  # the longest dip of the level bridged to a burst of speech-level audio beyond it when a speech edge is refined (a breath, or a word the aligner started late); used only while a quiet stretch remains between two units; 0 = off, seconds
 
 audit:
   asr_chunk: 32  # clips given to a judge at once
