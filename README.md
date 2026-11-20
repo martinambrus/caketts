@@ -1,7 +1,7 @@
 # caketts
 A TTS with style
 
-An audiobook text-to-speech system for **Slovak, Czech and English**, in one narrator's voice. It pairs a Matcha-TTS core with a multilingual SSL discriminator and the BigVGAN v2 vocoder. It is trained on 10–40 hours of the narrator's recordings, with optional public cs/sk/en speech for pretraining.
+An audiobook text-to-speech system for **Slovak, Czech and English**, in one narrator's voice. It pairs a Matcha-TTS core with a multilingual SSL discriminator and the BigVGAN v2 vocoder. It is trained from scratch on the narrator's recordings (6.6 hours of the first book are kept after the audit; more books later). A post-v1 step compares it with a model pretrained on public cs/sk/en speech.
 
 It has two hard requirements:
 
@@ -17,6 +17,7 @@ It has two hard requirements:
 | [`docs/research/tts_breakthroughs_since_late_2025.md`](docs/research/tts_breakthroughs_since_late_2025.md) | The research report behind the v2 changes |
 | [`NUM2WORDS_CHANGES.md`](NUM2WORDS_CHANGES.md) | Slovak and Czech number-to-words v2: every change against v1, the sources, and the decisions from the native-speaker review |
 | `src/`, `tests/`, `scripts/` | The reference implementation. These are the plan's tested code blocks as files. |
+| [`docs/corpus-preparation.md`](docs/corpus-preparation.md) | The walkthrough of the corpus preparation (Step 4.2): from recordings and book text to cut, audited training clips and a split manifest, with the results on the first book |
 | `docs/research/num2words_spec_*.md`, `docs/NUM2WORDS_v1_v2_diff.csv` | Research notes and the full v1 → v2 diff for the number modules |
 
 The first commit holds the v1 plan and the v1 number modules, so `git log -p` shows what changed in v2.
@@ -31,6 +32,7 @@ These parts are implemented and tested on CPU:
 - Text normalization: numbers, dates, times, currency, units, Roman numerals, abbreviations and English spans, with a Stanza tagger for case, gender and animacy
 - Sentence segmentation with paragraph and chapter boundary labels
 - Audio preprocessing with BigVGAN's exact mel spectrogram
+- Corpus preparation: recordings and book text to aligned, cut and audited clips and a split manifest, run on a 9-hour Czech audiobook ([walkthrough](docs/corpus-preparation.md)); its tests use stub models, the whole-book run used a GPU
 - The data pipeline
 - The Matcha-TTS components: text encoder, duration predictor, MAS, OT-CFM decoder
 - The SSL discriminator
@@ -40,7 +42,7 @@ These parts are implemented and tested on CPU:
 These are still prompts with acceptance criteria in the plan:
 
 - The G2P review and vocabulary scripts
-- Corpus preparation and the tempo-labelling script
+- The tempo-labelling script
 - The vocoder wrapper
 - The training loops and stages
 - Book-length inference
@@ -51,10 +53,11 @@ These are still prompts with acceptance criteria in the plan:
 
 ```bash
 uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv; uv: https://docs.astral.sh/uv/
+# NVIDIA GPU instead: uv sync --group align --group cu130 --no-group cpu   (CUDA 13 build of torch; then run with uv run --no-sync)
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
 git -C "${BIGVGAN_DIR:-third_party/BigVGAN}" checkout 7d2b454     # the commit the tests ran with
-uv run pytest tests/ -q -m "not slow"   # 2560 tests, about 40 s on CPU
-uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 40 s
+uv run pytest tests/ -q -m "not slow"   # 3431 tests, about 100 s on one CPU thread
+uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 25 s more
 ```
 
 The first test run downloads the text normalizer's Stanza models for Czech and Slovak (250 MB) into `~/.cache/stanza`. Stanza fetches them through huggingface_hub, which keeps a second copy in `~/.cache/huggingface/hub`; delete its `models--stanfordnlp--stanza-*` folders to free that space.

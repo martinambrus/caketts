@@ -4,8 +4,6 @@ version = "0.1.0"
 description = "Slovak, Czech and English audiobook TTS in one narrator's voice"
 requires-python = ">=3.13"
 dependencies = [
-    "torch>=2.14.0",
-    "torchaudio>=2.11.0",
     "soundfile>=0.14.0",
     "librosa>=1.0.0",
     "numpy>=2.5.3",
@@ -26,18 +24,36 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest>=9.1.1"]
+# Corpus preparation (Step 4.2): `uv sync --group align`
+align = ["uroman>=1.3.1.1"]
+# One torch build per environment, cpu by default: `uv sync --group cu130 --no-group cpu` for an NVIDIA GPU
+cpu = ["torch>=2.14.0", "torchaudio>=2.11.0"]
+cu130 = ["torch>=2.14.0", "torchaudio>=2.11.0"]
 
 [tool.uv]
 python-preference = "only-managed"
 # ext4 (WSL) has no copy-on-write, so uv's default "clone" would store every package twice
 link-mode = "hardlink"
+default-groups = ["dev", "cpu"]
+conflicts = [[{ group = "cpu" }, { group = "cu130" }]]
 
-# CPU build locally; the training machine switches this index to CUDA (plan, Prompt 1.1)
+# CPU build locally; the training machine uses the CUDA group (plan, Prompt 1.1)
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
 [tool.uv.sources]
-torch = [{ index = "pytorch-cpu" }]
-torchaudio = [{ index = "pytorch-cpu" }]
+torch = [
+  { index = "pytorch-cpu", group = "cpu" },
+  { index = "pytorch-cu130", group = "cu130" },
+]
+torchaudio = [
+  { index = "pytorch-cpu", group = "cpu" },
+  { index = "pytorch-cu130", group = "cu130" },
+]

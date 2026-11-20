@@ -125,6 +125,25 @@ STRUCTURE = {  # id: (book text, [(text, boundary, chapter, paragraph)])
         ("První", "para_end", 0, 0), ("Přišel.", "chapter_end", 0, 1)]),
 }
 
+FIELDS = {  # id: (book text, [(text, heading, line)]); line counts from 0 the first line of the sentence's block
+    "one-line": ("Přišel.", [("Přišel.", False, 0)]),
+    "heading-and-body": ("# První\n\nPřišel.", [("První", True, 0), ("Přišel.", False, 2)]),
+    "two-paragraphs": ("Přišel.\n\nOdešel.", [("Přišel.", False, 0), ("Odešel.", False, 2)]),
+    "joined-lines-share-the-first-line": ("Přišel\nodešel. Potom\nšel spát.\n\nKonec.", [
+        ("Přišel odešel.", False, 0), ("Potom šel spát.", False, 0), ("Konec.", False, 4)]),
+    "leading-blank-lines": ("\n\nPřišel.\n\n", [("Přišel.", False, 2)]),
+    "heading-with-two-sentences": ("# Kapitola jedna. Návrat\n\nText.", [
+        ("Kapitola jedna.", True, 0), ("Návrat", True, 0), ("Text.", False, 2)]),
+    "text-before-first-heading": ("Úvod.\n\n# První\n\nPřišel.", [
+        ("Úvod.", False, 0), ("První", True, 2), ("Přišel.", False, 4)]),
+    "heading-without-blank-lines": ("Přišel.\n# První\nOdešel.", [
+        ("Přišel.", False, 0), ("První", True, 1), ("Odešel.", False, 2)]),
+    "letterless-paragraph-keeps-lines": ("# A\n\n* * *\n\nText.", [("A", True, 0), ("Text.", False, 4)]),
+    "empty-heading-adds-no-sentence": ("Text.\n\n# \n\nMore.", [("Text.", False, 0), ("More.", False, 4)]),
+    "crlf": ("Přišel.\r\nOdešel.\r\n\r\nKonec.\r\n", [("Přišel.", False, 0), ("Odešel.", False, 0), ("Konec.", False, 3)]),
+    "lone-carriage-returns": ("Přišel\rodešel.\r\rKonec.", [("Přišel odešel.", False, 0), ("Konec.", False, 3)]),
+}
+
 PIPELINES = {  # id: (language, book text, [(text, boundary, chapter, paragraph)])
     "czech": ("cs", """# Kapitola 1
 
@@ -231,6 +250,21 @@ def test_structure_and_labels(text, expected):
 
 def test_sentence_fields_and_order():
     assert segment("Přišel.") == [Sentence("Přišel.", "chapter_end", 0, 0)]
+
+
+@pytest.mark.parametrize("text,expected", FIELDS.values(), ids=list(FIELDS))
+def test_heading_flag_and_source_line(text, expected):
+    assert [(s.text, s.heading, s.line) for s in segment(text)] == expected
+
+
+@pytest.mark.parametrize("text", [text for text, _ in STRUCTURE.values()] + [text for text, _ in FIELDS.values()],
+                         ids=[*(f"structure-{key}" for key in STRUCTURE), *(f"fields-{key}" for key in FIELDS)])
+def test_source_line_is_the_block_start_and_the_heading_flag_follows_the_marker(text):
+    lines = text.splitlines()
+    for s in segment(text):
+        assert lines[s.line].strip() and lines[s.line].startswith("# ") == s.heading
+        if not s.heading:
+            assert s.line == 0 or not lines[s.line - 1].strip() or lines[s.line - 1].startswith("# ")
 
 
 def test_every_label_occurs_and_is_a_known_id():

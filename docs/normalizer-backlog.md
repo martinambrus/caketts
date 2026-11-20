@@ -6,7 +6,15 @@ when revived. New findings are added to one of the two lists as they are verifie
 
 ## Kept
 
-Nothing is queued: batch 6 (under Fixed) took the weekday abbreviations and what real prose showed.
+Batch 6 (under Fixed) took the weekday abbreviations and what real prose showed. One item is queued, found by the
+corpus preparation (Step 4.2, 2026-11-20): the normalizer has no reading for `|`, `•` (U+2022) and a `/` it cannot place.
+A symbol with no reading raises by design (`ValueError: no reading for ...`, `src/text/normalizer.py:1090`), and `|` and
+`•` are not speakable punctuation (`_SPEAKABLE_PUNCT`, `src/text/normalizer.py:497`). `/` is read between words ("or"),
+between numbers (`5/6` "pět lomeno šest") and in a ratio (`Kč/kg`), but raises after a number before a Roman numeral
+(`139/VII`) or a title (`12 / Title`). The EPUB of the first book held these in 15 paragraphs; the rewrite that matches the
+narration reads the three `/` of the book three ways ("lomeno", nothing, "na"), so a global reading would be wrong. The
+corpus pipeline works around it per book (a lexicon row, or `text.skip_unreadable`, see `docs/corpus-preparation.md`).
+Queued: a reading, or a silent mark, for each of these symbols in the contexts real books show.
 
 Pinned, its own task when taken up: Stanza 1.15.0 (Dependabot #12) changes 563 of 9,818 corpus readings with its new
 CAC and SNK models and fails 19 tests, so `pyproject.toml` holds `stanza<1.15`. Upgrading means going through those

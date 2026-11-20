@@ -2,7 +2,7 @@
 ## Matcha-TTS core · multilingual SSL discriminator · BigVGAN v2
 
 **Target languages:** Slovak, Czech, English (one narrator's voice)
-**Data:** 10–40 h of the narrator, plus optional public cs/sk/en speech for pretraining
+**Data:** the narrator's books. v1 trains from scratch on the first book (9.09 h recorded, 6.61 h kept after the audit; two more books later). Public cs/sk/en speech is used only by the post-v1 pretraining comparison (Step 15).
 **Architecture:** non-autoregressive; explicit per-phoneme durations (Monotonic Alignment Search) + OT-CFM decoder on 100-band mel + BigVGAN v2
 **Hard requirements:** (1) no skipped or repeated words, gibberish or cut-offs; (2) the same pace within a text and across texts
 **Hallucination risk:** structurally minimised by explicit durations, then *gated*: every rendered sentence is checked by ASR (Step 12). v1's "zero, guaranteed by NAR design" was overstated.
@@ -48,9 +48,9 @@
 | Text encoder | Phones only | Plus a per-token language ID (cs/sk/en) | Medium |
 | G2P | espeak-ng as-is | Plus lexicon, post-rules, stress policy and strict vocabulary | High |
 | Decoder training | CFM only | Optional repeat/skip negatives and condition dropout (CFG, self-purifying filtering) | Medium |
-| Training | Acoustic stage, then joint training with SLM | Multilingual pretraining → narrator fine-tune → vocoder fine-tune → short, late adversarial phase → RL last | Medium |
+| Training | Acoustic stage, then joint training with SLM | Narrator training from scratch → vocoder fine-tune → short, late adversarial phase → RL last; multilingual pretraining is a post-v1 comparison (Step 15) | Medium |
 | Quality control | One line: "hallucination detection via ASR" | ASR verify-and-retry on every sentence with relative thresholds, failure-shape detectors, and pace metrics M1–M6 | High that it is needed |
-| Data | ParCzech4Speech, Common Voice | Plus SloPalSpeech (2,806 h Slovak, CC BY 4.0) and ParlaSpeech-CZ (1,218 h), re-filtered | Medium |
+| Data | ParCzech4Speech, Common Voice | The narrator's own books; for the post-v1 pretraining comparison (Step 15) SloPalSpeech (2,806 h Slovak, CC BY 4.0) and ParlaSpeech-CZ (1,218 h), re-filtered | Medium |
 
 ### Text normalisation: num2words rewritten (Step 2.1)
 
@@ -60,13 +60,13 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 ### Reference implementation status
 
-Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`.
+Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`. The corpus preparation (Step 4.2: `src/data/prepare/`, `src/text/units.py`, `scripts/prepare_corpus.py`, `configs/data/example.yaml`) has no code block here: its files are the reference, and its prompt says what they do.
 
-**2561 tests:** 102 for the TTS components, 104 for num2words, 2165 for the text normalizer, 186 for the segmenter and 4 for the environment. All pass except `test_cuda_available`, which skips without a GPU. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**3432 tests:** 108 for the TTS components, 104 for num2words, 2165 for the text normalizer, 239 for the segmenter, 812 for the corpus preparation and 4 for the environment. In CI (CPU, no model downloads, no optional groups) 3427 pass and 5 skip: `test_cuda_available` (no GPU), the two real-Parakeet tests and the real-MMS aligner test (the models are not in the Hugging Face cache) and the `uroman` test (optional group `align`). With a GPU, the models and `--group align`, all 3432 pass. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
-Not tested here (no GPU and no large model downloads): real XLS-R weights, BigVGAN inference, NeMo ASR models and multi-GPU training. Those steps are prompts with acceptance criteria.
+Not tested in CI (no GPU, no large model downloads): real XLS-R weights, BigVGAN inference, multi-GPU training and the ASR judges on synthetic speech (Steps 12 and 14). Those steps are prompts with acceptance criteria. The corpus preparation is tested there with stub models; with the models present its tests also run Parakeet, and the whole pipeline ran on a GPU on the first book (`docs/corpus-preparation.md`).
 
 ---
 
@@ -87,7 +87,8 @@ Not tested here (no GPU and no large model downloads): real XLS-R weights, BigVG
 13. [Step 12: Inference Pipeline with ASR Verification](#step-12-inference-pipeline-with-asr-verification)
 14. [Step 13: Production API](#step-13-production-api)
 15. [Step 14: Evaluation and QA](#step-14-evaluation-and-qa)
-16. [Appendix: Test Suite](#appendix-test-suite)
+16. [Step 15: Pretraining comparison (post-v1)](#step-15-pretraining-comparison-post-v1)
+17. [Appendix: Test Suite](#appendix-test-suite)
 
 ---
 
@@ -96,6 +97,7 @@ Not tested here (no GPU and no large model downloads): real XLS-R weights, BigVG
 ```
 czech_slovak_tts/
 ├── configs/
+│   ├── data/example.yaml            # corpus preparation, one YAML per book, every key at its default (Step 4.2)
 │   ├── model/matcha_base.yaml
 │   ├── training/{pretrain.yaml, finetune_narrator.yaml, vocoder.yaml, adversarial.yaml}
 │   └── inference/inference.yaml
@@ -103,8 +105,10 @@ czech_slovak_tts/
 │   ├── lexicon.json                 # {"cs": {...}, "sk": {...}, "en": {...}} word -> phones
 │   └── vocab.json                   # built from real espeak-ng output (Step 3.3)
 ├── src/
-│   ├── text/      normalizer.py  segmenter.py  num2words_cs.py  num2words_sk.py  phonemizer.py
-│   ├── data/      audio.py  dataset.py  tempo.py  prepare.py
+│   ├── text/      normalizer.py  segmenter.py  units.py  num2words_cs.py  num2words_sk.py  phonemizer.py
+│   ├── data/      audio.py  dataset.py  tempo.py
+│   │   └── prepare/  source.py  lexicon.py  text.py  audio.py  align/{interface,ctc,longform,types}.py  asr.py
+│   │                 cut.py  audit.py  coverage.py  manifest.py  gold.py  config.py   # Step 4.2, one module per stage
 │   ├── model/     text_encoder.py  duration.py  flow_matching.py  matcha_tts.py  discriminators.py
 │   ├── vocoder/   bigvgan.py
 │   ├── training/  trainer.py  stages.py
@@ -114,11 +118,14 @@ czech_slovak_tts/
 │                  test_eval_and_discriminator.py  test_integration.py
 │                  test_num2words_sk.py  test_num2words_cs.py
 │                  test_environment.py  test_text_normalization.py  test_segmenter.py  test_report.py
-│                  fixtures/mel_basis_24k_100.npz
+│                  test_units.py  test_align.py  test_asr.py  test_cut.py
+│                  test_prepare_{source,lexicon,text,audio,config,audit,coverage,manifest,gold,pipeline,all}.py
+│                  fixtures/mel_basis_24k_100.npz  fixtures/audit_single_judge.json
 ├── scripts/       prepare_corpus.py  build_vocab.py  g2p_review.py  cldr_crosscheck.py
 │                  validate_all_sk.py  validate_all_cs.py
 │                  train.py  tempo_labels.py  synthesize_book.py  evaluate.py
 ├── NUM2WORDS_CHANGES.md             # num2words v2: changes, sources, native-review decisions
+├── docs/corpus-preparation.md       # the walkthrough of Step 4.2 for any book
 ├── third_party/BigVGAN/             # git clone https://github.com/NVIDIA/BigVGAN, then check out 7d2b454 (Prompt 1.1)
 ├── pyproject.toml                   # dependencies (uv); uv.lock pins every version (Prompt 1.1)
 ├── uv.lock
@@ -142,17 +149,21 @@ Dependencies are managed with uv and are already in the repository: pyproject.to
 (minimums = the versions the tests were run with), uv.lock pins every version, .python-version
 pins Python 3.13, and python-preference = "only-managed" keeps an active conda or system Python
 out of the project. `uv sync` creates .venv; run every command with `uv run`.
-  - torch and torchaudio come from the PyTorch CPU index. On a CUDA machine, delete the
-    pytorch-cpu index and the [tool.uv.sources] entries (PyPI's Linux torch wheels are the
-    CUDA 13 build), then run `uv lock`.
+  - torch and torchaudio are one build per environment, chosen by dependency group: the default
+    group cpu (the PyTorch CPU index; `uv sync` and CI), or group cu130 (CUDA 13) on an NVIDIA
+    machine: `uv sync --group align --group cu130 --no-group cpu`. A plain `uv run` syncs the
+    default groups again and puts the CPU build back, so run a CUDA environment with
+    `.venv/bin/python` or `uv run --no-sync`. A plain `pip install .` no longer brings torch.
+  - group align adds uroman, which only the mms-300m aligner of Step 4.2 needs
   - torchaudio is used only for resample / forced_align; audio I/O goes through soundfile.
   - link-mode = "hardlink" shares installed files with the uv cache instead of copying them.
   - To upgrade: `uv lock --upgrade`, run the whole test suite, commit uv.lock.
+Parakeet-TDT-0.6B-v3 and Canary-1B-v2 run through transformers in this environment (Step 4.2:
+src/data/prepare/asr.py). nemo_toolkit[asr] is not used: it pins many packages and does not
+resolve with the core pins.
 Evaluation-only tools stay out of uv.lock:
   - PyICU (CLDR cross-check, Step 2.4): `uv run --with PyICU scripts/cldr_crosscheck.py`;
     needs libicu-dev
-  - nemo_toolkit[asr]>=2.3 (Parakeet-TDT-0.6B-v3, Canary-1B-v2): its own environment, created
-    when Steps 4.2, 12 and 14 start, because it pins many packages
 
 Create pytest.ini with pythonpath = . and a "slow" marker.
 ```
@@ -494,7 +505,7 @@ sentence-initial number word. A lowercase word goes on ("„Kam jdeš?“ zeptal
 the period is an initial ("V. Havel"), and a <cs>/<sk>/<en> span is never split.
 
 Usage:
-    segment("# První\\n\\nPřišel. Odešel.\\n")[2]   # Sentence('Odešel.', 'chapter_end', chapter=0, paragraph=1)
+    segment("# První\\n\\nPřišel. Odešel.\\n")[2]   # Sentence('Odešel.', 'chapter_end', chapter=0, paragraph=1, line=2)
 """
 from __future__ import annotations
 
@@ -514,25 +525,32 @@ _CANDIDATE = re.compile(
 @dataclass(frozen=True)
 class Sentence:
     """`boundary` is what follows the sentence: "mid", "para_end" or "chapter_end" (the keys of
-    src.data.dataset.BOUNDARY_IDS). `chapter` and `paragraph` count from 0, the paragraph within its chapter."""
+    src.data.dataset.BOUNDARY_IDS). `chapter` and `paragraph` count from 0, the paragraph within its chapter.
+    `heading` is True for the sentences of a "# " line; `line` counts from 0 the first line of the sentence's block in
+    the text given to `segment`."""
     text: str
     boundary: str
     chapter: int
     paragraph: int
+    heading: bool = False
+    line: int = 0
 
 
-def _paragraphs(text: str) -> Iterator[Tuple[bool, str]]:
-    """The paragraphs of book text as (is_heading, text), the lines of a paragraph joined by one space. A heading line
-    also ends the paragraph before it."""
+def _paragraphs(text: str) -> Iterator[Tuple[bool, str, int]]:
+    """The paragraphs of book text as (is_heading, text, first line), the lines of a paragraph joined by one space. A
+    heading line also ends the paragraph before it."""
     lines: List[str] = []
-    for line in [*text.splitlines(), ""]:
+    first = 0
+    for number, line in enumerate([*text.splitlines(), ""]):
         if line.startswith("# ") or not line.strip():
             if lines:
-                yield False, " ".join(lines)
+                yield False, " ".join(lines), first
                 lines = []
             if line.startswith("# "):
-                yield True, line[2:]
+                yield True, line[2:], number
         else:
+            if not lines:
+                first = number
             lines.append(line.strip())
 
 
@@ -557,24 +575,24 @@ def segment(text: str) -> List[Sentence]:
     """Split normalised book text into sentences, each labelled with the boundary that follows it. A heading line starts
     a chapter, even one with no text; text before the first heading is the first chapter, so a text without a heading
     is one chapter."""
-    found: List[Tuple[str, int, int]] = []  # sentence, chapter, paragraph
+    found: List[Tuple[str, int, int, bool, int]] = []  # sentence, chapter, paragraph, heading, line
     chapter = paragraph = -1
-    for heading, block in _paragraphs(text):
+    for heading, block, line in _paragraphs(text):
         sentences = _sentences(block)
         if heading or (chapter < 0 and sentences):
             chapter, paragraph = chapter + 1, -1
         if sentences:
             paragraph += 1
-            found += [(s, chapter, paragraph) for s in sentences]
+            found += [(s, chapter, paragraph, heading, line) for s in sentences]
     result = []
-    for i, (s, c, p) in enumerate(found):
+    for i, (s, c, p, h, n) in enumerate(found):
         if i + 1 == len(found) or found[i + 1][1] != c:
             boundary = "chapter_end"
         elif found[i + 1][2] != p:
             boundary = "para_end"
         else:
             boundary = "mid"
-        result.append(Sentence(s, boundary, c, p))
+        result.append(Sentence(s, boundary, c, p, h, n))
     return result
 ```
 
@@ -2845,6 +2863,25 @@ STRUCTURE = {  # id: (book text, [(text, boundary, chapter, paragraph)])
         ("První", "para_end", 0, 0), ("Přišel.", "chapter_end", 0, 1)]),
 }
 
+FIELDS = {  # id: (book text, [(text, heading, line)]); line counts from 0 the first line of the sentence's block
+    "one-line": ("Přišel.", [("Přišel.", False, 0)]),
+    "heading-and-body": ("# První\n\nPřišel.", [("První", True, 0), ("Přišel.", False, 2)]),
+    "two-paragraphs": ("Přišel.\n\nOdešel.", [("Přišel.", False, 0), ("Odešel.", False, 2)]),
+    "joined-lines-share-the-first-line": ("Přišel\nodešel. Potom\nšel spát.\n\nKonec.", [
+        ("Přišel odešel.", False, 0), ("Potom šel spát.", False, 0), ("Konec.", False, 4)]),
+    "leading-blank-lines": ("\n\nPřišel.\n\n", [("Přišel.", False, 2)]),
+    "heading-with-two-sentences": ("# Kapitola jedna. Návrat\n\nText.", [
+        ("Kapitola jedna.", True, 0), ("Návrat", True, 0), ("Text.", False, 2)]),
+    "text-before-first-heading": ("Úvod.\n\n# První\n\nPřišel.", [
+        ("Úvod.", False, 0), ("První", True, 2), ("Přišel.", False, 4)]),
+    "heading-without-blank-lines": ("Přišel.\n# První\nOdešel.", [
+        ("Přišel.", False, 0), ("První", True, 1), ("Odešel.", False, 2)]),
+    "letterless-paragraph-keeps-lines": ("# A\n\n* * *\n\nText.", [("A", True, 0), ("Text.", False, 4)]),
+    "empty-heading-adds-no-sentence": ("Text.\n\n# \n\nMore.", [("Text.", False, 0), ("More.", False, 4)]),
+    "crlf": ("Přišel.\r\nOdešel.\r\n\r\nKonec.\r\n", [("Přišel.", False, 0), ("Odešel.", False, 0), ("Konec.", False, 3)]),
+    "lone-carriage-returns": ("Přišel\rodešel.\r\rKonec.", [("Přišel odešel.", False, 0), ("Konec.", False, 3)]),
+}
+
 PIPELINES = {  # id: (language, book text, [(text, boundary, chapter, paragraph)])
     "czech": ("cs", """# Kapitola 1
 
@@ -2951,6 +2988,21 @@ def test_structure_and_labels(text, expected):
 
 def test_sentence_fields_and_order():
     assert segment("Přišel.") == [Sentence("Přišel.", "chapter_end", 0, 0)]
+
+
+@pytest.mark.parametrize("text,expected", FIELDS.values(), ids=list(FIELDS))
+def test_heading_flag_and_source_line(text, expected):
+    assert [(s.text, s.heading, s.line) for s in segment(text)] == expected
+
+
+@pytest.mark.parametrize("text", [text for text, _ in STRUCTURE.values()] + [text for text, _ in FIELDS.values()],
+                         ids=[*(f"structure-{key}" for key in STRUCTURE), *(f"fields-{key}" for key in FIELDS)])
+def test_source_line_is_the_block_start_and_the_heading_flag_follows_the_marker(text):
+    lines = text.splitlines()
+    for s in segment(text):
+        assert lines[s.line].strip() and lines[s.line].startswith("# ") == s.heading
+        if not s.heading:
+            assert s.line == 0 or not lines[s.line - 1].strip() or lines[s.line - 1].startswith("# ")
 
 
 def test_every_label_occurs_and_is_a_known_id():
@@ -3843,11 +3895,18 @@ class AudioProcessor:
 
     # ---- trimming ------------------------------------------------------------------------
     def trim(self, wav: torch.Tensor, speech_start_s: float, speech_end_s: float,
-             pad_s: float = 0.15) -> torch.Tensor:
-        """Keep [first speech - pad, last speech + pad]. Bounds from a forced aligner are best."""
+             pad_s: float = 0.15, prev_cut_s: Optional[float] = None,
+             next_cut_s: Optional[float] = None) -> torch.Tensor:
+        """Keep [first speech - pad, last speech + pad]. Bounds from a forced aligner are best.
+        Pass the cut point shared with each neighbouring clip (the same value to both clips) and
+        neither clip reaches past it, so two clips never share a sample."""
         sr = self.cfg.sample_rate
         a = max(0, int(round((speech_start_s - pad_s) * sr)))
         b = min(wav.shape[-1], int(round((speech_end_s + pad_s) * sr)))
+        if prev_cut_s is not None:
+            a = max(a, int(round(prev_cut_s * sr)))
+        if next_cut_s is not None:
+            b = min(b, int(round(next_cut_s * sr)))
         return wav[..., a:b]
 
     def detect_speech_bounds(self, wav: torch.Tensor, noise_floor_db: Optional[float] = None,
@@ -3891,40 +3950,74 @@ class AudioProcessor:
         return n_samples // self.cfg.hop_length
 ```
 
-## 4.2 Corpus preparation (narrator + pretraining data)
+## 4.2 Claude Code Prompt 4.2: Corpus preparation (v2: done)
 
 ```text
-Claude Code Prompt 4.2: Create src/data/prepare.py and scripts/prepare_corpus.py:
+Create the corpus preparation of the narrator's books: one module per stage in src/data/prepare/, the
+unit builder src/text/units.py (shared with Step 12), the entry point scripts/prepare_corpus.py <stage>
+--config <yaml> (stage: source, lexicon, text, audio, align, cut, audit, manifest, gold or all) and
+configs/data/example.yaml, which lists every key at its default; the YAML only overrides. Every stage
+reads only the files of the stages before it in work_dir and writes its own, with a report.json and
+report.md (the lexicon stage writes only its TSV). The same inputs give the same files, the timings in
+the reports aside. A report holds counts, ids and numbers, never the book's text. Every model behind a
+stage is chosen by config. docs/corpus-preparation.md is the walkthrough for any book and records the
+licence of each model (a CC-BY-NC weight is the user's call per run).
 
- 1. Loudness: normalise each source file (chapter/session) to -23 LUFS (AudioProcessor.normalize_loudness).
- 2. Long-form alignment of chapter audio to book text:
-      - Czech/English: Montreal Forced Aligner has pretrained models; Slovak has none.
-      - All three: CTC forced alignment with torchaudio's MMS_FA bundle (romanise cs/sk text with
-        uroman or unidecode first), or NVIDIA NeMo Forced Aligner with Parakeet-TDT-0.6B-v3,
-        which covers Czech and Slovak and gives word and character timestamps.
- 3. Segment at sentence boundaries (Step 2.3). Cut in the middle of the inter-sentence pause and
-    record boundary = mid | para_end | chapter_end. Use identical rules for every session.
- 4. Trim each clip from its word timestamps with fixed 150 ms pads (AudioProcessor.trim).
- 5. ASR audit: transcribe every clip with Parakeet-TDT-0.6B-v3 and compute CER against the
-    normalised text. Compute the narrator's median CER, then send clips above median + 5 points
-    to review. The narrator departing from the text is the most common cause, so fix the text,
-    not the audio. Drop clips that cannot be fixed.
- 6. Write a JSONL manifest, one line per clip:
-    {"id", "audio", "text" (normalised, with <en> spans), "lang", "speaker", "session",
-     "boundary", "duration_s", "articulation_rate", "pause_ratio"}   (rates: Step 4.4)
- 7. Filter with filter_manifest (Step 4.3): drop over-length (default > 20 s), too-short (< 0.5 s)
-    and impossible clips (fewer frames than tokens). Log the report; never crop.
-
-Pretraining data (optional, recommended for robustness on rare words, names and numbers):
- - Slovak: SloPalSpeech (LREC 2026), 2,806 h of parliament speech, CC BY 4.0. It was filtered
-   only at 40% WER, so re-filter to CER < 5% with the audit above. EuroSpeech-SK (about 2,554 h
-   at CER < 20%) comes from the same parliament: deduplicate by session before combining.
- - Czech: ParlaSpeech-CZ (1,218 h, 555 speakers, CC BY-SA 4.0) and ParCzech4Speech (up to 2,695 h, CC BY).
- - English: LibriTTS-R.
- - Parliament audio is formal, male-heavy and often MP3-sourced. Use it to learn alignment and
-   durations; keep it out of the narrator fine-tune.
- - Hold out the 2 h CC0 Czech LibriVox single-speaker set as a read-literature test set.
+ 1. source (optional): the EPUB as the book text, cut into the parts of the recordings at the word, with
+    its chapters placed into the narrator's own texts. lexicon (optional): the forms the book prints and
+    the narrator did not say, learned from a rewrite that matches the narration, as a TSV with an apply
+    column (a hand-written one works too).
+ 2. text: the whole part through the normaliser in one call (Prompt 2.2), the segmenter (Prompt 2.3) and
+    src/text/units.py. A unit is one sentence, except that a quote or bracket still open keeps the next
+    sentence of its paragraph while the estimated length stays within 17 s; a longer unit is cut after a
+    clause mark; a unit never crosses a paragraph. Every guessed reading goes to review_readings.csv. A
+    character with no reading stops the stage and lists the paragraphs (skip_unreadable blanks them).
+ 3. audio: per part, streamed: mono, -23 LUFS (EBU R128) over the whole part, a peak limiter for the few
+    peaks above 0.99 instead of a lower gain, 24 kHz (the clips) and 16 kHz (aligner and ASR) PCM_16.
+ 4. align: CTC forced alignment of each unit's words (torchaudio.functional.forced_align on a wav2vec2-style
+    model: xls-r-cs, mms-300m or mms-1b-all) in blocks of at most 10 min planned from an ASR pass
+    (Parakeet-TDT-0.6B-v3 with word times, cached) that is matched to the text. Text the narrator skipped and speech that is not in
+    the text become gaps. Each unit is ok, low_conf or unmatched by the part's own scores; only ok units are
+    cut. NeMo Forced Aligner cannot be used: it takes CTC or hybrid models only, not the pure-TDT Parakeet.
+ 5. cut: the aligner's spans lie inside the speech, so the speech edges move to the energy edges; the cut
+    point is the centre of the longest quiet run of the gap; each clip keeps a 150 ms pad that never passes
+    the cut point. A gap under two pads merges the units (same paragraph, within 17 s estimated and 20 s
+    measured) or flags short_pause; no quiet run flags no_quiet_cut; a clip over 20 s is split at a word
+    pause. Hard assertions: no two clips share a sample, every clip holds its words, every clip hash is
+    unique over the corpus. cut/pauses.json holds the narrator's median pause per type (comma, sentence,
+    paragraph, chapter) and the pad, for Step 12 rule 7.
+ 6. audit: two independent judges (Parakeet-TDT-0.6B-v3 and Canary-1B-v2, neither the aligner) transcribe
+    every clip. A judge flags a clip whose CER (digits spelled) exceeds its own corpus median + 0.05 (a clip
+    of at most 30 characters also needs 3 edits), and a clip is dropped only when every judge flags it.
+    The narrator departing from the text is the most common cause: fix the text, not the audio, or drop
+    the clip. Rate, edge noise, clipping, level and the cut flags go to review.csv, the 50 riskiest clips
+    to listening.csv.
+ 7. manifest: one JSONL per split, one line per clip:
+    {"id", "audio", "text" (normalised, with <en> spans), "lang", "speaker", "session" (the part),
+     "boundary", "duration_s", "articulation_rate", "pause_ratio" (from the aligner's word times, first
+     word to last), "gap_before_s", "gap_after_s", "tags", "split", "audit", "cer", "units", "paragraph",
+     "chapter", "flags", "n_tokens", "sha256"}
+    filter_manifest (Step 4.3) drops over-length (> 20 s), too-short (< 0.5 s) and impossible clips and
+    never crops. The split gives val and test whole paragraphs to a quota per tag (min(5, 10%), rarest tag
+    first), one contiguous held-out block of one chapter (about 4% of the hours), and train the rest. No
+    paragraph, text of four words or more, or audio is in two splits. coverage.md counts clips and hours
+    per tag and split.
+ 8. gold (optional): scores the cut against speech a person verified (a JSON file, or Audacity labels of
+    the pauses). No matched span may lose an ASR-confirmed word; the unsafe-cut rate is for information.
 ```
+
+Decisions and results on the first book (Czech, 10 parts, 9.091 h, one narrator; the details are in `docs/corpus-preparation.md`):
+
+- **v1 trains from scratch on this narrator** (Step 11): the public pretraining corpora moved to Step 15. NeMo Forced Aligner with Parakeet-TDT, which an earlier draft of this prompt named, cannot work: it takes CTC or hybrid models only.
+- **Text:** the narrator's rewrite of the book with the EPUB's chapters placed into it. On two parts, 94.7% of the units align (`ok`), against 75.7% for the EPUB text with a lexicon learned from the rewrite, and the audit drops 11.9% against 22.3%. 81% of the EPUB failures are text the narrator skipped or changed.
+- **Aligner:** `xls-r-cs` (Czech, Apache-2.0) aligns 95.4% of the units, `mms-1b-all` 91.3% and `mms-300m` (the code default, CC-BY-NC) 86.5%. All three give refined clip edges within 10 ms (median) of the gold.
+- **Audit:** two judges. One judge drops 22.2% of the clips of two parts and about half of those drops are false (numbers, short interjections, recognition errors); two judges drop 12.9%.
+- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.6% and informational): it is 2 of 153 matched spans, both diagnosed.
+- **Validation sets:** a paragraph with a clip flagged `short_pause`, `no_quiet_cut` or `over_cap` stays out of val and test (7.0% of the clips are `short_pause`), so the evaluation clips have uniform edges; those clips still train. One test quota (parenthesis) is unmet. The book has no digits after normalisation, so there are no number, date or abbreviation clips.
+- **Result:** 9.091 h of recordings, 4,952 units, 4,721 aligned `ok`, 4,586 clips (7.360 h with pads), 499 dropped by the audit, 4,086 clips kept: 6.613 h (72.7%), of which train 6.068 h, val 0.099 h, test 0.118 h and held-out 0.327 h. One cold run takes 42 min and 5.46 GiB of RAM on one 6 GB GPU.
+- **Pauses** (`cut/pauses.json`, breath-free): sentence 0.95 s, paragraph 1.73 s, chapter 2.93 s, comma 0.10 s.
+
+Not built: a repair of the text from the ASR words where the narrator departs from it (207 of the 499 audit drops), and a normaliser reading for `|`, `•` and a `/` it cannot place (`docs/normalizer-backlog.md`).
 
 ## 4.3 Dataset and collator
 
@@ -3933,7 +4026,9 @@ Claude Code Prompt 4.3: Create src/data/dataset.py exactly as the reference belo
  - filter_manifest DROPS over-length / too-short / impossible utterances and reports them;
    the dataset never truncates mel or tokens.
  - Strict symbol lookup (UnknownSymbolError names the utterance); language IDs per token.
- - Mel targets are normalised with corpus statistics (corpus_mel_stats), padded with 0.
+ - Mel targets are normalised with corpus statistics (corpus_mel_stats: rows spread evenly over the
+   set, not the first N, which are the first chapters), padded with 0. The mel cache file is named
+   by the clip id and a hash of its audio, so a re-cut under the same id never loads an old mel.
  - Batches carry speaker_ids, boundary_ids and rates for the conditioning in Step 8.
 ```
 
@@ -3956,6 +4051,7 @@ Fixes relative to v1:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -4044,7 +4140,8 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            p = self.cache / f"{row['id']}.pt"
+            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
         mel = self.audio.compute_mel(self.audio.load_audio(row["audio"]))
@@ -4096,10 +4193,11 @@ class TTSCollator:
 
 
 def corpus_mel_stats(dataset: TTSDataset, max_items: int = 2000) -> Tuple[float, float]:
-    """Scalar mean/std of log-mel over (a sample of) the training set, as in Matcha-TTS."""
+    """Scalar mean/std of log-mel over (an even sample of) the training set, as in Matcha-TTS."""
     s, s2, n = 0.0, 0.0, 0
-    for i in range(min(len(dataset), max_items)):
-        m = dataset._mel(dataset.rows[i])
+    count = min(len(dataset), max_items)
+    for i in range(count):
+        m = dataset._mel(dataset.rows[i * len(dataset) // count])
         s += m.sum().item(); s2 += (m ** 2).sum().item(); n += m.numel()
     mean = s / n
     return mean, (s2 / n - mean ** 2) ** 0.5
@@ -4114,9 +4212,11 @@ The ElevenLabs symptoms (slowing over the last sentences, and a "slow mode" on s
 
 Both are fixed at inference to the narrator's median, so the model cannot pick a slow mode from the meaning of the text or from session noise.
 
+Step 4.2 already writes both into every manifest row, from the aligner's word times of the clip (first word to last word, so the 150 ms pads are excluded; `tempo_from_alignment` in `src/data/tempo.py`, called by `src/data/prepare/manifest.py`). Labels computed from MAS durations count the pads: the leading pad as speech and the trailing pad as a pause. Measured on 596 kept clips of two parts of the first book, that lowers the articulation rate by 0.65 phones/s (4%) and raises the pause ratio by 0.019 (by 0.075 to 0.085 on clips under 2.5 s). Subtract each clip's pads (`pad_start_s`, `pad_end_s` in `cut/<part>.cuts.jsonl`) from its first and last token, or check the labels against the manifest rates, before `inference_rate` is set.
+
 ```text
 Claude Code Prompt 4.4: Create src/data/tempo.py as below and scripts/tempo_labels.py:
- 1. Bootstrap: train the acoustic model (Step 11, stage 1 or 2) for ~20k steps with every rate
+ 1. Bootstrap: train the acoustic model (Step 11, stage 2) for ~20k steps with every rate
     input set to the corpus mean (so they carry no information yet).
  2. Run MAS over the training set to get per-token durations, or use aligner timestamps (Step 4.2).
  3. Compute articulation_rate and pause_ratio per utterance with tempo_from_alignment; write them
@@ -4299,6 +4399,19 @@ class TestTrimming:
         assert start <= 0.51 and end >= 1.49
         trimmed = ap.trim(wav, start, end)
         assert trimmed.shape[-1] >= int((1.0 + 0.3) * sr) - 1
+
+    def test_neighbouring_clips_never_share_a_sample(self, ap):
+        """A 100 ms pause is shorter than two 150 ms pads: both clips stop at the cut they share."""
+        sr = ap.cfg.sample_rate
+        wav = torch.arange(3 * sr, dtype=torch.float32).unsqueeze(0)  # every sample holds its own index
+        first = ap.trim(wav, 0.5, 1.5, next_cut_s=1.55)
+        second = ap.trim(wav, 1.6, 2.5, prev_cut_s=1.55)
+        assert first[0, -1] + 1 == second[0, 0] == round(1.55 * sr)
+        assert first[0, 0] == round(0.35 * sr) and second[0, -1] + 1 == round(2.65 * sr)
+
+    def test_cut_points_beyond_the_pads_change_nothing(self, ap):
+        wav = speechlike(3.0)
+        assert torch.equal(ap.trim(wav, 0.5, 1.5, prev_cut_s=0.0, next_cut_s=3.0), ap.trim(wav, 0.5, 1.5))
 ```
 
 ```python
@@ -4312,7 +4425,7 @@ import soundfile as sf
 import torch
 
 from src.data.audio import AudioProcessor
-from src.data.dataset import TTSCollator, TTSDataset, filter_manifest, load_manifest
+from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
 SR = 24000
@@ -4393,6 +4506,62 @@ def test_collator_carries_conditioning(corpus, g2p):
     t_len = batch["phoneme_lengths"]
     assert (batch["phoneme_ids"][0, t_len[0]:] == 0).all()
     assert (batch["mels"][2, :, batch["mel_lengths"][2]:] == 0).all()
+
+
+def _tone(seconds, freq=150.0):
+    t = np.arange(int(seconds * SR)) / SR
+    return (0.1 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+
+
+def _cached_dataset(tmp_path, g2p, ap, wav, seconds):
+    sf.write(wav, _tone(seconds), SR)
+    row = {"id": "u", "audio": str(wav), "text": "Ano.", "lang": "cs"}
+    ds = TTSDataset([row], ap, {}, g2p, speaker_ids={"narrator": 0}, mel_cache_dir=str(tmp_path / "mels"))
+    return ds, row
+
+
+def test_mel_cache_is_reused_while_the_audio_is_unchanged(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    first, second = ds._mel(row), ds._mel(row)
+    assert len(calls) == 1 and torch.equal(first, second)
+
+
+def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _stats_dataset(tmp_path, g2p, amplitudes):
+    rows = []
+    for i, amp in enumerate(amplitudes):
+        path = tmp_path / f"s{i}.wav"
+        sf.write(path, (amp * np.random.default_rng(i).standard_normal(SR // 2)).astype(np.float32), SR)
+        rows.append({"id": f"s{i}", "audio": str(path), "text": "Ano.", "lang": "cs"})
+    return TTSDataset(rows, AudioProcessor(), {}, g2p, speaker_ids={"narrator": 0})
+
+
+def _mean_of(ds, indices):
+    mels = [ds._mel(ds.rows[i]) for i in indices]
+    return sum(m.sum().item() for m in mels) / sum(m.numel() for m in mels)
+
+
+def test_mel_stats_sample_evenly_over_the_whole_set(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01] * 4 + [0.3] * 4)
+    mean, std = corpus_mel_stats(ds, max_items=4)
+    assert mean == pytest.approx(_mean_of(ds, [0, 2, 4, 6]))
+    assert abs(mean - _mean_of(ds, [0, 1, 2, 3])) > 1.0 and std > 0
+
+
+def test_mel_stats_use_every_row_when_the_limit_allows(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01, 0.05, 0.1, 0.3, 0.02])
+    assert corpus_mel_stats(ds, max_items=50)[0] == pytest.approx(_mean_of(ds, range(5)))
+    assert corpus_mel_stats(ds, max_items=5)[0] == pytest.approx(_mean_of(ds, range(5)))
 ```
 
 ---
@@ -5420,26 +5589,27 @@ universal test set. Verify that its mel settings match before comparing; decide 
 
 | Stage | What | Data | Exit criterion |
 |---|---|---|---|
-| 0 | Data preparation and audit (Step 4.2), G2P review (Step 3.2), vocabulary (Step 3.3) | Narrator + pretraining corpora | Manifest filtered; narrator CER baseline known; 0 unknown symbols |
-| 1 | Multilingual pretraining: speaker table, language IDs, boundary flags; tempo labels bootstrapped (Step 4.4) | Filtered SloPalSpeech + ParlaSpeech-CZ/ParCzech4Speech + LibriTTS-R | Step 14 failure metrics flat on held-out parliament and LibriVox sets |
-| 2 | Narrator fine-tune: add the narrator row to the speaker table; tempo labels on; lower LR | 10–40 h narrator | Pace gates M1–M4 pass; ASR failure rate at the narrator baseline |
+| 0 | Data preparation and audit (Step 4.2, `docs/corpus-preparation.md`), G2P review (Step 3.2), vocabulary (Step 3.3) | The narrator's books (first book: 6.61 h kept) | Manifest filtered; narrator CER baseline known; 0 unknown symbols |
+| 1 | Not in v1: multilingual pretraining (speaker table, language IDs, boundary flags) moved to the post-v1 Pretraining comparison (Step 15) | | |
+| 2 | Narrator training from scratch: the narrator is the one row of the speaker table; tempo labels bootstrapped (Step 4.4), then on | The narrator's manifests (first book: 6.07 h train, val, test and one held-out chapter) | Pace gates M1–M4 pass; ASR failure rate at the narrator baseline |
 | 3 | Vocoder fine-tune (Step 10) | Narrator audio + ground-truth-aligned mels | No audible artifacts on held-out narration |
 | 4 | Short, late adversarial phase (Step 9): MPD/MRD + SSL discriminator through the frozen vocoder | Narrator | Keep only if a listening test prefers it and no failure metric regresses |
 | 5 | RL last: GRPO on the duration predictor (DMOSpeech 2 pattern: AAAI 2026, inference code and checkpoints released, training code "under construction"), then optionally advantage-weighted decoder RL (GROW, Aug 2026; FlowTTS-GRPO, Jun 2026) | Narrator | Rewards must include a **rate-consistency term** (distance from the target rate, and the slope of rate against paragraph position) next to CER and similarity, or RL can drift toward slower "safer" durations |
 
 ```text
-Claude Code Prompt 11.1: Create src/training/trainer.py and stages.py for stages 1-4, the entry
-point scripts/train.py --config <stage config>, and one config per stage in configs/training/:
-pretrain.yaml (1), finetune_narrator.yaml (2), vocoder.yaml (3, for the Prompt 10.1 fine-tuning
-entry point) and adversarial.yaml (4). A stage config names its data manifests, the checkpoint it
-starts from and only the training settings it overrides from configs/model/matcha_base.yaml
-(stage 2: learning_rate 3e-5).
+Claude Code Prompt 11.1: Create src/training/trainer.py and stages.py for stages 1-4 (stage 1 is
+run only by Step 15), the entry point scripts/train.py --config <stage config>, and one config
+per stage in configs/training/: pretrain.yaml (1), finetune_narrator.yaml (2), vocoder.yaml (3,
+for the Prompt 10.1 fine-tuning entry point) and adversarial.yaml (4). A stage config names its
+data manifests, the checkpoint it starts from and only the training settings it overrides from
+configs/model/matcha_base.yaml. In v1 stage 2 names no checkpoint (random weights, n_speakers 1,
+the base learning_rate 1.0e-4); starting from the Step 15 checkpoint it uses learning_rate 3e-5.
  - batches by total mel frames (bucketed by length), bf16, DDP, grad clip 1.0, EMA of weights
  - loss = duration + prior + CFM (Step 8); optional negatives / p_uncond from Step 7.3
  - log every N steps: losses, MAS duration histogram, % tokens with 1 frame, and every eval
    interval run Step 14's fast checks on 50 held-out sentences
- - stage 1 -> 2: load weights, extend the speaker embedding table by one row for the narrator,
-   LR 3e-5, keep language/boundary embeddings trainable
+ - Step 15 only, stage 1 -> 2: load weights, extend the speaker embedding table by one row for the
+   narrator, LR 3e-5, keep language/boundary embeddings trainable
  - stage 4 uses the endpoint-estimate trick from Step 9 and BigVGAN's discriminators
 Checkpoint selection: failure metrics and pace metrics first, then TTSDS2 or MOS predictors,
 which are unvalidated for Czech/Slovak, used only for relative same-text comparisons.
@@ -5456,21 +5626,22 @@ Rules that make pace consistent:
 2. Fix the tempo inputs to the narrator's median for every sentence of a book.
 3. Calibrate one `length_scale` per language and hold it constant within a book.
 4. Keep style out of the duration path. (If style diffusion is ever added, smooth it across sentences.)
-5. Render sentence by sentence, with the same segmentation rules used for training.
+5. Render unit by unit, with the units of training (`src/text/units.py`): one sentence, a quote or bracket kept whole while it is open, a clause cut above the length cap.
 6. Paragraph cadence comes only from the boundary flag.
-7. Insert pauses by rule from the narrator's measured medians per boundary type (comma, sentence, paragraph, chapter).
+7. Insert pauses by rule from the narrator's measured medians per boundary type. `cut/pauses.json` of the corpus run holds them (comma, sentence, paragraph, chapter, and `pad_s`), and the `pause` of a unit says which one follows it ("clause" takes the comma median). Training clips start and end with up to `pad_s` of silence (the pad shrinks where the gap to a neighbour was under two pads: 7.0% of the clips of the first book), so a rendered unit already carries about two pads: insert `max(0, median − 2 × pad_s)`. On the first book the sentence median is 0.95 s, so 0.65 s is inserted; the comma median (0.10 s) is shorter than the two pads, so a clause cut inserts nothing.
 
 ```text
 Claude Code Prompt 12.1: Create src/inference/synthesizer.py, scripts/synthesize_book.py and
 configs/inference/inference.yaml (n_steps, temperature, the pause per boundary type from the
 narrator's medians, the chapter loudness for masters, the ASR judges and the retry order; tempo
 and length_scale stay in configs/model/matcha_base.yaml):
- 1. normalise -> segment (boundary labels) -> G2P tokens (strict vocabulary) per sentence
+ 1. normalise -> segment (boundary labels) -> units (src/text/units.py) -> G2P tokens (strict
+    vocabulary) per unit
  2. MatchaTTS.synthesize(..., rates=[inference_rate, median pause ratio], boundary=label,
     length_scale=config[lang], n_steps=10, temperature=0.667) -> BigVGAN
- 3. insert rule-based pauses; loudness-normalise per chapter (-23 LUFS for masters; derive
-    delivery formats from it)
- 4. VERIFY every sentence with src/eval/asr_check.py against the narrator baseline CER
+ 3. insert rule-based pauses (rule 7); loudness-normalise per chapter (-23 LUFS for masters;
+    derive delivery formats from it)
+ 4. VERIFY every unit with src/eval/asr_check.py against the narrator baseline CER
     (Parakeet-TDT-0.6B-v3 as the primary judge; a second model family as a tie-breaker:
     Canary-1B-v2 for Czech, the SloPal whisper-large-v3-sk fine-tune for Slovak, or Omnilingual
     LLM-ASR). Durations are deterministic, so a retry that only re-seeds the decoder cannot fix
@@ -5835,26 +6006,72 @@ class TestASRCheck:
 
 ---
 
+# Step 15: Pretraining comparison (post-v1)
+
+v1 trains from scratch on the narrator's books (Step 11, stage 2). This step asks whether multilingual pretraining on public speech makes the model more robust on rare words, names and numbers than the narrator's own hours do. It keeps the resources the earlier plan used for stage 1, starts only after v1 is trained and judged by the Step 14 gates, and changes nothing in v1.
+
+| Language | Corpus | Size | Licence | Notes |
+|---|---|---|---|---|
+| Slovak | SloPalSpeech (LREC 2026) | 2,806 h of parliament speech | CC BY 4.0 | Filtered only at 40% WER: re-filter to CER < 5% (the audit of Step 4.2 writes the CER of every clip) |
+| Slovak | EuroSpeech-SK | about 2,554 h at CER < 20% | not checked | From the same parliament as SloPalSpeech: deduplicate by session before combining |
+| Czech | ParlaSpeech-CZ | 1,218 h, 555 speakers; about 164 GB | CC BY-SA 4.0 | |
+| Czech | ParCzech4Speech | up to 2,695 h | CC BY | |
+| English | LibriTTS-R | about 80 GB | not checked | |
+| Czech, test only | The 2 h CC0 Czech LibriVox single-speaker set | 2 h | CC0 | Held out as a read-literature test set |
+
+Parliament audio is formal, male-heavy and often MP3-sourced. Use it to learn alignment and durations, and keep it out of the narrator stage. Pretraining is recommended for robustness on rare words, names and numbers; this step measures whether that holds here.
+
+```text
+Claude Code Prompt 15.1: Run stage 1 of Step 11, then compare it with v1.
+ 1. Prepare the public corpora into manifests of the same format, with the ASR judges of Step 4.2
+    (every audit row carries the clip's CER): re-filter SloPalSpeech to CER < 5% and deduplicate
+    EuroSpeech-SK against it by session.
+ 2. Stage 1: multilingual pretraining with configs/training/pretrain.yaml: speaker table with one
+    row per pretraining speaker, language IDs, boundary flags; tempo labels bootstrapped (Step 4.4).
+    Exit: the Step 14 failure metrics are flat on the held-out parliament and LibriVox sets.
+ 3. Stage 2 from that checkpoint on the same narrator manifests as v1: add the narrator row to the
+    speaker table, learning_rate 3e-5, language and boundary embeddings trainable.
+ 4. Compare it with the v1 model on the held-out chapter and the Step 14 gates, on the same texts
+    and seeds, failure metrics and pace metrics first (the checkpoint-selection order of Prompt 11.1).
+```
+
+---
+
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 2560 tests, ~40 s on CPU
-uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~40 s on CPU
+uv run pytest tests/ -q -m "not slow"   # 3431 tests, ~100 s on one CPU thread
+uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~25 s more
 ```
 
 | File | Tests | Guards |
 |---|---|---|
 | test_environment.py | 4 | torch and torchaudio versions; espeak-ng for cs, sk and en; the audio config equals the vocoder's; CUDA (skips without a GPU) |
 | test_phonemizer.py | 52 | Defects 4 and 5; espeak-ng corrections; strict vocabulary; digits raise |
-| test_audio.py | 10 | Defects 6 and 7; exact BigVGAN mel equality; filterbank pinned to librosa 0.10.2; EBU R128; soft onsets kept |
-| test_data_pipeline.py | 5 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches |
+| test_audio.py | 12 | Defects 6 and 7; exact BigVGAN mel equality; filterbank pinned to librosa 0.10.2; EBU R128; soft onsets kept; neighbouring clips never share a sample |
+| test_data_pipeline.py | 9 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches; the mel cache follows the clip's audio; mel statistics sample the whole set |
 | test_model_components.py | 22 | Defects 1 and 3; MAS equals exhaustive search; decoder overfits one utterance; LayerNorm crash; exact padding invariance |
 | test_eval_and_discriminator.py | 12 | SSL discriminator gradients and freezing; tempo labels; pace metrics; ASR failure shapes; per-token retry scaling |
 | test_integration.py | 1 | The whole model learns alignment, durations and content on a synthetic language, and keeps every token |
 | test_num2words_sk.py | 49 | Slovak numerals; expectations quoted from MSJ, PSP, Navrátil, Beliana or JÚĽŠ columns, or decided in native review; no ordinal forms in cardinals |
 | test_num2words_cs.py | 55 | Czech numerals; expectations quoted from IJP, cs.wikipedia, ČRo or NK; every output word is a dictionary word |
 | test_text_normalization.py | 2165 | Prompt 2.2: one row per reading rule; a reading that is a guess must log and the others must not; every output tokenizes in the G2P |
-| test_segmenter.py | 186 | Prompt 2.3: sentence ends, quotes, initials and spans; paragraph and chapter labels; normalise, segment and G2P on a Czech and a Slovak text |
+| test_segmenter.py | 239 | Prompt 2.3: sentence ends, quotes, initials and spans; paragraph and chapter labels; the heading flag and source line of each sentence; normalise, segment and G2P on a Czech and a Slovak text |
+| test_units.py | 177 | Prompt 4.2: the unit builder shared with Step 12: one sentence per unit, open quotes and brackets kept whole up to the cap, clause cuts and the pause after each unit, the length estimate |
+| test_prepare_source.py | 25 | The EPUB as book text (spine order, headings, tables, replacements) and its cut into the parts of the recordings at the word, with the chapter placement; no body text in reports |
+| test_prepare_lexicon.py | 27 | The lexicon of a book: consistent respellings and symbols applied, numbers and abbreviations left to the normalizer, whole-word replacement |
+| test_prepare_text.py | 62 | The text stage: the format reported and never repaired, headings, logged readings, every failing paragraph listed, `skip_unreadable`, the units file, a byte-identical re-run |
+| test_prepare_audio.py | 32 | The audio stage: streamed loudness equals pyloudnorm, block resampling, mono mix, peak ceiling, clipped runs, block-size independence |
+| test_align.py | 63 | The aligner: long-form block planning and monotone spans, CTC backends, status from the part's own scores, the pipeline; real MMS emissions (skips without the model) |
+| test_asr.py | 18 | The ASR runner: window planning, word grouping, long-form stitching with a stub model, light import; real Parakeet (skips without the model) |
+| test_cut.py | 132 | The cut stage on synthetic audio with a known layout: speech edges and the bridge, cut points, pads, merges, `short_pause`, `no_quiet_cut`, the 20 s cap, hard assertions, pause medians |
+| test_prepare_audit.py | 73 | The audit: judge CER with digits spelled, the two-judge rule, audio metrics, review and listening lists, transcript caches, no text in reports; real Parakeet (skips without the model) |
+| test_prepare_coverage.py | 52 | The split: quotas per tag, whole paragraphs, one contiguous held-out block, no paragraph, text or audio in two splits |
+| test_prepare_manifest.py | 18 | The manifest: row contract, rates from word times without the pads, the filter report, hash re-check, flagged clips kept out of val and test, the round trip through `TTSDataset` |
+| test_prepare_gold.py | 71 | The gold scorer: one-to-one matching, unsafe cuts, edge and pause-centre errors, lost speech and lost words, Audacity labels |
+| test_prepare_config.py | 25 | The YAML: `example.yaml` loads and is complete, unknown keys name their path, fed keys, derived defaults, the judge check |
+| test_prepare_pipeline.py | 27 | The entry point: stage order, errors, the align stage's ASR cache, the audit's judge check |
+| test_prepare_all.py | 10 | `prepare_corpus.py all` end to end on a tiny synthetic book with a stub aligner and stub judges, with negative controls |
 
 ### End-to-end test (tested)
 
@@ -5954,16 +6171,18 @@ git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN
 git -C third_party/BigVGAN checkout 7d2b454
 uv run pytest tests/ -q
 
-# 2. data (Step 4.2) and G2P review (Step 3.2)
-uv run scripts/prepare_corpus.py --audio raw/ --text book.txt --lang sk --out data/narrator.jsonl
-uv run scripts/g2p_review.py --manifest data/narrator.jsonl --out review/sk_words.tsv
-uv run scripts/build_vocab.py --manifests data/*.jsonl --lexicon lexicon/lexicon.json --out lexicon/vocab.json
+# 2. data (Step 4.2, docs/corpus-preparation.md) and G2P review (Step 3.2)
+uv sync --group align --group cu130 --no-group cpu    # NVIDIA GPU: CUDA build of torch (CPU only: uv sync --group align); from here on use uv run --no-sync
+cp configs/data/example.yaml book.yaml                # set language, raw_dir (recordings and texts), work_dir, align.backend
+uv run --no-sync scripts/prepare_corpus.py all --config book.yaml    # -> work/manifest/{train,val,test,heldout}.jsonl
+uv run --no-sync scripts/g2p_review.py --manifest work/manifest/train.jsonl --out review/sk_words.tsv
+uv run --no-sync scripts/build_vocab.py --manifests work/manifest/{train,val,test,heldout}.jsonl --lexicon lexicon/lexicon.json --out lexicon/vocab.json
 
-# 3. training (Step 11)
-uv run scripts/train.py --config configs/training/pretrain.yaml
-uv run scripts/tempo_labels.py --checkpoint checkpoints/pretrain.pt --manifest data/narrator.jsonl
-uv run scripts/train.py --config configs/training/finetune_narrator.yaml
+# 3. training (Step 11): v1 trains from scratch on the narrator; the pretraining comparison is Step 15
+uv run --no-sync scripts/train.py --config configs/training/finetune_narrator.yaml   # stage 2, ~20k steps with the rates at the corpus mean (Step 4.4)
+uv run --no-sync scripts/tempo_labels.py --checkpoint checkpoints/narrator.pt --manifest work/manifest/train.jsonl
+uv run --no-sync scripts/train.py --config configs/training/finetune_narrator.yaml   # continue with the labels
 
 # 4. a book with verification and a QA report (Step 12)
-uv run scripts/synthesize_book.py --checkpoint checkpoints/narrator.pt --book book.txt --lang sk --out out/
+uv run --no-sync scripts/synthesize_book.py --checkpoint checkpoints/narrator.pt --book book.txt --lang sk --out out/
 ```
