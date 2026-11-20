@@ -24,7 +24,7 @@ source:  # optional: build the book text of each part from an EPUB
 
 lexicon:  # optional: learn the words the book prints differently from how the narrator says them
   rewrite_dir: raw  # directory with the rewrite of the book that matches the narration, <part><rewrite_suffix>
-  path: null  # lexicon file the lexicon stage writes and the text stage reads; null = <work_dir>/lexicon.tsv
+  path: null  # lexicon file the lexicon stage (over)writes; null = <work_dir>/lexicon.tsv. Edit a copy and set text.lexicon to it
   book_dir: null  # directory with the book texts <part><book_suffix>; null = <work_dir>/source/epub
   rewrite_suffix: .txt.orig  # suffix of the rewritten texts
   book_suffix: .txt  # suffix of the book texts

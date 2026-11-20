@@ -280,7 +280,7 @@ def main(argv=None, *, align_backend=None, align_asr=None, audit_runners=None, g
             started = time.perf_counter()
             RUNNERS[name](cfg, hooks)
             print(f"{name}: done in {time.perf_counter() - started:.1f} s", flush=True)
-    except (ConfigError, PipelineError) as e:
+    except (ConfigError, PipelineError, FileNotFoundError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     except TextStageError as e:

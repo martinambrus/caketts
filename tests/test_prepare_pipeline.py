@@ -460,3 +460,13 @@ def test_relative_paths_resolve_against_the_yaml_not_the_cwd(tmp_path, monkeypat
     units = tmp_path / "conf" / "work" / "text" / "a1.units.jsonl"
     assert units.is_file() and json.loads(units.read_text().splitlines()[0])["part"] == "a1"
     assert os.listdir(elsewhere) == []
+
+
+@pytest.mark.parametrize("stage,data", [("audio", {"parts": ["a1"]}), ("text", {"parts": ["a1"]}),
+                                        ("source", {"source": {"epub": {"path": "missing.epub"}, "orig_dir": "raw"}})])
+def test_a_missing_input_file_is_an_error_line(tmp_path, capsys, stage, data):
+    (tmp_path / "raw").mkdir()
+    cfg = write_cfg(tmp_path, **data)
+    assert prep.main([stage, "--config", str(cfg)]) == 2
+    err = capsys.readouterr().err
+    assert err.startswith("error: ") and "Traceback" not in err
