@@ -7,17 +7,20 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
 
 from src.data.prepare import audit
+from src.data.prepare.asr import ASR_BACKENDS
 from src.data.prepare.audit import AuditConfig, audio_metrics, cer_stats, judge, run_audit, spell_digits
 from src.text.num2words_cs import num2words as cs_words
 
 SR = 24000
-CFG = AuditConfig()
+PARAKEET, CANARY = "parakeet-tdt-0.6b-v3", "canary-1b-v2"
+CFG = AuditConfig(judges=(PARAKEET,))
 
 
 def _rms_scale(x, dbfs):
@@ -346,7 +349,7 @@ def work(tmp_path):
 
 
 class TestRunAudit:
-    CFG = AuditConfig(asr_chunk=5)
+    CFG = AuditConfig(asr_chunk=5, judges=(PARAKEET,))
 
     def test_files_written_and_chunked(self, work):
         stub = Stub()
@@ -478,8 +481,240 @@ def test_real_parakeet(tmp_path):
         path = work / "cut" / f"{part}.cuts.jsonl"
         keep = path.read_text().splitlines()[: 2 if part == "a1" else 1]
         path.write_text("".join(x + "\n" for x in keep))
-    report = run_audit(work, ["a1", "a2"], AuditConfig())
+    report = run_audit(work, ["a1", "a2"], AuditConfig(judges=(PARAKEET,)))
     assert report["total"]["clips"] == 3
     rows = read_rows(work, "a1") + read_rows(work, "a2")
     assert all(isinstance(r["hyp"], str) for r in rows)
     assert (work / "audit" / "report.md").is_file()
+
+
+# ---------------------------------------------------------------- 9 two judges
+
+FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "audit_single_judge.json").read_text())
+
+
+def jrow(i, ref_chars=60, flags=(), **per_judge):
+    judges = {n: {"cer": c, "cer_raw": c, "edits": e} for n, (c, e) in per_judge.items()}
+    return {"id": f"p-{i:05d}", "part": "p", "metrics": mrow(ref_chars=ref_chars, judges=judges), "flags": list(flags)}
+
+
+def pool(**cers):
+    return [jrow(i, **{n: (c, 0) for n, c in cers.items()}) for i in range(10)]
+
+
+def cfg_of(*names, **kw):
+    return AuditConfig(judges=tuple(names), **kw)
+
+
+class TestOracleParity:
+    @pytest.mark.parametrize("case", FIXTURE["cases"], ids=lambda c: c["name"])
+    def test_one_judge_equals_the_captured_rule(self, case):
+        conf = {**case["config"], "drop_reasons": tuple(case["config"]["drop_reasons"])}
+        res = judge(FIXTURE["rows"], AuditConfig(judges=(PARAKEET,), **conf))
+        want = case["expected"]
+        assert res.verdicts == want["verdicts"]
+        assert res.reasons == want["reasons"]
+        assert [list(r) for r in res.review_rows] == want["review_rows"]
+        assert [list(r) for r in res.listening] == want["listening"]
+        for key in ("median_cer", "cer_threshold", "n_median", "guard_saved", "rate", "level"):
+            assert res.narrator[key] == want["narrator"][key]
+
+    def test_default_judges_are_two_different_backends(self):
+        assert AuditConfig().judges == (PARAKEET, CANARY)
+
+
+class TestTwoJudges:
+    A, B, C = "A", "B", "C"
+
+    def judged(self, clips, *names, **kw):
+        return judge(pool(**{n: 0.0 for n in names}) + clips, cfg_of(*names, **kw))
+
+    def test_both_exceed_drops_with_two_rows(self):
+        res = self.judged([jrow(10, A=(0.5, 30), B=(0.4, 24))], "A", "B")
+        assert res.reasons["p-00010"] == ["cer"] and res.verdicts["p-00010"] == "drop"
+        rows = [r for r in res.review_rows if r[0] == "p-00010"]
+        assert rows == [("p-00010", "cer:A", 0.5, pytest.approx(0.05), "cer"),
+                        ("p-00010", "cer:B", 0.4, pytest.approx(0.05), "cer")]
+
+    @pytest.mark.parametrize("a,b", [(0.5, 0.0), (0.0, 0.5)])
+    def test_one_exceeds_is_disputed_review(self, a, b):
+        res = self.judged([jrow(10, A=(a, 20), B=(b, 20))], "A", "B")
+        assert res.reasons["p-00010"] == ["cer_disputed"] and res.verdicts["p-00010"] == "review"
+        rows = [r for r in res.review_rows if r[0] == "p-00010"]
+        assert [(r[1], r[2], r[4]) for r in rows] == [("cer:A", a, "cer_disputed"), ("cer:B", b, "cer_disputed")]
+        assert (rows[0][2] > rows[0][3]) == (a > 0) and (rows[1][2] > rows[1][3]) == (b > 0)
+
+    def test_neither_exceeds_is_ok(self):
+        res = self.judged([jrow(10, A=(0.01, 1), B=(0.0, 0))], "A", "B")
+        assert res.verdicts["p-00010"] == "ok" and res.reasons["p-00010"] == []
+        assert not [r for r in res.review_rows if r[0] == "p-00010"]
+
+    def test_three_judges_two_exceed_is_disputed(self):
+        res = self.judged([jrow(10, A=(0.5, 20), B=(0.5, 20), C=(0.0, 0))], "A", "B", "C")
+        assert res.reasons["p-00010"] == ["cer_disputed"]
+        assert [r[1] for r in res.review_rows if r[0] == "p-00010"] == ["cer:A", "cer:B", "cer:C"]
+        res = self.judged([jrow(10, A=(0.5, 20), B=(0.5, 20), C=(0.5, 20))], "A", "B", "C")
+        assert res.reasons["p-00010"] == ["cer"] and res.verdicts["p-00010"] == "drop"
+
+    def test_each_judge_has_its_own_median(self):
+        rows = [jrow(i, A=(0.30, 0), B=(0.0, 0)) for i in range(10)] + [jrow(10, A=(0.25, 15), B=(0.25, 15))]
+        res = judge(rows, cfg_of("A", "B"))
+        nar = res.narrator["judges"]
+        assert nar["A"]["median_cer"] == pytest.approx(0.30) and nar["B"]["median_cer"] == pytest.approx(0.0)
+        assert nar["A"]["cer_threshold"] == pytest.approx(0.35) and nar["B"]["cer_threshold"] == pytest.approx(0.05)
+        assert nar["A"]["n_median"] == nar["B"]["n_median"] == 11
+        assert res.reasons["p-00010"] == ["cer_disputed"]
+        assert "median_cer" not in res.narrator and "guard_saved" not in res.narrator
+
+    @pytest.mark.parametrize("edits_a,edits_b", [(2, 4), (4, 2)])
+    def test_short_clip_guard_is_per_judge(self, edits_a, edits_b):
+        res = self.judged([jrow(10, ref_chars=12, A=(0.5, edits_a), B=(0.5, edits_b))], "A", "B")
+        assert res.reasons["p-00010"] == ["cer_disputed"]
+        saved = res.narrator["judges"]
+        assert (saved["A"]["guard_saved"], saved["B"]["guard_saved"]) == ((1, 0) if edits_a == 2 else (0, 1))
+
+    def test_exceeded_by_lists_the_judges_the_guard_did_not_save(self):
+        clips = [jrow(10, ref_chars=12, A=(0.5, 4), B=(0.5, 2)), jrow(11, A=(0.5, 20), B=(0.5, 20)),
+                 jrow(12, A=(0.0, 0), B=(0.5, 20)), jrow(13, A=(0.0, 0), B=(0.0, 0))]
+        res = self.judged(clips, "A", "B")
+        assert [res.exceeded_by[f"p-{i:05d}"] for i in (10, 11, 12, 13)] == [["A"], ["A", "B"], ["B"], []]
+
+    def test_disputed_drops_only_when_listed(self):
+        clips = [jrow(10, A=(0.5, 20), B=(0.0, 0))]
+        res = self.judged(clips, "A", "B", drop_reasons=("cer", "cer_disputed"))
+        assert res.verdicts["p-00010"] == "drop"
+
+    def test_risk_counts_the_cer_reason_once(self):
+        res = self.judged([jrow(10, A=(0.07, 5), B=(0.08, 6))], "A", "B")
+        assert res.listening == [(1, "p-00010", pytest.approx(1 + 0.6), ["cer"])]
+
+    def test_missing_judge_metrics_raise(self):
+        rows = pool(A=0.0) + [jrow(10, A=(0.1, 5))]
+        with pytest.raises(ValueError, match=r"p-00000.*B|B.*p-00000"):
+            judge(rows, cfg_of("A", "B"))
+
+
+class LogStub(Stub):
+    def __init__(self, name, model_id, texts, log):
+        super().__init__(texts)
+        self.name, self.model_id, self.log = name, model_id, log
+
+    def transcribe(self, clips):
+        self.log.append(self.name)
+        return super().transcribe(clips)
+
+
+class BoomId(Boom):
+    def __init__(self, model_id):
+        self.model_id = model_id
+
+
+def two_runners(log=None):
+    log = [] if log is None else log
+    hyps_a, hyps_b = list(HYPS), list(HYPS)
+    hyps_a[9] = "Jiná věta úplně o ničem jiném."
+    hyps_b[2] = "Dnes odpoledne pršelo nad městem."
+    return {PARAKEET: LogStub(PARAKEET, "stub/a", hyps_a, log), CANARY: LogStub(CANARY, "stub/b", hyps_b, log)}, log
+
+
+TWO = AuditConfig(asr_chunk=5, judges=(PARAKEET, CANARY))
+
+
+class TestRunAuditTwoJudges:
+    def test_two_runners_files_rows_and_order(self, work):
+        runners, log = two_runners()
+        report = run_audit(work, ["a1", "a2"], TWO, runner=runners)
+        for part in ("a1", "a2"):
+            for name in (PARAKEET, CANARY):
+                assert (work / "audit" / f"{part}.asr.{name}.jsonl").is_file()
+            assert not (work / "audit" / f"{part}.asr.jsonl").exists()
+        assert log == [PARAKEET] * 4 + [CANARY] * 4
+        by = {r["id"]: r for r in read_rows(work, "a1") + read_rows(work, "a2")}
+        assert by["a2-00001"]["verdict"] == "drop" and by["a2-00001"]["reasons"] == ["cer"]
+        assert by["a1-00002"]["verdict"] == "review" and by["a1-00002"]["reasons"] == ["cer_disputed"]
+        assert by["a2-00003"]["verdict"] == "review" and by["a2-00003"]["reasons"] == ["cer_disputed"]
+        assert by["a1-00002"]["hyp"] == HYPS[2] and by["a2-00003"]["hyp"] == HYPS[9]
+        assert by["a1-00002"]["hyps"] == {PARAKEET: HYPS[2], CANARY: "Dnes odpoledne pršelo nad městem."}
+        for r in by.values():
+            assert set(r["metrics"]["judges"]) == {PARAKEET, CANARY}
+            assert set(r["metrics"]["judges"][PARAKEET]) == {"cer", "cer_raw", "edits"}
+            assert r["metrics"]["cer"] == min(j["cer"] for j in r["metrics"]["judges"].values())
+        assert by["a1-00000"]["verdict"] == "ok"
+        csv_rows = read_csv(work / "audit" / "review.csv")
+        assert {(r[1], r[4]) for r in csv_rows if r[0] == "a1-00002"} == {(f"cer:{PARAKEET}", "cer_disputed"),
+                                                                           (f"cer:{CANARY}", "cer_disputed")}
+        assert report["judges"] == {PARAKEET: "stub/a", CANARY: "stub/b"}
+        assert report["asr_model"] == "stub/a + stub/b"
+        assert report["total"]["transcripts_new"] == 24 and report["total"]["transcripts_cached"] == 0
+        assert report["total"]["by_judge"] == {PARAKEET: {"new": 12, "cached": 0}, CANARY: {"new": 12, "cached": 0}}
+        assert report["parts"]["a1"]["by_judge"][CANARY] == {"new": 6, "cached": 0}
+        assert set(report["guard_saved"]) == {PARAKEET, CANARY}
+        assert set(report["cer_distribution"]) == {PARAKEET, CANARY}
+        assert set(report["cer_distribution"][CANARY]) == {"raw", "spelled", "share_over_threshold"}
+        assert set(report["narrator"]["judges"]) == {PARAKEET, CANARY}
+
+    def test_cer_exceeded_by_counts(self, work):
+        runners, _ = two_runners()
+        report = run_audit(work, ["a1", "a2"], TWO, runner=runners)
+        assert report["total"]["cer_exceeded_by"] == {"none": 9, PARAKEET: 1, CANARY: 1, f"{PARAKEET}+{CANARY}": 1}
+        assert report["total"]["cer_exceeded_by"][f"{PARAKEET}+{CANARY}"] == report["total"]["reasons"]["cer"]["clips"]
+
+    def test_reports_hold_no_text(self, work):
+        runners, _ = two_runners()
+        run_audit(work, ["a1", "a2"], TWO, runner=runners)
+        blob = ((work / "audit" / "report.json").read_text() + (work / "audit" / "report.md").read_text()).lower()
+        for s in TEXTS + SPELLED + HYPS + ["Jiná věta úplně o ničem jiném.", "Dnes odpoledne pršelo nad městem."]:
+            assert s.lower().replace(".", "") not in blob
+        assert "napadl" not in blob and "autobusem" not in blob and "pršelo" not in blob
+
+    def test_rerun_needs_no_transcription(self, work):
+        runners, _ = two_runners()
+        run_audit(work, ["a1", "a2"], TWO, runner=runners)
+        report = run_audit(work, ["a1", "a2"], TWO, runner={PARAKEET: BoomId("stub/a"), CANARY: BoomId("stub/b")})
+        assert report["total"]["transcripts_new"] == 0 and report["total"]["transcripts_cached"] == 24
+
+    def test_one_judge_model_change_retranscribes_only_that_judge(self, work):
+        runners, _ = two_runners()
+        run_audit(work, ["a1", "a2"], TWO, runner=runners)
+        new_b = LogStub(CANARY, "stub/b2", HYPS, [])
+        report = run_audit(work, ["a1", "a2"], TWO, runner={PARAKEET: BoomId("stub/a"), CANARY: new_b})
+        assert report["total"]["by_judge"] == {PARAKEET: {"new": 0, "cached": 12}, CANARY: {"new": 12, "cached": 0}}
+        assert len(new_b.calls) == 4
+
+    def test_aligner_equal_to_a_judge_raises_before_transcribing(self, work):
+        runners, log = two_runners()
+        with pytest.raises(ValueError, match="must be different"):
+            run_audit(work, ["a1", "a2"], TWO, runner=runners, aligner_model_id="stub/b")
+        assert log == [] and not any(r.calls for r in runners.values())
+
+    def test_aligner_equal_to_a_default_backend_raises_before_loading(self, work, monkeypatch):
+        def load(*a, **k):
+            raise AssertionError("a model was loaded")
+        monkeypatch.setattr(audit, "AsrRunner", load)
+        with pytest.raises(ValueError, match="must be different"):
+            run_audit(work, ["a1", "a2"], AuditConfig(), aligner_model_id=ASR_BACKENDS[CANARY].model_id)
+
+    def test_bare_runner_with_two_judges_raises(self, work):
+        with pytest.raises(ValueError, match="mapping"):
+            run_audit(work, ["a1", "a2"], TWO, runner=Stub())
+
+    @pytest.mark.parametrize("judges", [(), (PARAKEET, PARAKEET), (PARAKEET, "nope")])
+    def test_bad_judges_raise(self, work, judges):
+        with pytest.raises(ValueError):
+            run_audit(work, ["a1", "a2"], AuditConfig(judges=judges), runner=Stub())
+        with pytest.raises(ValueError):
+            audit.validate_judges(AuditConfig(judges=judges))
+
+    def test_unknown_judge_message_lists_valid_names(self):
+        with pytest.raises(ValueError) as e:
+            audit.validate_judges(AuditConfig(judges=("nope",)))
+        assert "nope" in str(e.value) and PARAKEET in str(e.value) and CANARY in str(e.value)
+
+    def test_one_judge_bare_runner_keeps_the_file_shapes(self, work):
+        report = run_audit(work, ["a1", "a2"], AuditConfig(asr_chunk=5, judges=(PARAKEET,)), runner=Stub())
+        assert (work / "audit" / "a1.asr.jsonl").is_file()
+        assert not list((work / "audit").glob("*.asr.*.jsonl"))
+        for r in read_rows(work, "a1"):
+            assert "hyps" not in r and "judges" not in r["metrics"]
+        assert report["asr_model"] == "stub/asr" and isinstance(report["guard_saved"], int)
+        assert "by_judge" not in report["total"] and "cer_exceeded_by" not in report["total"]
