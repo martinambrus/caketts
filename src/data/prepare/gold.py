@@ -5,7 +5,9 @@ Reads files only. Times in seconds, errors in ms (signed e = ours - gold).
 MATCH: IoU = overlap / union of two intervals; all gold/candidate pairs with IoU >= match_iou are taken in descending IoU
 (ties: lower gold index, then lower candidate index), each gold span and each candidate used once. Candidates are the clips'
 refined speech intervals, and separately the aligner units with status "ok" and numeric times.
-UNSAFE CUT: a clip edge t is unsafe for a gold span (gs, ge) iff gs < t < ge (strict); the rate is unsafe spans / gold spans.
+UNSAFE CUT: a clip edge t is unsafe for a gold span (gs, ge) iff gs < t < ge (strict); the rate is unsafe spans / gold spans. A gold
+span that two or more of our clips overlap may hold a pause of its own (an old clip of several sentences): the rate over the spans
+that exactly one clip overlaps (unsafe_cut_rate_single_clip) leaves those out.
 EDGE ERROR: of matched pairs; the end error only for spans with end_reliable.
 PAUSE CENTRE: our pauses are [refined end of clip k, refined start of clip k+1] where clip k has a measured gap_after_s; a gold pause
 goes to the pause with the largest positive overlap (ties: earlier); error = centre(ours) - centre(gold).
@@ -141,13 +143,16 @@ def _score_part(part: str, g_spans: list, g_pauses: list, clips: list, units, ma
     refined = [(c["start_sample"] / CUT_SR + c["pad_start_s"], c["end_sample"] / CUT_SR - c["pad_end_s"]) for c in clips]
     pairs = _match([(s["s"], s["e"]) for s in g_spans], refined, match_iou)
     start_e, end_e = _edge_errors(g_spans, refined, pairs)
-    unsafe = []
+    unsafe, single = [], 0
     for s in g_spans:
+        overlapping = sum(1 for c in clips if c["start_sample"] / CUT_SR < s["e"] and c["end_sample"] / CUT_SR > s["s"])
+        single += overlapping == 1
         for c in clips:
             for edge, t in (("start", c["start_sample"] / CUT_SR), ("end", c["end_sample"] / CUT_SR)):
                 if s["s"] < t < s["e"]:
                     unsafe.append({"part": part, "gold_clip": s["clip"], "edge": edge, "t_s": round(t, 6),
-                                   "gold_start_s": round(s["s"], 6), "gold_end_s": round(s["e"], 6)})
+                                   "gold_start_s": round(s["s"], 6), "gold_end_s": round(s["e"], 6),
+                                   "clips_overlapping": overlapping})
     aligner = None
     if units is not None:
         ok = [(u["start_s"], u["end_s"]) for u in units
@@ -166,7 +171,9 @@ def _score_part(part: str, g_spans: list, g_pauses: list, clips: list, units, ma
         if best is not None:
             centre.append((best[0] + best[1]) / 2 - (p[0] + p[1]) / 2)
     return {"gold_spans": len(g_spans), "matched": len(pairs), "unsafe_edges": len(unsafe),
-            "unsafe_spans": len({(u["gold_clip"], u["gold_start_s"]) for u in unsafe}), "start": start_e, "end": end_e,
+            "unsafe_spans": len({(u["gold_clip"], u["gold_start_s"]) for u in unsafe}), "single_clip_spans": single,
+            "unsafe_spans_single_clip": len({(u["gold_clip"], u["gold_start_s"]) for u in unsafe if u["clips_overlapping"] == 1}),
+            "start": start_e, "end": end_e,
             "aligner": aligner, "pauses": {"gold": len(g_pauses), "matched": len(centre), "centre": centre}}, unsafe
 
 
@@ -175,6 +182,9 @@ def _finish(m: dict) -> dict:
     return {"gold_spans": m["gold_spans"], "matched": m["matched"], "unsafe_edges": m["unsafe_edges"],
             "unsafe_spans": m["unsafe_spans"],
             "unsafe_cut_rate": round(m["unsafe_spans"] / m["gold_spans"], 6) if m["gold_spans"] else None,
+            "single_clip_spans": m["single_clip_spans"], "unsafe_spans_single_clip": m["unsafe_spans_single_clip"],
+            "unsafe_cut_rate_single_clip": (round(m["unsafe_spans_single_clip"] / m["single_clip_spans"], 6)
+                                            if m["single_clip_spans"] else None),
             "start_error": _stats(m["start"]), "end_error": _stats(m["end"]),
             "aligner": None if a is None else {"matched": a["matched"], "start_error": _stats(a["start"]),
                                                "end_error": _stats(a["end"])},
@@ -186,6 +196,8 @@ def _pool(ms: list) -> dict:
     aligned = [m["aligner"] for m in ms if m["aligner"] is not None]
     return {"gold_spans": sum(m["gold_spans"] for m in ms), "matched": sum(m["matched"] for m in ms),
             "unsafe_edges": sum(m["unsafe_edges"] for m in ms), "unsafe_spans": sum(m["unsafe_spans"] for m in ms),
+            "single_clip_spans": sum(m["single_clip_spans"] for m in ms),
+            "unsafe_spans_single_clip": sum(m["unsafe_spans_single_clip"] for m in ms),
             "start": [e for m in ms for e in m["start"]], "end": [e for m in ms for e in m["end"]],
             "aligner": {"matched": sum(a["matched"] for a in aligned), "start": [e for a in aligned for e in a["start"]],
                         "end": [e for a in aligned for e in a["end"]]} if aligned else None,
@@ -224,12 +236,13 @@ def _markdown(rep: dict) -> str:
     lines = ["# Gold-set report", "",
              f"Match rule: IoU = overlap / union; pairs with IoU >= {rep['match_iou']} taken greedily by descending IoU, one-to-one.",
              "Unsafe cut: a clip edge strictly inside a gold speech span. Errors are ours - gold, in ms.", "",
-             "| part | gold | matched | unsafe spans | unsafe rate | start med | start p90 | end med | end p90 | aligner matched "
-             "| aligner start med | pauses gold | pauses matched | pause centre med |",
-             "|" + "---|" * 14]
+             "| part | gold | matched | unsafe spans | unsafe rate | unsafe rate single-clip | start med | start p90 | end med | end p90 "
+             "| aligner matched | aligner start med | pauses gold | pauses matched | pause centre med |",
+             "|" + "---|" * 15]
     for name, m in [*rep["parts"].items(), ("total", rep["total"])]:
         a = m["aligner"]
-        row = [name, m["gold_spans"], m["matched"], m["unsafe_spans"], m["unsafe_cut_rate"], m["start_error"]["median_ms"],
+        row = [name, m["gold_spans"], m["matched"], m["unsafe_spans"], m["unsafe_cut_rate"], m["unsafe_cut_rate_single_clip"],
+               m["start_error"]["median_ms"],
                m["start_error"]["p90_ms"], m["end_error"]["median_ms"], m["end_error"]["p90_ms"],
                None if a is None else a["matched"], None if a is None else a["start_error"]["median_ms"],
                m["pauses"]["gold"], m["pauses"]["matched"], m["pauses"]["centre_error"]["median_ms"]]

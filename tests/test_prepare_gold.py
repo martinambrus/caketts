@@ -78,10 +78,31 @@ def test_unsafe_negative_control(tmp_path):
     bad = score(tmp_path, g)
     assert bad["parts"]["a"]["unsafe_cut_rate"] == 0.5
     assert bad["parts"]["a"]["unsafe_edges"] == 1 and bad["parts"]["a"]["unsafe_spans"] == 1
-    assert bad["unsafe"] == [{"part": "a", "gold_clip": "T-0", "edge": "start", "t_s": 1.5, "gold_start_s": 1.0, "gold_end_s": 2.0}]
+    assert bad["unsafe"] == [{"part": "a", "gold_clip": "T-0", "edge": "start", "t_s": 1.5, "gold_start_s": 1.0, "gold_end_s": 2.0,
+                              "clips_overlapping": 1}]
     write_cuts(tmp_path, "a", [(0.5, 1.5), (3.0, 4.0)])
     ends = score(tmp_path, g)["unsafe"]
     assert [(u["gold_clip"], u["edge"], u["t_s"]) for u in ends] == [("T-0", "end", 1.6)]
+
+
+def test_single_clip_rate_leaves_out_spans_with_a_pause_of_their_own(tmp_path):
+    g = mk_gold([(1, 2), (3, 6)])
+    write_cuts(tmp_path, "a", [(1.1, 1.9), (3.0, 4.4), (4.8, 6.0)], pad_start=0.1, pad_end=0.1)
+    m = score(tmp_path, g)
+    assert [(u["gold_clip"], u["clips_overlapping"]) for u in m["unsafe"]] == [("T-1", 2), ("T-1", 2)]
+    m = m["parts"]["a"]
+    assert (m["unsafe_spans"], m["unsafe_cut_rate"]) == (1, 0.5)
+    assert (m["single_clip_spans"], m["unsafe_spans_single_clip"], m["unsafe_cut_rate_single_clip"]) == (1, 0, 0.0)
+    write_cuts(tmp_path, "a", [(1.6, 2.5), (3.0, 4.4), (4.8, 6.0)], pad_start=0.1, pad_end=0.1)
+    t = score(tmp_path, g)["total"]
+    assert (t["unsafe_spans"], t["unsafe_cut_rate"]) == (2, 1.0)
+    assert (t["single_clip_spans"], t["unsafe_spans_single_clip"], t["unsafe_cut_rate_single_clip"]) == (1, 1, 1.0)
+
+
+def test_single_clip_rate_is_none_without_such_spans(tmp_path):
+    write_cuts(tmp_path, "a", [(1, 2), (3, 4)], gaps=[0.5, None])
+    m = score(tmp_path, mk_gold([], pauses=[(2, 3)]))["parts"]["a"]
+    assert m["single_clip_spans"] == 0 and m["unsafe_cut_rate_single_clip"] is None
 
 
 def test_edge_touching_gold_boundary_is_safe(tmp_path):
