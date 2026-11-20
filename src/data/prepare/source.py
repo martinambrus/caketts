@@ -206,8 +206,8 @@ def to_book_text(items: List[Item]) -> str:
     return "\n\n".join(blocks) + "\n" if blocks else ""
 
 
-def _words(text):
-    return [(m.group().lower(), m.start(), m.end()) for m in _WORD.finditer(text)]
+def _words(text, pattern=_WORD):
+    return [(m.group().lower(), m.start(), m.end()) for m in pattern.finditer(text)]
 
 
 def _natural(name):

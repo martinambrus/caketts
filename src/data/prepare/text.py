@@ -8,6 +8,10 @@ the config and the chapter starts of a placement.json, normalises the whole part
 units. The stage writes <work_dir>/text/<part>.norm.txt, <part>.units.jsonl, review_readings.csv, report.json and
 report.md; the book text appears only in the first three and in the review list.
 
+With a lexicon (TextConfig.lexicon, see lexicon.py) the applied book forms are replaced before the normalisation. With
+compare_dir (the rewrite of the book that matches the narration, one <part><compare_suffix> file per part) the stage also
+compares the normalised words with the rewrite's and writes review_disagreements.csv.
+
 Usage:
     run_text_stage(TextConfig(text_dir="raw", work_dir="work/orig", placement="work/source/orig/placement.json"))
 """
@@ -30,6 +34,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field, replace
 from typing import Dict, List, Optional, Tuple
 
+from src.data.prepare.lexicon import apply_lexicon, compare, read_lexicon
 from src.text.normalizer import TextNormalizer
 from src.text.phonemizer import _SPAN_RE, _WORD_RE
 from src.text.segmenter import segment
@@ -55,6 +60,8 @@ _ABBREVIATION_TOKEN = re.compile(r"(?<![^\W\d_])([^\W\d_]{1,6})\.\s+(?=[^\W\d_])
 _ESTIMATE_KEYS = {"a", "b", "c", "e"}
 _PAUSE = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
 _DIFF_TAGS = ("number", "date", "time", "roman", "abbreviation")
+_READING_COLUMNS = ["part", "paragraph", "line", "reason", "source", "reading", "context", "matches"]
+_DISAGREEMENT_COLUMNS = ["part", "paragraph", "category", "book_form", "normalizer_reading", "rewrite_form"]
 
 
 @dataclass
@@ -71,6 +78,9 @@ class TextConfig:
     estimate: Dict[str, float] = field(default_factory=dict)
     heading_short_chars: int = 40
     use_part_fragments: bool = False
+    lexicon: Optional[str] = None
+    compare_dir: Optional[str] = None
+    compare_suffix: str = ".txt.orig"
 
 
 class TextStageError(Exception):
@@ -340,7 +350,7 @@ def _unit_tags(unit: Unit, words: List[str]) -> set:
     return tags
 
 
-def _classify(token: str) -> Optional[str]:
+def _classify(token: str, abbreviations) -> Optional[str]:
     core = token.strip(_EDGE)
     if not core or not any(c.isalnum() for c in token):
         return None
@@ -350,10 +360,10 @@ def _classify(token: str) -> Optional[str]:
         return "time" if _TIME.fullmatch(core) else "number"
     if _ROMAN.fullmatch(core):
         return "roman"
-    return "abbreviation" if _ABBREVIATION.fullmatch(core) else None
+    return "abbreviation" if (_ABBREVIATION.fullmatch(core) and core.lower() in abbreviations) else None
 
 
-def _diff_tags(raw_lines: List[str], norm_lines: List[str], units: List[Unit], sentences, blocks) -> Tuple[List[set], int]:
+def _diff_tags(raw_lines: List[str], norm_lines: List[str], units: List[Unit], sentences, blocks, abbreviations) -> Tuple[List[set], int]:
     extra, unmapped = [set() for _ in units], 0
     by_line: Dict[int, List[int]] = {}
     for k, u in enumerate(units):
@@ -373,7 +383,7 @@ def _diff_tags(raw_lines: List[str], norm_lines: List[str], units: List[Unit], s
         for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, raw, norm, autojunk=False).get_opcodes():
             if op == "equal":
                 continue
-            names = {c for c in map(_classify, raw[i1:i2]) if c}
+            names = {c for c in (_classify(t, abbreviations) for t in raw[i1:i2]) if c}
             if not names:
                 continue
             reach = range(j1, max(j2, j1 + 1))
@@ -384,9 +394,10 @@ def _diff_tags(raw_lines: List[str], norm_lines: List[str], units: List[Unit], s
     return extra, unmapped
 
 
-def _abbreviation_matches(text: str):
+def _abbreviation_matches(text: str, known):
     text = _SPAN_RE.sub("\x00", text)
-    return [m for m in _ABBREVIATION_TOKEN.finditer(text) if text[m.end()].islower()]
+    return [m for m in _ABBREVIATION_TOKEN.finditer(text)
+            if text[m.end()].islower() and m.group(1).lower() + "." in known]
 
 
 def _rank(values: List[float], q: float) -> float:
@@ -419,7 +430,22 @@ def _locate(records, blocks, lines: List[str]) -> List[list]:
     return rows
 
 
-def _process_part(cfg, normalizer, placement, name: str, estimate) -> dict:
+def _paragraph_of(blocks, line: int):
+    return next((i for i, (_, first, last) in enumerate(blocks, 1) if first <= line - 1 <= last), "")
+
+
+def _compare_part(cfg, normalizer, name: str, raw: str, given: str, normalised: str, blocks) -> dict:
+    path = os.path.join(cfg.compare_dir, name + cfg.compare_suffix)
+    if not os.path.isfile(path):
+        raise TextStageError(f"no rewrite file {path} to compare part {name} with")
+    with open(path, "rb") as f:
+        rewrite = f.read().decode("utf-8-sig")
+    result = compare(raw, given, normalised, _convert_endings(rewrite)[0], normalizer.abbreviations)
+    rows = [[name, _paragraph_of(blocks, line), *rest] for line, *rest in result.pop("rows")]
+    return {**result, "disagreements": dict(sorted(Counter(r[2] for r in rows).items())), "csv": rows}
+
+
+def _process_part(cfg, normalizer, placement, name: str, estimate, entries=None) -> dict:
     path = os.path.join(cfg.text_dir, name + cfg.suffix)
     with open(path, "rb") as f:
         data = f.read()
@@ -432,6 +458,9 @@ def _process_part(cfg, normalizer, placement, name: str, estimate) -> dict:
     nfc_before = [n for n, line in enumerate(converted.splitlines(), 1) if line != unicodedata.normalize("NFC", line)]
     fmt = _format_check(converted, endings, bom, nfc_before, cfg)
     text = unicodedata.normalize("NFC", converted)
+    raw, replaced = text, 0
+    if entries is not None:
+        text, replaced = apply_lexicon(text, entries)
     plan = (placement.get("parts") or {}).get(name)
     lines = text.splitlines()
     config_headings, chapter_starts = _apply_headings(lines, cfg.headings.get(name, []),
@@ -458,7 +487,7 @@ def _process_part(cfg, normalizer, placement, name: str, estimate) -> dict:
     if units:
         units[-1] = _end_unit(units[-1], finish)
     fragments = {0 if start["mid_sentence"] else None, len(units) - 1 if finish["mid_sentence"] else None} - {None}
-    extra, unmapped = _diff_tags(given_lines, norm_lines, units, sentences, _blocks(norm_lines))
+    extra, unmapped = _diff_tags(given_lines, norm_lines, units, sentences, _blocks(norm_lines), normalizer.abbreviations)
     block_end = {first: last for _, first, last in _blocks(norm_lines)}
     rows = []
     for k, u in enumerate(units):
@@ -472,7 +501,8 @@ def _process_part(cfg, normalizer, placement, name: str, estimate) -> dict:
             "boundary": u.boundary, "chapter": u.chapter, "paragraph": u.paragraph, "heading": u.heading,
             "est_s": round(estimate(u.text), 3), "words": words, "word_spans": spans, "tags": tags,
             "source": {"line_start": first_line + 1, "line_end": block_end[first_line] + 1}})
-    abbreviations = Counter(m.group(1).lower() for m in _abbreviation_matches(normalised))
+    abbreviations = Counter(m.group(1).lower() for m in _abbreviation_matches(normalised, normalizer.abbreviations))
+    comparison = _compare_part(cfg, normalizer, name, raw, given, normalised, blocks) if cfg.compare_dir else None
     stats_sentences = [s for s in sentences if not s.heading]
     return {
         "norm": normalised, "rows": rows, "units": units, "format": fmt, "readings": _locate(records, blocks, given_lines),
@@ -481,7 +511,8 @@ def _process_part(cfg, normalizer, placement, name: str, estimate) -> dict:
         "paragraphs": len({(s.chapter, s.paragraph) for s in stats_sentences}),
         "headings": len({(s.chapter, s.paragraph) for s in sentences if s.heading}), "sentences": len(sentences),
         "clause_cuts": sum(u.pause == "clause" for u in units),
-        "chapter_starts": chapter_starts, "config_headings": config_headings, "normalise_s": seconds}
+        "chapter_starts": chapter_starts, "config_headings": config_headings, "normalise_s": seconds,
+        "lexicon_replacements": replaced if entries is not None else None, "comparison": comparison}
 
 
 # ---- report ------------------------------------------------------------------------------------------------
@@ -516,6 +547,18 @@ def _format_counts(fmt: dict) -> dict:
     return out
 
 
+def _comparison_stats(result: Optional[dict], parts: Optional[List[dict]] = None) -> dict:
+    if result is not None:
+        words, before, after = result["rewrite_words"], result["matched_before"], result["matched_after"]
+        disagreements = result["disagreements"]
+    else:
+        words, before, after = (sum(p[k] for p in parts) for k in ("rewrite_words", "matched_before", "matched_after"))
+        disagreements = _sum_counts([p["disagreements"] for p in parts])
+    return {"rewrite_words": words, "matched_before": before, "matched_after": after,
+            "share_before": round(before / words, 4) if words else 0.0,
+            "share_after": round(after / words, 4) if words else 0.0, "disagreements": disagreements}
+
+
 def _sum_counts(counts: List[dict]) -> dict:
     total: Counter = Counter()
     for c in counts:
@@ -538,6 +581,9 @@ def _markdown(report: dict) -> str:
             for key in ("paragraphs", "headings", "sentences", "units", "joined_units", "clause_cuts", "units_over_cap",
                         "words", "fragments", "diff_unmapped_blocks", "units_not_nfc"):
                 out.append(f"- {key}: {p[key]}")
+            for key in ("lexicon_replacements", "comparison"):
+                if key in p:
+                    out.append(f"- {key}: {p[key]}")
             out += [f"- est_s: {p['est_s']}", f"- tags: {p['tags']}", f"- readings_by_reason: {p['readings_by_reason']}",
                     f"- chapter_starts applied: {p['chapter_starts']['applied']}, "
                     f"not applied: {json.dumps(p['chapter_starts']['not_applied'])}",
@@ -582,9 +628,10 @@ def run_text_stage(cfg: TextConfig) -> dict:
     out = os.path.join(cfg.work_dir, "text")
     os.makedirs(out, exist_ok=True)
     normalizer = TextNormalizer(cfg.language, cfg.book_config)
+    entries = read_lexicon(cfg.lexicon) if cfg.lexicon else None
     done, failures, failed_reports = {}, [], {}
     for name in names:
-        result = _process_part(cfg, normalizer, placement, name, estimate)
+        result = _process_part(cfg, normalizer, placement, name, estimate, entries)
         if "failed" in result:
             failures += result["failed"]
             failed_reports[name] = {"status": "failed", **({"format": result["format"]} if "format" in result else {})}
@@ -600,7 +647,7 @@ def run_text_stage(cfg: TextConfig) -> dict:
         if r["est_s"] > p90:
             r["tags"].add("long")
         r["tags"] = sorted(r["tags"])
-    parts, csv_rows = {}, []
+    parts, csv_rows, disagreement_rows = {}, [], []
     for name in names:
         if name in failed_reports:
             parts[name] = failed_reports[name]
@@ -610,6 +657,11 @@ def run_text_stage(cfg: TextConfig) -> dict:
         parts[name] = {**_stats(d["rows"], d), "format": d["format"], "chapter_starts": d["chapter_starts"],
                        "config_headings": d["config_headings"],
                        "timing": {"normalise_s": round(d["normalise_s"], 3), "peak_rss_mib": _rss()}}
+        if entries is not None:
+            parts[name]["lexicon_replacements"] = d["lexicon_replacements"]
+        if d["comparison"]:
+            parts[name]["comparison"] = _comparison_stats(d["comparison"])
+            disagreement_rows += d["comparison"]["csv"]
         csv_rows += [[name, *r] for r in d["readings"]]
         _write(os.path.join(out, name + ".norm.txt"), d["norm"])
         if not failures:
@@ -627,10 +679,16 @@ def run_text_stage(cfg: TextConfig) -> dict:
     total["format"] = _sum_counts([_format_counts(p["format"]) for p in parts.values() if "format" in p])
     total["chapter_starts"] = {"applied": sum(p["chapter_starts"]["applied"] for p in ok), "not_applied": [
         {"part": n, **x} for n, p in parts.items() if p.get("status") != "failed" for x in p["chapter_starts"]["not_applied"]]}
+    if entries is not None:
+        total["lexicon_replacements"] = sum(p["lexicon_replacements"] for p in ok)
+    if cfg.compare_dir:
+        total["comparison"] = _comparison_stats(None, [p["comparison"] for p in ok])
     total["timing"] = {"normalise_s": round(sum(p["timing"]["normalise_s"] for p in ok), 3), "peak_rss_mib": _rss()}
     report = {"status": "failed" if failures else "ok", "failures": failures, "config": asdict(cfg), "parts": parts,
               "total": total}
     _write(os.path.join(out, "review_readings.csv"), _csv(csv_rows))
+    if cfg.compare_dir:
+        _write(os.path.join(out, "review_disagreements.csv"), _csv(disagreement_rows, _DISAGREEMENT_COLUMNS))
     _write(os.path.join(out, "report.json"), json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     _write(os.path.join(out, "report.md"), _markdown(report))
     if failures:
@@ -639,9 +697,9 @@ def run_text_stage(cfg: TextConfig) -> dict:
     return report
 
 
-def _csv(rows: List[list]) -> str:
+def _csv(rows: List[list], header: List[str] = _READING_COLUMNS) -> str:
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator="\n")
-    writer.writerow(["part", "paragraph", "line", "reason", "source", "reading", "context", "matches"])
+    writer.writerow(header)
     writer.writerows(rows)
     return buf.getvalue()

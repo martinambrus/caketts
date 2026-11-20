@@ -196,6 +196,8 @@ def test_logger_level_restored(normalizer):
 
 def test_unmatched_context_gives_empty_paragraph(tmp_path, monkeypatch):
     class Fake:
+        abbreviations = {}
+
         def __init__(self, *a):
             pass
 
@@ -248,6 +250,8 @@ def test_failures_of_all_parts_are_collected(tmp_path):
 
 def test_unparsed_error_message_is_reported(tmp_path, monkeypatch):
     class Fake:
+        abbreviations = {}
+
         def __init__(self, *a):
             pass
 
@@ -474,6 +478,15 @@ def test_diff_tags(tmp_path):
     assert report["parts"]["p1"]["tags"]["number"] == 1
 
 
+def test_classify_tags_only_real_abbreviations(normalizer):
+    known = normalizer.abbreviations
+    assert stage._classify("např.", known) == "abbreviation"
+    assert stage._classify("(Např.", known) == "abbreviation"
+    assert stage._classify("doma.", known) is None
+    assert stage._classify("pes", known) is None
+    assert stage._classify("15", known) == "number"
+
+
 def test_diff_block_with_unmatched_word_total_is_skipped_and_counted(tmp_path):
     report, _ = run(tmp_path, {"p1": book("Přišel domů.", "* * *", "Odešel pryč.")})
     assert report["parts"]["p1"]["diff_unmapped_blocks"] == 1
@@ -565,9 +578,10 @@ def test_report_keys_and_percentiles(tmp_path):
 
 
 def test_abbreviation_tokens_counted(tmp_path):
-    text = book("Přišel nz. včera a potom šel ab. domů. Potom šel nz. spát.")
+    text = book("Přišel nz. včera a potom šel ab. domů. Hrál turnaj ATP. pak šel spát. Zase ATP. pak spal.")
     report, _ = run(tmp_path, {"p1": text})
-    assert report["parts"]["p1"]["abbreviation_tokens"] == {"ab": 1, "nz": 2}
+    assert report["parts"]["p1"]["abbreviation_tokens"] == {"atp": 2}
+    assert report["total"]["abbreviation_tokens"] == {"atp": 2}
 
 
 def test_report_holds_no_body_words(tmp_path):
@@ -594,3 +608,82 @@ def test_import_leaves_torch_and_stanza_out():
             "bad = [m for m in ('torch', 'stanza') if m in sys.modules]; assert not bad, bad" % REPO)
     done = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True)
     assert done.returncode == 0, done.stderr
+
+
+# ---- lexicon and comparison with the rewrite ------------------------------------------------------------------------
+
+def write_lexicon_file(tmp_path, rows):
+    path = tmp_path / "lexicon.tsv"
+    path.write_text("book_form\tspoken_form\tapply\n" + "".join(f"{a}\t{b}\t{c}\n" for a, b, c in rows), encoding="utf-8")
+    return str(path)
+
+
+def write_rewrite(tmp_path, parts):
+    rewrite = tmp_path / "rewrite"
+    rewrite.mkdir(exist_ok=True)
+    for name, data in parts.items():
+        (rewrite / f"{name}.txt.orig").write_bytes(data.encode("utf-8"))
+    return str(rewrite)
+
+
+def test_lexicon_replaces_whole_words_and_counts_them_per_part(tmp_path):
+    lexicon = write_lexicon_file(tmp_path, [("Jack", "Džek", "y"), ("Pat", "Pet", "n")])
+    parts = {"p1": book("Jack přišel domů. Patrik přišel také. Pat přišel.", "Potom šel Jack pryč."),
+             "p2": book("Nikdo nepřišel.")}
+    report, out = run(tmp_path, parts, lexicon=lexicon)
+    assert (report["parts"]["p1"]["lexicon_replacements"], report["parts"]["p2"]["lexicon_replacements"]) == (2, 0)
+    assert report["total"]["lexicon_replacements"] == 2
+    norm = (out / "p1.norm.txt").read_text(encoding="utf-8")
+    assert norm == "Džek přišel domů. Patrik přišel také. Pat přišel.\n\nPotom šel Džek pryč.\n"
+    assert (tmp_path / "in" / "p1.txt.orig").read_text(encoding="utf-8").startswith("Jack")
+
+
+def test_no_lexicon_means_no_lexicon_keys(tmp_path):
+    report, _ = run(tmp_path, {"p1": BASIC})
+    assert "lexicon_replacements" not in report["parts"]["p1"] and "comparison" not in report["parts"]["p1"]
+
+
+def test_slash_fails_without_a_symbol_pair_and_passes_with_one(tmp_path):
+    parts = {"p1": book("Volba A / B doma.")}
+    with pytest.raises(TextStageError) as info:
+        run(tmp_path, parts)
+    assert info.value.failures[0]["codepoints"] == ["U+002F"]
+    lexicon = write_lexicon_file(tmp_path, [("/", "lomeno", "y")])
+    report, out = run(tmp_path, parts, work="work2", lexicon=lexicon)
+    assert report["parts"]["p1"]["lexicon_replacements"] == 1
+    assert (out / "p1.norm.txt").read_text(encoding="utf-8") == "Volba A lomeno B doma.\n"
+
+
+def test_comparison_counts_the_exact_share_before_and_after_the_lexicon(tmp_path):
+    book_text = book("Jack přišel včera pozdě domů. Potom odešel zase pryč.")
+    rewrite = write_rewrite(tmp_path, {"p1": "Džek přišel včera pozdě domů. Potom úplně odešel zase pryč.\r\n"})
+    lexicon = write_lexicon_file(tmp_path, [("Jack", "Džek", "y")])
+    report, out = run(tmp_path, {"p1": book_text}, lexicon=lexicon, compare_dir=rewrite)
+    cmp = report["parts"]["p1"]["comparison"]
+    assert cmp["rewrite_words"] == 10
+    assert (cmp["matched_before"], cmp["matched_after"]) == (8, 9)
+    assert cmp["share_before"] == pytest.approx(0.8) and cmp["share_after"] == pytest.approx(0.9)
+    assert cmp["disagreements"] == {"insertion": 1}
+    assert report["total"]["comparison"] == cmp
+    with open(out / "review_disagreements.csv", encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    assert rows == [["part", "paragraph", "category", "book_form", "normalizer_reading", "rewrite_form"],
+                    ["p1", "1", "insertion", "", "", "úplně"]]
+
+
+def test_comparison_of_a_number_reading_and_a_respelling_the_lexicon_lacks(tmp_path):
+    rewrite = write_rewrite(tmp_path, {"p1": "Měl patnácti psů doma. Mike přišel včera pozdě domů.\r\n"})
+    _, out = run(tmp_path, {"p1": book("Měl 15 psů doma. Majk přišel včera pozdě domů.")}, compare_dir=rewrite)
+    with open(out / "review_disagreements.csv", encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))[1:]
+    assert rows == [["p1", "1", "number", "15", "patnáct", "patnácti"],
+                    ["p1", "1", "respelling", "Majk", "Majk", "Mike"]]
+
+
+def test_comparison_agrees_when_the_normalizer_reads_as_the_rewrite(tmp_path):
+    rewrite = write_rewrite(tmp_path, {"p1": "Měl patnáct psů doma.\r\n"})
+    report, out = run(tmp_path, {"p1": book("Měl 15 psů doma.")}, compare_dir=rewrite)
+    assert report["parts"]["p1"]["comparison"]["disagreements"] == {}
+    assert report["parts"]["p1"]["comparison"]["share_after"] == 1.0
+    rows = list(csv.reader((out / "review_disagreements.csv").read_text(encoding="utf-8").splitlines()))
+    assert len(rows) == 1
