@@ -1,7 +1,7 @@
 # caketts
 A TTS with style
 
-An audiobook text-to-speech system for **Slovak, Czech and English**, in one narrator's voice. It pairs a Matcha-TTS core with a multilingual SSL discriminator and the BigVGAN v2 vocoder. It is trained on 10–40 hours of the narrator's recordings, with optional public cs/sk/en speech for pretraining.
+An audiobook text-to-speech system for **Slovak, Czech and English**, in one narrator's voice. It pairs a Matcha-TTS core with a multilingual SSL discriminator and the BigVGAN v2 vocoder. It is trained from scratch on the narrator's recordings (6.6 hours of the first book are kept after the audit; more books later). A post-v1 step compares it with a model pretrained on public cs/sk/en speech.
 
 It has two hard requirements:
 

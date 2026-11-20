@@ -2,7 +2,7 @@
 ## Matcha-TTS core · multilingual SSL discriminator · BigVGAN v2
 
 **Target languages:** Slovak, Czech, English (one narrator's voice)
-**Data:** 10–40 h of the narrator, plus optional public cs/sk/en speech for pretraining
+**Data:** the narrator's books. v1 trains from scratch on the first book (9.09 h recorded, 6.61 h kept after the audit; two more books later). Public cs/sk/en speech is used only by the post-v1 pretraining comparison (Step 15).
 **Architecture:** non-autoregressive; explicit per-phoneme durations (Monotonic Alignment Search) + OT-CFM decoder on 100-band mel + BigVGAN v2
 **Hard requirements:** (1) no skipped or repeated words, gibberish or cut-offs; (2) the same pace within a text and across texts
 **Hallucination risk:** structurally minimised by explicit durations, then *gated*: every rendered sentence is checked by ASR (Step 12). v1's "zero, guaranteed by NAR design" was overstated.
@@ -48,9 +48,9 @@
 | Text encoder | Phones only | Plus a per-token language ID (cs/sk/en) | Medium |
 | G2P | espeak-ng as-is | Plus lexicon, post-rules, stress policy and strict vocabulary | High |
 | Decoder training | CFM only | Optional repeat/skip negatives and condition dropout (CFG, self-purifying filtering) | Medium |
-| Training | Acoustic stage, then joint training with SLM | Multilingual pretraining → narrator fine-tune → vocoder fine-tune → short, late adversarial phase → RL last | Medium |
+| Training | Acoustic stage, then joint training with SLM | Narrator training from scratch → vocoder fine-tune → short, late adversarial phase → RL last; multilingual pretraining is a post-v1 comparison (Step 15) | Medium |
 | Quality control | One line: "hallucination detection via ASR" | ASR verify-and-retry on every sentence with relative thresholds, failure-shape detectors, and pace metrics M1–M6 | High that it is needed |
-| Data | ParCzech4Speech, Common Voice | Plus SloPalSpeech (2,806 h Slovak, CC BY 4.0) and ParlaSpeech-CZ (1,218 h), re-filtered | Medium |
+| Data | ParCzech4Speech, Common Voice | The narrator's own books; for the post-v1 pretraining comparison (Step 15) SloPalSpeech (2,806 h Slovak, CC BY 4.0) and ParlaSpeech-CZ (1,218 h), re-filtered | Medium |
 
 ### Text normalisation: num2words rewritten (Step 2.1)
 
@@ -87,7 +87,8 @@ Not tested in CI (no GPU, no large model downloads): real XLS-R weights, BigVGAN
 13. [Step 12: Inference Pipeline with ASR Verification](#step-12-inference-pipeline-with-asr-verification)
 14. [Step 13: Production API](#step-13-production-api)
 15. [Step 14: Evaluation and QA](#step-14-evaluation-and-qa)
-16. [Appendix: Test Suite](#appendix-test-suite)
+16. [Step 15: Pretraining comparison (post-v1)](#step-15-pretraining-comparison-post-v1)
+17. [Appendix: Test Suite](#appendix-test-suite)
 
 ---
 
@@ -4211,7 +4212,7 @@ Step 4.2 already writes both into every manifest row, from the aligner's word ti
 
 ```text
 Claude Code Prompt 4.4: Create src/data/tempo.py as below and scripts/tempo_labels.py:
- 1. Bootstrap: train the acoustic model (Step 11, stage 1 or 2) for ~20k steps with every rate
+ 1. Bootstrap: train the acoustic model (Step 11, stage 2) for ~20k steps with every rate
     input set to the corpus mean (so they carry no information yet).
  2. Run MAS over the training set to get per-token durations, or use aligner timestamps (Step 4.2).
  3. Compute articulation_rate and pause_ratio per utterance with tempo_from_alignment; write them
@@ -5584,26 +5585,27 @@ universal test set. Verify that its mel settings match before comparing; decide 
 
 | Stage | What | Data | Exit criterion |
 |---|---|---|---|
-| 0 | Data preparation and audit (Step 4.2), G2P review (Step 3.2), vocabulary (Step 3.3) | Narrator + pretraining corpora | Manifest filtered; narrator CER baseline known; 0 unknown symbols |
-| 1 | Multilingual pretraining: speaker table, language IDs, boundary flags; tempo labels bootstrapped (Step 4.4) | Filtered SloPalSpeech + ParlaSpeech-CZ/ParCzech4Speech + LibriTTS-R | Step 14 failure metrics flat on held-out parliament and LibriVox sets |
-| 2 | Narrator fine-tune: add the narrator row to the speaker table; tempo labels on; lower LR | 10–40 h narrator | Pace gates M1–M4 pass; ASR failure rate at the narrator baseline |
+| 0 | Data preparation and audit (Step 4.2, `docs/corpus-preparation.md`), G2P review (Step 3.2), vocabulary (Step 3.3) | The narrator's books (first book: 6.61 h kept) | Manifest filtered; narrator CER baseline known; 0 unknown symbols |
+| 1 | Not in v1: multilingual pretraining (speaker table, language IDs, boundary flags) moved to the post-v1 Pretraining comparison (Step 15) | | |
+| 2 | Narrator training from scratch: the narrator is the one row of the speaker table; tempo labels bootstrapped (Step 4.4), then on | The narrator's manifests (first book: 6.07 h train, val, test and one held-out chapter) | Pace gates M1–M4 pass; ASR failure rate at the narrator baseline |
 | 3 | Vocoder fine-tune (Step 10) | Narrator audio + ground-truth-aligned mels | No audible artifacts on held-out narration |
 | 4 | Short, late adversarial phase (Step 9): MPD/MRD + SSL discriminator through the frozen vocoder | Narrator | Keep only if a listening test prefers it and no failure metric regresses |
 | 5 | RL last: GRPO on the duration predictor (DMOSpeech 2 pattern: AAAI 2026, inference code and checkpoints released, training code "under construction"), then optionally advantage-weighted decoder RL (GROW, Aug 2026; FlowTTS-GRPO, Jun 2026) | Narrator | Rewards must include a **rate-consistency term** (distance from the target rate, and the slope of rate against paragraph position) next to CER and similarity, or RL can drift toward slower "safer" durations |
 
 ```text
-Claude Code Prompt 11.1: Create src/training/trainer.py and stages.py for stages 1-4, the entry
-point scripts/train.py --config <stage config>, and one config per stage in configs/training/:
-pretrain.yaml (1), finetune_narrator.yaml (2), vocoder.yaml (3, for the Prompt 10.1 fine-tuning
-entry point) and adversarial.yaml (4). A stage config names its data manifests, the checkpoint it
-starts from and only the training settings it overrides from configs/model/matcha_base.yaml
-(stage 2: learning_rate 3e-5).
+Claude Code Prompt 11.1: Create src/training/trainer.py and stages.py for stages 1-4 (stage 1 is
+run only by Step 15), the entry point scripts/train.py --config <stage config>, and one config
+per stage in configs/training/: pretrain.yaml (1), finetune_narrator.yaml (2), vocoder.yaml (3,
+for the Prompt 10.1 fine-tuning entry point) and adversarial.yaml (4). A stage config names its
+data manifests, the checkpoint it starts from and only the training settings it overrides from
+configs/model/matcha_base.yaml. In v1 stage 2 names no checkpoint (random weights, n_speakers 1,
+the base learning_rate 1.0e-4); starting from the Step 15 checkpoint it uses learning_rate 3e-5.
  - batches by total mel frames (bucketed by length), bf16, DDP, grad clip 1.0, EMA of weights
  - loss = duration + prior + CFM (Step 8); optional negatives / p_uncond from Step 7.3
  - log every N steps: losses, MAS duration histogram, % tokens with 1 frame, and every eval
    interval run Step 14's fast checks on 50 held-out sentences
- - stage 1 -> 2: load weights, extend the speaker embedding table by one row for the narrator,
-   LR 3e-5, keep language/boundary embeddings trainable
+ - Step 15 only, stage 1 -> 2: load weights, extend the speaker embedding table by one row for the
+   narrator, LR 3e-5, keep language/boundary embeddings trainable
  - stage 4 uses the endpoint-estimate trick from Step 9 and BigVGAN's discriminators
 Checkpoint selection: failure metrics and pace metrics first, then TTSDS2 or MOS predictors,
 which are unvalidated for Czech/Slovak, used only for relative same-text comparisons.
@@ -5620,21 +5622,22 @@ Rules that make pace consistent:
 2. Fix the tempo inputs to the narrator's median for every sentence of a book.
 3. Calibrate one `length_scale` per language and hold it constant within a book.
 4. Keep style out of the duration path. (If style diffusion is ever added, smooth it across sentences.)
-5. Render sentence by sentence, with the same segmentation rules used for training.
+5. Render unit by unit, with the units of training (`src/text/units.py`): one sentence, a quote or bracket kept whole while it is open, a clause cut above the length cap.
 6. Paragraph cadence comes only from the boundary flag.
-7. Insert pauses by rule from the narrator's measured medians per boundary type (comma, sentence, paragraph, chapter).
+7. Insert pauses by rule from the narrator's measured medians per boundary type. `cut/pauses.json` of the corpus run holds them (comma, sentence, paragraph, chapter, and `pad_s`), and the `pause` of a unit says which one follows it ("clause" takes the comma median). Training clips start and end with up to `pad_s` of silence (the pad shrinks where the gap to a neighbour was under two pads: 7.0% of the clips of the first book), so a rendered unit already carries about two pads: insert `max(0, median − 2 × pad_s)`. On the first book the sentence median is 0.95 s, so 0.65 s is inserted; the comma median (0.10 s) is shorter than the two pads, so a clause cut inserts nothing.
 
 ```text
 Claude Code Prompt 12.1: Create src/inference/synthesizer.py, scripts/synthesize_book.py and
 configs/inference/inference.yaml (n_steps, temperature, the pause per boundary type from the
 narrator's medians, the chapter loudness for masters, the ASR judges and the retry order; tempo
 and length_scale stay in configs/model/matcha_base.yaml):
- 1. normalise -> segment (boundary labels) -> G2P tokens (strict vocabulary) per sentence
+ 1. normalise -> segment (boundary labels) -> units (src/text/units.py) -> G2P tokens (strict
+    vocabulary) per unit
  2. MatchaTTS.synthesize(..., rates=[inference_rate, median pause ratio], boundary=label,
     length_scale=config[lang], n_steps=10, temperature=0.667) -> BigVGAN
- 3. insert rule-based pauses; loudness-normalise per chapter (-23 LUFS for masters; derive
-    delivery formats from it)
- 4. VERIFY every sentence with src/eval/asr_check.py against the narrator baseline CER
+ 3. insert rule-based pauses (rule 7); loudness-normalise per chapter (-23 LUFS for masters;
+    derive delivery formats from it)
+ 4. VERIFY every unit with src/eval/asr_check.py against the narrator baseline CER
     (Parakeet-TDT-0.6B-v3 as the primary judge; a second model family as a tie-breaker:
     Canary-1B-v2 for Czech, the SloPal whisper-large-v3-sk fine-tune for Slovak, or Omnilingual
     LLM-ASR). Durations are deterministic, so a retry that only re-seeds the decoder cannot fix
@@ -5995,6 +5998,37 @@ class TestASRCheck:
         scale = torch.tensor([[1.0, 1.0, 1.5, 1.0]])
         d = durations_from_logw(logw, torch.ones(1, 1, 4), 1.0, scale)
         assert d[0, 0].tolist() == [3, 3, 5, 3]
+```
+
+---
+
+# Step 15: Pretraining comparison (post-v1)
+
+v1 trains from scratch on the narrator's books (Step 11, stage 2). This step asks whether multilingual pretraining on public speech makes the model more robust on rare words, names and numbers than the narrator's own hours do. It keeps the resources the earlier plan used for stage 1, starts only after v1 is trained and judged by the Step 14 gates, and changes nothing in v1.
+
+| Language | Corpus | Size | Licence | Notes |
+|---|---|---|---|---|
+| Slovak | SloPalSpeech (LREC 2026) | 2,806 h of parliament speech | CC BY 4.0 | Filtered only at 40% WER: re-filter to CER < 5% (the audit of Step 4.2 writes the CER of every clip) |
+| Slovak | EuroSpeech-SK | about 2,554 h at CER < 20% | not checked | From the same parliament as SloPalSpeech: deduplicate by session before combining |
+| Czech | ParlaSpeech-CZ | 1,218 h, 555 speakers; about 164 GB | CC BY-SA 4.0 | |
+| Czech | ParCzech4Speech | up to 2,695 h | CC BY | |
+| English | LibriTTS-R | about 80 GB | not checked | |
+| Czech, test only | The 2 h CC0 Czech LibriVox single-speaker set | 2 h | CC0 | Held out as a read-literature test set |
+
+Parliament audio is formal, male-heavy and often MP3-sourced. Use it to learn alignment and durations, and keep it out of the narrator stage. Pretraining is recommended for robustness on rare words, names and numbers; this step measures whether that holds here.
+
+```text
+Claude Code Prompt 15.1: Run stage 1 of Step 11, then compare it with v1.
+ 1. Prepare the public corpora into manifests of the same format, with the ASR judges of Step 4.2
+    (every audit row carries the clip's CER): re-filter SloPalSpeech to CER < 5% and deduplicate
+    EuroSpeech-SK against it by session.
+ 2. Stage 1: multilingual pretraining with configs/training/pretrain.yaml: speaker table with one
+    row per pretraining speaker, language IDs, boundary flags; tempo labels bootstrapped (Step 4.4).
+    Exit: the Step 14 failure metrics are flat on the held-out parliament and LibriVox sets.
+ 3. Stage 2 from that checkpoint on the same narrator manifests as v1: add the narrator row to the
+    speaker table, learning_rate 3e-5, language and boundary embeddings trainable.
+ 4. Compare it with the v1 model on the held-out chapter and the Step 14 gates, on the same texts
+    and seeds, failure metrics and pace metrics first (the checkpoint-selection order of Prompt 11.1).
 ```
 
 ---
