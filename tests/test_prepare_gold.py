@@ -1,5 +1,6 @@
 """Gold-set scorer tests (src/data/prepare/gold.py). Synthetic data only; times in the unit tests use sample_rate 1000 so samples are ms."""
 import json
+import math
 
 import numpy as np
 import pytest
@@ -403,7 +404,7 @@ def test_lost_speech_trimmed_clip_fails_and_is_named(tmp_path):
     assert ls["covered_spans"] == 2 and ls["lost_spans"] == 1 and ls["lost_speech_rate"] == 0.5
     assert ls["lost_s"] == 0.3 and ls["floor_db"] == -60.0 and ls["speech_thr_db"] == -45.0
     assert r["lost"] == [{"part": "a", "gold_clip": "T-1", "matched": True, "end_reliable": True, "lost_s": 0.3, "head_s": 0.3,
-                          "inner_s": 0.0, "tail_s": 0.0, "max_over_floor_db": 30.0, "words": None}]
+                          "inner_s": 0.0, "tail_s": 0.0, "max_over_floor_db": 30.0, "words": None, "rejected_words": None}]
     assert ls["matched_covered"] == 2 and ls["matched_lost_spans"] == 1 and ls["matched_lost_speech_rate"] == 0.5
     write_cuts(tmp_path, "a", [(1.0, 2.0), (3.0, 4.0)], pad_start=0, pad_end=0)
     ls, r = lost_of(tmp_path, g)
@@ -568,9 +569,9 @@ def test_unsafe_edge_in_a_quiet_pause_is_not_lost_speech(tmp_path):
 
 # ---------------------------------------------------------------- ASR-confirmed lost words
 
-def lostw(spans, clips, level, mids, floor=-60.0):
+def lostw(spans, clips, level, mids, floor=-60.0, rejected=()):
     return gold._lost_speech([(a * F, b * F) for a, b in spans], [(a * F, b * F) for a, b in clips], level, F, THR, floor,
-                             word_mids=None if mids is None else np.array(sorted(mids)))
+                             word_mids=None if mids is None else np.array(sorted(mids)), rejected=rejected)
 
 
 def mid(f):
@@ -732,3 +733,117 @@ def test_run_gold_word_reports_are_identical_and_free_of_text(tmp_path):
     assert "lost words" in md and "word rate" in md and "criterion rate" in md and "words 1" in md
     gold.run_gold(work, ["a"], GoldConfig(file=str(gp)))
     assert {n: (work / "gold" / n).read_bytes() for n in first} == first
+
+
+# ---------------------------------------------------------------- words of rejected units apart from the words lost by the cut
+
+def test_core_word_in_a_rejected_region_is_counted_apart():
+    level = lv(30, [(0, 30)])
+    r = lostw([(0, 20)], [(0, 10)], level, [mid(12)], rejected=[(0.11, 0.15)])[0]
+    assert (r["words"], r["rejected_words"]) == (0, 1)
+    r = lostw([(0, 20)], [(0, 10)], level, [mid(12)], rejected=[(0.2, 0.3)])[0]
+    assert (r["words"], r["rejected_words"]) == (1, 0)
+
+
+def test_core_rejected_region_is_half_open():
+    level = lv(30, [(0, 30)])
+    r = lostw([(0, 20)], [(0, 10)], level, [mid(12), mid(15)], rejected=[(mid(12), mid(15))])[0]
+    assert (r["words"], r["rejected_words"]) == (1, 1)
+
+
+def test_core_both_kinds_in_one_span_and_no_regions():
+    level = lv(30, [(0, 30)])
+    r = lostw([(0, 20)], [(0, 10)], level, [mid(12), mid(16)], rejected=[(0.11, 0.15)])[0]
+    assert (r["words"], r["rejected_words"]) == (1, 1)
+    r = lostw([(0, 20)], [(0, 10)], level, [mid(12), mid(16)])[0]
+    assert (r["words"], r["rejected_words"]) == (2, 0)
+    assert "rejected_words" not in lostw([(0, 20)], [(0, 10)], level, None, rejected=[(0.0, 9.0)])[0]
+
+
+def row(status, s=None, e=None):
+    return {"id": "u", "status": status, "start_s": s, "end_s": e, "words": []}
+
+
+def test_rejected_regions_rule():
+    m = gold.REJECTED_MARGIN_S
+    assert m == 0.08
+    assert gold._rejected_regions(None) == [] and gold._rejected_regions([]) == []
+    assert gold._rejected_regions([row("ok", 1, 2), row("ok", 3, 4)]) == []
+    assert gold._rejected_regions([row("ok", 1, 2), row("low_conf", 2.5, 2.9), row("ok", 3, 4)]) == [(2 + m, 3 - m)]
+    assert gold._rejected_regions([row("low_conf", 0.5, 0.9), row("ok", 3, 4)]) == [(0.0, 3 - m)]
+    assert gold._rejected_regions([row("ok", 1, 2), row("low_conf", 2.5, 2.9)]) == [(2 + m, math.inf)]
+    assert gold._rejected_regions([row("unmatched"), row("ok", 3, 4)]) == [(0.0, 3 - m)]
+    assert gold._rejected_regions([row("ok", 1, 2), row("unmatched"), row("unmatched"), row("ok", 5, 6)]) == [(2 + m, 5 - m)]
+    assert gold._rejected_regions([row("ok", 1, 2), row("ok"), row("ok", 5, 6)]) == [(2 + m, 5 - m)]
+    assert gold._rejected_regions([row("ok"), row("ok", 5, 6)]) == [(0.0, 5 - m)]
+    assert gold._rejected_regions([row("ok", 1, 2), row("low_conf"), row("ok", 2.05, 3)]) == []
+    assert gold._rejected_regions([row("ok", 1, 2), row("low_conf"), row("ok", 3, 4), row("unmatched")]) == [(2 + m, 3 - m), (4 + m, math.inf)]
+
+
+def gap_work(root, middle):
+    audio(root, "a", [(1, 4, -30)])
+    write_cuts(root, "a", [(1.0, 3.0)], pad_start=0, pad_end=0)
+    write_align(root, "a", [(1.0, 2.9, "ok"), (3.1, 3.9, middle), (5.0, 6.0, "ok")])
+    write_asr(root, "a", [word_at(1.5), word_at(3.5)])
+    return lost_of(root, mk_gold([(1, 4)]))
+
+
+def test_words_of_a_rejected_unit_are_not_a_lost_word(tmp_path):
+    ls, r = gap_work(tmp_path, "low_conf")
+    assert ls["lost_spans"] == 1 and (ls["word_spans"], ls["lost_words"], ls["word_rate"]) == (0, 0, 0.0)
+    assert (ls["rejected_word_spans"], ls["rejected_words"], ls["matched_rejected_word_spans"]) == (1, 1, 1)
+    assert ls["matched_word_rate"] == 0 and ls["criterion"] == "words" and ls["criterion_rate"] == 0
+    assert [(x["gold_clip"], x["words"], x["rejected_words"]) for x in r["lost"]] == [("T-0", 0, 1)]
+
+
+def test_negative_control_the_same_word_between_two_ok_units_is_lost(tmp_path):
+    ls, r = gap_work(tmp_path, "ok")
+    assert (ls["word_spans"], ls["lost_words"], ls["rejected_word_spans"], ls["rejected_words"]) == (1, 1, 0, 0)
+    assert ls["criterion_rate"] == 1.0 and r["lost"][0]["words"] == 1 and r["lost"][0]["rejected_words"] == 0
+
+
+def test_rejected_word_fields_are_none_without_the_cache(tmp_path):
+    audio(tmp_path, "a", [(1, 4, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 3.0)], pad_start=0, pad_end=0)
+    write_align(tmp_path, "a", [(1.0, 2.9, "ok"), (3.1, 3.9, "low_conf"), (5.0, 6.0, "ok")])
+    ls, r = lost_of(tmp_path, mk_gold([(1, 4)]))
+    for k in ("rejected_word_spans", "rejected_words", "matched_rejected_word_spans"):
+        assert ls[k] is None
+    assert r["lost"][0]["rejected_words"] is None
+
+
+def test_total_rejected_words_pool_only_when_every_part_has_the_cache(tmp_path):
+    g = mk_gold([(1, 4)])
+    g["parts"]["b"] = mk_gold([(1, 4)])["parts"]["a"]
+    for part in "ab":
+        audio(tmp_path, part, [(1, 4, -30)])
+        write_cuts(tmp_path, part, [(1.0, 3.0)], pad_start=0, pad_end=0)
+        write_align(tmp_path, part, [(1.0, 2.9, "ok"), (3.1, 3.9, "low_conf"), (5.0, 6.0, "ok")])
+    write_asr(tmp_path, "a", [word_at(3.5), word_at(3.6)])
+    t = gold.score_run(g, tmp_path, ["a", "b"])["total"]["lost_speech"]
+    for k in ("rejected_word_spans", "rejected_words", "matched_rejected_word_spans"):
+        assert t[k] is None
+    write_asr(tmp_path, "b", [word_at(3.5)])
+    t = gold.score_run(g, tmp_path, ["a", "b"])["total"]["lost_speech"]
+    assert (t["rejected_word_spans"], t["rejected_words"], t["matched_rejected_word_spans"]) == (2, 3, 2)
+    assert (t["word_spans"], t["lost_words"], t["criterion_rate"]) == (0, 0, 0.0)
+
+
+def test_run_gold_rejected_word_reports_show_the_column_and_hold_no_text(tmp_path):
+    work = tmp_path / "work"
+    gp = tmp_path / "gold.json"
+    gp.write_text(json.dumps(mk_gold([(1, 4)])))
+    audio(work, "a", [(1, 4, -30)])
+    write_cuts(work, "a", [(1.0, 3.0)], pad_start=0, pad_end=0)
+    write_align(work, "a", [(1.0, 2.9, "ok"), (3.1, 3.9, "low_conf"), (5.0, 6.0, "ok")])
+    write_asr(work, "a", [("GOLDMARK", 3.4, 3.6)])
+    rep = gold.run_gold(work, ["a"], GoldConfig(file=str(gp)))
+    assert rep["parts"]["a"]["lost_speech"]["rejected_words"] == 1
+    for n in ("report.json", "report.md"):
+        blob = (work / "gold" / n).read_bytes()
+        assert b"GOLDMARK" not in blob and b"CLIPMARK" not in blob
+    md = (work / "gold" / "report.md").read_text()
+    head = next(x for x in md.splitlines() if x.startswith("| part"))
+    assert "| lost words | rejected words | word rate |" in head
+    assert "\n|" + "---|" * 23 + "\n" in md
+    assert "rejected-unit words 1" in md and "words 0" in md

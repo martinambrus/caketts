@@ -174,10 +174,15 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
         for cid in ids:
             dropped[cid] = {"id": cid, "stage": "filter", "reasons": [reason]}
 
-    items = [{"id": r["id"], "part": r["session"], "chapter": r["chapter"], "paragraph": r["paragraph"],
-              "tags": r["tags"], "duration_s": r["duration_s"], "sha256": r["sha256"], "text": r["text"],
-              "eligible": not ((set(r["flags"]) & set(cfg.exclude_flags)) or (set(r["tags"]) & set(cfg.exclude_tags)))}
-             for r in kept]
+    items, last_unit = [], {}
+    for r in kept:
+        index = [units_by_id[u.split(".")[0]]["index"] for u in r["units"]]
+        holes = max(0, min(index) - last_unit[r["session"]] - 1) if r["session"] in last_unit else 0
+        last_unit[r["session"]] = max(index)
+        items.append({"id": r["id"], "part": r["session"], "chapter": r["chapter"], "paragraph": r["paragraph"],
+                      "tags": r["tags"], "duration_s": r["duration_s"], "sha256": r["sha256"], "text": r["text"],
+                      "eligible": not ((set(r["flags"]) & set(cfg.exclude_flags)) or (set(r["tags"]) & set(cfg.exclude_tags))),
+                      "holes": holes})
     res = make_split(items, cfg.split)
     check_split(items, res.assignment, {r["id"]: r["sha256"] for r in kept}, excluded=res.excluded)
     for e in res.excluded:

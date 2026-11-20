@@ -75,7 +75,7 @@ align:
     cut_search_s: 3.0  # how far from a window border the quietest spot is searched, seconds
 
 cut:
-  pad_s: 0.15  # silence kept before and after the speech of a clip, seconds
+  pad_s: 0.15  # silence kept before and after the speech of a clip, seconds (a pad edge on a noisy frame moves outward to the nearest quiet frame, so a pad can be longer)
   frame_s: 0.010  # frame of the energy measure, seconds
   search_s: 0.08  # how far from an aligner edge the energy edge of the speech is searched, seconds
   min_quiet_s: 0.04  # shortest quiet stretch that can hold a cut point, seconds

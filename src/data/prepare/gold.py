@@ -20,8 +20,11 @@ last) and inner (between). A span with end_reliable false ends at the old cut: v
 beyond. None without the part's audio, floor or threshold. Energy alone counts breaths and other non-lexical sounds in pauses, so
 it never reaches 0 on real audio: when align/<part>.asr.json exists, a lost run is confirmed by words. LOST WORD: an ASR word (midpoint
 = (start + end) / 2, part timeline) whose midpoint lies in the span [lo, hi) and within WORD_TOL_S (50 ms, rounded to whole frames) of
-a lost frame of that span; a word counts once. word_spans = judged spans losing at least one word. PASS CRITERION "no speech cut off":
-criterion_rate == 0, with criterion "words" (matched_word_rate, the part has the ASR cache; in the total only when every part with
+a lost frame of that span; a word counts once. A lost word whose midpoint lies in a rejected region (speech of units with status other
+than ok, which the pipeline never cuts: from REJECTED_MARGIN_S after the end of the previous ok unit to REJECTED_MARGIN_S before the
+start of the next, the part start and end open) is a rejected-unit word, reported apart; without the align file there are no regions.
+word_spans = judged spans losing at least one word by the cut, rejected_word_spans likewise for rejected-unit words. PASS CRITERION "no speech cut off":
+criterion_rate == 0, with criterion "words" (matched_word_rate, words lost by the cut only, the part has the ASR cache; in the total only when every part with
 lost-speech data has it) else "energy" (matched_lost_speech_rate, the rate over IoU-matched judged spans); lost_speech_rate over all
 judged spans is the stricter figure. The unsafe-cut rates stay as information.
 """
@@ -38,6 +41,7 @@ import soundfile as sf
 
 CUT_SR = 24000
 WORD_TOL_S = 0.05
+REJECTED_MARGIN_S = 0.08
 
 
 @dataclass
@@ -164,22 +168,42 @@ def _frame_db(pcm: np.ndarray, frame: int) -> np.ndarray:
     return out
 
 
-def _words_near(word_mids: np.ndarray, lo: int, hi: int, frame: int, lost_frames: list) -> int:
+def _rejected_regions(units) -> list:
+    regions, prev_end, pending = [], None, False
+    for u in units or []:
+        s, e = u.get("start_s"), u.get("end_s")
+        if not (u.get("status") == "ok" and isinstance(s, (int, float)) and isinstance(e, (int, float))):
+            pending = True
+            continue
+        lo = 0.0 if prev_end is None else prev_end + REJECTED_MARGIN_S
+        if pending and lo < s - REJECTED_MARGIN_S:
+            regions.append((lo, s - REJECTED_MARGIN_S))
+        prev_end, pending = e, False
+    if pending:
+        regions.append((0.0 if prev_end is None else prev_end + REJECTED_MARGIN_S, math.inf))
+    return regions
+
+
+def _words_near(word_mids: np.ndarray, lo: int, hi: int, frame: int, lost_frames: list, rejected=()) -> tuple:
     if not lost_frames:
-        return 0
+        return 0, 0
     tol = round(WORD_TOL_S * CUT_SR / frame)
     lost = np.asarray(lost_frames)
     a, b = np.searchsorted(word_mids, [lo / CUT_SR, hi / CUT_SR], side="left")
-    n = 0
+    cut_n = rej_n = 0
     for m in word_mids[a:b]:
         fm = int(m * CUT_SR // frame)
         k = int(np.searchsorted(lost, fm - tol, side="left"))
-        n += bool(k < len(lost) and lost[k] <= fm + tol)
-    return n
+        if k < len(lost) and lost[k] <= fm + tol:
+            if any(r0 <= m < r1 for r0, r1 in rejected):
+                rej_n += 1
+            else:
+                cut_n += 1
+    return cut_n, rej_n
 
 
 def _lost_speech(spans: Sequence, clips: Sequence, level_db: np.ndarray, frame: int, thr: float, floor_db: float = 0.0,
-                 word_mids: Optional[np.ndarray] = None) -> list:
+                 word_mids: Optional[np.ndarray] = None, rejected=()) -> list:
     merged = []
     for a, b in sorted(clips):
         if merged and a <= merged[-1][1]:
@@ -209,10 +233,11 @@ def _lost_speech(spans: Sequence, clips: Sequence, level_db: np.ndarray, frame: 
             loudest = level_db[f] if loudest is None else max(loudest, level_db[f])
             lost_frames.append(f)
         fs = frame / CUT_SR
+        by_cut, in_rejected = (0, 0) if word_mids is None else _words_near(word_mids, lo, hi, frame, lost_frames, rejected)
         out.append({"head_s": round(head * fs, 6), "inner_s": round(inner * fs, 6), "tail_s": round(tail * fs, 6),
                     "lost_s": round((head + inner + tail) * fs, 6),
                     "max_over_floor_db": None if loudest is None else round(float(loudest) - floor_db, 1),
-                    **({} if word_mids is None else {"words": _words_near(word_mids, lo, hi, frame, lost_frames)})})
+                    **({} if word_mids is None else {"words": by_cut, "rejected_words": in_rejected})})
     return out
 
 
@@ -251,22 +276,25 @@ def _load_levels(work_dir: Path, part: str, speech_db: Optional[float]):
     return _frame_db(pcm, frame), frame, floor, thr, _load_word_mids(work_dir / "align" / f"{part}.asr.json")
 
 
-def _part_lost(g_spans: list, clips: list, pairs: list, levels) -> tuple:
+def _part_lost(g_spans: list, clips: list, pairs: list, levels, rejected=()) -> tuple:
     if levels is None:
         return None, []
     level_db, frame, floor, thr, word_mids = levels
     res = _lost_speech([(round(s["s"] * CUT_SR), round(s["e"] * CUT_SR)) for s in g_spans],
-                       [(c["start_sample"], c["end_sample"]) for c in clips], level_db, frame, thr, floor, word_mids)
+                       [(c["start_sample"], c["end_sample"]) for c in clips], level_db, frame, thr, floor, word_mids, rejected)
     matched = {gi for gi, _ in pairs}
     judged = [(gi, r) for gi, r in enumerate(res) if r is not None]
     bad = [(gi, r) for gi, r in judged if r["lost_s"] > 0]
     wordy = [(gi, r) for gi, r in judged if r.get("words", 0) > 0]
+    rejy = [(gi, r) for gi, r in judged if r.get("rejected_words", 0) > 0]
     has = word_mids is not None
     raw = {"floor_db": floor, "speech_thr_db": thr, "covered_spans": len(judged), "lost_spans": len(bad),
            "lost_s": sum(r["lost_s"] for _, r in judged), "matched_covered": sum(gi in matched for gi, _ in judged),
            "matched_lost_spans": sum(gi in matched for gi, _ in bad),
            "word_spans": len(wordy) if has else None, "lost_words": sum(r["words"] for _, r in wordy) if has else None,
-           "matched_word_spans": sum(gi in matched for gi, _ in wordy) if has else None}
+           "matched_word_spans": sum(gi in matched for gi, _ in wordy) if has else None,
+           "rejected_word_spans": len(rejy) if has else None, "rejected_words": sum(r["rejected_words"] for _, r in rejy) if has else None,
+           "matched_rejected_word_spans": sum(gi in matched for gi, _ in rejy) if has else None}
     return raw, [(gi, gi in matched, r) for gi, r in bad]
 
 
@@ -302,7 +330,7 @@ def _score_part(part: str, g_spans: list, g_pauses: list, clips: list, units, ma
                 best, best_ov = o, ov
         if best is not None:
             centre.append((best[0] + best[1]) / 2 - (p[0] + p[1]) / 2)
-    lost_raw, lost_rows = _part_lost(g_spans, clips, pairs, levels)
+    lost_raw, lost_rows = _part_lost(g_spans, clips, pairs, levels, _rejected_regions(units))
     return {"lost": lost_raw, "gold_spans": len(g_spans), "matched": len(pairs), "unsafe_edges": len(unsafe),
             "unsafe_spans": len({(u["gold_clip"], u["gold_start_s"]) for u in unsafe}), "single_clip_spans": single,
             "unsafe_spans_single_clip": len({(u["gold_clip"], u["gold_start_s"]) for u in unsafe if u["clips_overlapping"] == 1}),
@@ -346,7 +374,7 @@ def _pool_lost(ms: list) -> Optional[dict]:
     if not xs:
         return None
     keys = ("covered_spans", "lost_spans", "lost_s", "matched_covered", "matched_lost_spans")
-    wkeys = ("word_spans", "lost_words", "matched_word_spans")
+    wkeys = ("word_spans", "lost_words", "matched_word_spans", "rejected_word_spans", "rejected_words", "matched_rejected_word_spans")
     words = all(x["word_spans"] is not None for x in xs)
     return {"floor_db": None, "speech_thr_db": None, **{k: sum(x[k] for x in xs) for k in keys},
             **{k: sum(x[k] for x in xs) if words else None for k in wkeys}}
@@ -386,7 +414,8 @@ def score_run(gold: dict, work_dir, parts: Sequence[str], match_iou: float = 0.5
         unsafe += u
         lost += [{"part": part, "gold_clip": g_spans[gi]["clip"], "matched": matched, "end_reliable": g_spans[gi]["reliable"],
                   "lost_s": r["lost_s"], "head_s": r["head_s"], "inner_s": r["inner_s"], "tail_s": r["tail_s"],
-                  "max_over_floor_db": r["max_over_floor_db"], "words": r.get("words")} for gi, matched, r in rows]
+                  "max_over_floor_db": r["max_over_floor_db"], "words": r.get("words"),
+                  "rejected_words": r.get("rejected_words")} for gi, matched, r in rows]
     return {"sample_rate": sr, "match_iou": match_iou, "parts": {p: _finish(raw[p]) for p in scored},
             "total": _finish(_pool(list(raw.values()))), "parts_without_gold": [p for p in parts if p not in mentioned],
             "unsafe": unsafe, "lost": lost}
@@ -401,12 +430,13 @@ def _markdown(rep: dict) -> str:
              f"Match rule: IoU = overlap / union; pairs with IoU >= {rep['match_iou']} taken greedily by descending IoU, one-to-one.",
              "Unsafe cut: a clip edge strictly inside a gold speech span. Errors are ours - gold, in ms.",
              "Lost speech: speech-level audio of a gold span (whole frames, up to its end) that no clip covers; pass = criterion rate 0 (words: matched spans losing an ASR word; "
-             "energy: matched spans losing speech-level audio when no ASR cache exists).",
+             "energy: matched spans losing speech-level audio when no ASR cache exists). "
+             "Lost words exclude the words of rejected units (never cut by design), which are listed apart.",
              "",
              "| part | gold | matched | unsafe spans | unsafe rate | unsafe rate single-clip | start med | start p90 | end med | end p90 "
              "| aligner matched | aligner start med | pauses gold | pauses matched | pause centre med "
-             "| lost spans | lost rate | matched lost rate | lost s | lost words | word rate | criterion rate |",
-             "|" + "---|" * 22]
+             "| lost spans | lost rate | matched lost rate | lost s | lost words | rejected words | word rate | criterion rate |",
+             "|" + "---|" * 23]
     for name, m in [*rep["parts"].items(), ("total", rep["total"])]:
         a, ls = m["aligner"], m["lost_speech"]
         row = [name, m["gold_spans"], m["matched"], m["unsafe_spans"], m["unsafe_cut_rate"], m["unsafe_cut_rate_single_clip"],
@@ -414,15 +444,15 @@ def _markdown(rep: dict) -> str:
                m["start_error"]["p90_ms"], m["end_error"]["median_ms"], m["end_error"]["p90_ms"],
                None if a is None else a["matched"], None if a is None else a["start_error"]["median_ms"],
                m["pauses"]["gold"], m["pauses"]["matched"], m["pauses"]["centre_error"]["median_ms"],
-               *([None] * 7 if ls is None else [ls["lost_spans"], ls["lost_speech_rate"], ls["matched_lost_speech_rate"], ls["lost_s"],
-                                                ls["lost_words"], ls["word_rate"], ls["criterion_rate"]])]
+               *([None] * 8 if ls is None else [ls["lost_spans"], ls["lost_speech_rate"], ls["matched_lost_speech_rate"], ls["lost_s"],
+                                                ls["lost_words"], ls["rejected_words"], ls["word_rate"], ls["criterion_rate"]])]
         lines.append("| " + " | ".join(_fmt(x) for x in row) + " |")
     lines += ["", "## Unsafe cuts", ""]
     lines += ([f"- {u['part']} {u['gold_clip']} {u['edge']} edge at {u['t_s']} s inside gold {u['gold_start_s']}-{u['gold_end_s']} s"
                for u in rep["unsafe"]] or ["none"])
     lines += ["", "## Lost speech", ""]
     lines += ([f"- {x['part']} {x['gold_clip']} lost {x['lost_s']} s (head {x['head_s']}, inner {x['inner_s']}, tail {x['tail_s']}), "
-               f"max {x['max_over_floor_db']} dB over floor, words {_fmt(x.get('words'))}, matched {x['matched']}, "
+               f"max {x['max_over_floor_db']} dB over floor, words {_fmt(x.get('words'))}, rejected-unit words {_fmt(x.get('rejected_words'))}, matched {x['matched']}, "
                f"end_reliable {x['end_reliable']}"
                for x in rep["lost"]] or ["none"])
     if rep["parts_without_gold"]:
