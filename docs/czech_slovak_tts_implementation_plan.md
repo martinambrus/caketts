@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`. The corpus preparation (Step 4.2: `src/data/prepare/`, `src/text/units.py`, `scripts/prepare_corpus.py`, `configs/data/example.yaml`) has no code block here: its files are the reference, and its prompt says what they do.
 
-**3429 tests:** 108 for the TTS components, 104 for num2words, 2165 for the text normalizer, 239 for the segmenter, 809 for the corpus preparation and 4 for the environment. In CI (CPU, no model downloads, no optional groups) 3424 pass and 5 skip: `test_cuda_available` (no GPU), the two real-Parakeet tests and the real-MMS aligner test (the models are not in the Hugging Face cache) and the `uroman` test (optional group `align`). With a GPU, the models and `--group align`, all 3429 pass. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**3432 tests:** 108 for the TTS components, 104 for num2words, 2165 for the text normalizer, 239 for the segmenter, 812 for the corpus preparation and 4 for the environment. In CI (CPU, no model downloads, no optional groups) 3427 pass and 5 skip: `test_cuda_available` (no GPU), the two real-Parakeet tests and the real-MMS aligner test (the models are not in the Hugging Face cache) and the `uroman` test (optional group `align`). With a GPU, the models and `--group align`, all 3432 pass. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -6040,7 +6040,7 @@ Claude Code Prompt 15.1: Run stage 1 of Step 11, then compare it with v1.
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 3428 tests, ~100 s on one CPU thread
+uv run pytest tests/ -q -m "not slow"   # 3431 tests, ~100 s on one CPU thread
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~25 s more
 ```
 
@@ -6065,11 +6065,11 @@ uv run pytest tests/ -q                 # + end-to-end synthetic training test, 
 | test_align.py | 63 | The aligner: long-form block planning and monotone spans, CTC backends, status from the part's own scores, the pipeline; real MMS emissions (skips without the model) |
 | test_asr.py | 18 | The ASR runner: window planning, word grouping, long-form stitching with a stub model, light import; real Parakeet (skips without the model) |
 | test_cut.py | 132 | The cut stage on synthetic audio with a known layout: speech edges and the bridge, cut points, pads, merges, `short_pause`, `no_quiet_cut`, the 20 s cap, hard assertions, pause medians |
-| test_prepare_audit.py | 72 | The audit: judge CER with digits spelled, the two-judge rule, audio metrics, review and listening lists, transcript caches, no text in reports; real Parakeet (skips without the model) |
+| test_prepare_audit.py | 73 | The audit: judge CER with digits spelled, the two-judge rule, audio metrics, review and listening lists, transcript caches, no text in reports; real Parakeet (skips without the model) |
 | test_prepare_coverage.py | 52 | The split: quotas per tag, whole paragraphs, one contiguous held-out block, no paragraph, text or audio in two splits |
 | test_prepare_manifest.py | 18 | The manifest: row contract, rates from word times without the pads, the filter report, hash re-check, flagged clips kept out of val and test, the round trip through `TTSDataset` |
 | test_prepare_gold.py | 71 | The gold scorer: one-to-one matching, unsafe cuts, edge and pause-centre errors, lost speech and lost words, Audacity labels |
-| test_prepare_config.py | 23 | The YAML: `example.yaml` loads and is complete, unknown keys name their path, fed keys, derived defaults, the judge check |
+| test_prepare_config.py | 25 | The YAML: `example.yaml` loads and is complete, unknown keys name their path, fed keys, derived defaults, the judge check |
 | test_prepare_pipeline.py | 27 | The entry point: stage order, errors, the align stage's ASR cache, the audit's judge check |
 | test_prepare_all.py | 10 | `prepare_corpus.py all` end to end on a tiny synthetic book with a stub aligner and stub judges, with negative controls |
 
