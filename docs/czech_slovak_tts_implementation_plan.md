@@ -62,7 +62,7 @@ Both number modules were rewritten from published grammar. v1 built every declin
 
 Every code block marked **(tested)** is the exact content of a file in the reference implementation: the `src/`, `tests/` and `scripts/` folders of the [caketts repository](https://github.com/martinambrus/caketts). The 25 September 2026 state was also packaged as `czech_slovak_tts_reference_v2.zip`. The corpus preparation (Step 4.2: `src/data/prepare/`, `src/text/units.py`, `scripts/prepare_corpus.py`, `configs/data/example.yaml`) has no code block here: its files are the reference, and its prompt says what they do.
 
-**3432 tests:** 108 for the TTS components, 104 for num2words, 2165 for the text normalizer, 239 for the segmenter, 812 for the corpus preparation and 4 for the environment. In CI (CPU, no model downloads, no optional groups) 3427 pass and 5 skip: `test_cuda_available` (no GPU), the two real-Parakeet tests and the real-MMS aligner test (the models are not in the Hugging Face cache) and the `uroman` test (optional group `align`). With a GPU, the models and `--group align`, all 3432 pass. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
+**3585 tests:** 189 for the TTS components, 104 for num2words, 2165 for the text normalizer, 239 for the segmenter, 884 for the corpus preparation and 4 for the environment. In CI (CPU, no model downloads, no optional groups) 3580 pass and 5 skip: `test_cuda_available` (no GPU), the two real-Parakeet tests and the real-MMS aligner test (the models are not in the Hugging Face cache) and the `uroman` test (optional group `align`). With a GPU, the models and `--group align`, all 3585 pass. They run on Python 3.13 with the versions pinned in `uv.lock`, among them torch 2.14 (CPU build), torchaudio 2.11, librosa 1.0, numpy 2.5, numba 0.67, transformers 5.17, stanza 1.14 (the Czech CAC and Slovak SNK models), phonemizer 3.4.0 and espeak-ng 1.52 (via espeakng-loader 0.2.4), and with BigVGAN `main` (commit 7d2b454).
 
 The end-to-end test trains a tiny model on a synthetic language. It checks that MAS recovers the true segmentation, that the duration predictor learns it, that synthesis keeps every token, and that the generated content is right.
 
@@ -3641,7 +3641,7 @@ quote tokens are special tokens, always in it. Rebuild the vocabulary only befor
 must be reviewed.
 ```
 
-## Test 3: Phonemizer Tests (tested, 52 tests, real espeak-ng 1.52)
+## Test 3: Phonemizer Tests (tested, 126 tests, real espeak-ng 1.52)
 
 ```python
 # tests/test_phonemizer.py
@@ -4185,12 +4185,12 @@ Decisions and results on the first book (Czech, 10 parts, 9.091 h, one narrator;
 - **Text:** the narrator's rewrite of the book with the EPUB's chapters placed into it. On two parts, 94.7% of the units align (`ok`), against 75.7% for the EPUB text with a lexicon learned from the rewrite, and the audit drops 11.9% against 22.3%. 81% of the EPUB failures are text the narrator skipped or changed.
 - **Aligner:** `xls-r-cs` (Czech, Apache-2.0) aligns 95.4% of the units, `mms-1b-all` 91.3% and `mms-300m` (the code default, CC-BY-NC) 86.5%. All three give refined clip edges within 10 ms (median) of the gold.
 - **Audit:** two judges. One judge drops 22.2% of the clips of two parts and about half of those drops are false (numbers, short interjections, recognition errors); two judges drop 12.9%.
-- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.6% and informational): it was 2 of 153 matched spans while the words of rejected units still counted (one span held speech of a rejected unit, the other a late first word). A pad edge on a frame louder than the quiet level moves outward to the nearest quiet frame within the cut point, the 20 s cap and the midpoint of the next ASR word, so a few pads are longer than 150 ms.
+- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.2% and informational): 1 of 153 matched spans loses a word, a first word the aligner placed late (the words of rejected units are listed apart; counted as lost, it was 2 of 153). A pad edge on a frame louder than the quiet level moves outward to the nearest quiet frame within the cut point, the 20 s cap and the midpoint of the next ASR word, so a few pads are longer than 150 ms.
 - **Validation sets:** a paragraph with a clip flagged `short_pause`, `no_quiet_cut` or `over_cap` stays out of val and test (7.0% of the clips are `short_pause`), so the evaluation clips have uniform edges; those clips still train. One test quota (parenthesis) is unmet. The book has no digits after normalisation, so there are no number, date or abbreviation clips.
-- **Result:** 9.091 h of recordings, 4,952 units, 4,721 aligned `ok`, 4,586 clips (7.360 h with pads), 499 dropped by the audit, 4,086 clips kept: 6.613 h (72.7%), of which train 6.068 h, val 0.099 h, test 0.118 h and held-out 0.327 h. One cold run takes 42 min and 5.46 GiB of RAM on one 6 GB GPU.
+- **Result:** 9.091 h of recordings, 4,952 units, 4,721 aligned `ok`, 4,586 clips (7.364 h with pads), 501 dropped by the audit, 4,084 clips kept: 6.613 h (72.7%), of which train 6.107 h, val 0.094 h, test 0.113 h and held-out 0.300 h. One cold run takes 42 min and 5.46 GiB of RAM on one 6 GB GPU.
 - **Pauses** (`cut/pauses.json`, breath-free): sentence 0.95 s, paragraph 1.73 s, chapter 2.93 s, comma 0.10 s.
 
-Not built: a repair of the text from the ASR words where the narrator departs from it (207 of the 499 audit drops), and a normaliser reading for `|`, `•` and a `/` it cannot place (`docs/normalizer-backlog.md`).
+Not built: a repair of the text from the ASR words where the narrator departs from it (about 41% of the audit drops), and a normaliser reading for `|`, `•` and a `/` it cannot place (`docs/normalizer-backlog.md`).
 
 ## 4.3 Dataset and collator
 
@@ -6261,16 +6261,16 @@ Claude Code Prompt 15.1: Run stage 1 of Step 11, then compare it with v1.
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 3431 tests, ~100 s on one CPU thread
+uv run pytest tests/ -q -m "not slow"   # 3584 tests, ~100 s on one CPU thread
 uv run pytest tests/ -q                 # + end-to-end synthetic training test, ~25 s more
 ```
 
 | File | Tests | Guards |
 |---|---|---|
 | test_environment.py | 4 | torch and torchaudio versions; espeak-ng for cs, sk and en; the audio config equals the vocoder's; CUDA (skips without a GPU) |
-| test_phonemizer.py | 52 | Defects 4 and 5; espeak-ng corrections; strict vocabulary; digits raise |
+| test_phonemizer.py | 126 | Defects 4 and 5; espeak-ng corrections; strict vocabulary; digits raise |
 | test_audio.py | 12 | Defects 6 and 7; exact BigVGAN mel equality; filterbank pinned to librosa 0.10.2; EBU R128; soft onsets kept; neighbouring clips never share a sample |
-| test_data_pipeline.py | 9 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches; the mel cache follows the clip's audio; mel statistics sample the whole set |
+| test_data_pipeline.py | 16 | Defect 2; drop-don't-crop; strict symbols; conditioning in batches; the mel cache follows the clip's audio; mel statistics sample the whole set |
 | test_model_components.py | 22 | Defects 1 and 3; MAS equals exhaustive search; decoder overfits one utterance; LayerNorm crash; exact padding invariance |
 | test_eval_and_discriminator.py | 12 | SSL discriminator gradients and freezing; tempo labels; pace metrics; ASR failure shapes; per-token retry scaling |
 | test_integration.py | 1 | The whole model learns alignment, durations and content on a synthetic language, and keeps every token |
@@ -6278,18 +6278,18 @@ uv run pytest tests/ -q                 # + end-to-end synthetic training test, 
 | test_num2words_cs.py | 55 | Czech numerals; expectations quoted from IJP, cs.wikipedia, ČRo or NK; every output word is a dictionary word |
 | test_text_normalization.py | 2165 | Prompt 2.2: one row per reading rule; a reading that is a guess must log and the others must not; every output tokenizes in the G2P |
 | test_segmenter.py | 239 | Prompt 2.3: sentence ends, quotes, initials and spans; paragraph and chapter labels; the heading flag and source line of each sentence; normalise, segment and G2P on a Czech and a Slovak text |
-| test_units.py | 177 | Prompt 4.2: the unit builder shared with Step 12: one sentence per unit, open quotes and brackets kept whole up to the cap, clause cuts and the pause after each unit, the length estimate |
+| test_units.py | 210 | Prompt 4.2: the unit builder shared with Step 12: one sentence per unit, open quotes and brackets kept whole up to the cap, clause cuts and the pause after each unit, the length estimate |
 | test_prepare_source.py | 25 | The EPUB as book text (spine order, headings, tables, replacements) and its cut into the parts of the recordings at the word, with the chapter placement; no body text in reports |
 | test_prepare_lexicon.py | 27 | The lexicon of a book: consistent respellings and symbols applied, numbers and abbreviations left to the normalizer, whole-word replacement |
 | test_prepare_text.py | 62 | The text stage: the format reported and never repaired, headings, logged readings, every failing paragraph listed, `skip_unreadable`, the units file, a byte-identical re-run |
 | test_prepare_audio.py | 32 | The audio stage: streamed loudness equals pyloudnorm, block resampling, mono mix, peak ceiling, clipped runs, block-size independence |
 | test_align.py | 63 | The aligner: long-form block planning and monotone spans, CTC backends, status from the part's own scores, the pipeline; real MMS emissions (skips without the model) |
 | test_asr.py | 18 | The ASR runner: window planning, word grouping, long-form stitching with a stub model, light import; real Parakeet (skips without the model) |
-| test_cut.py | 132 | The cut stage on synthetic audio with a known layout: speech edges and the bridge, cut points, pads, merges, `short_pause`, `no_quiet_cut`, the 20 s cap, hard assertions, pause medians |
+| test_cut.py | 154 | The cut stage on synthetic audio with a known layout: speech edges and the bridge, cut points, pads, merges, `short_pause`, `no_quiet_cut`, the 20 s cap, hard assertions, pause medians |
 | test_prepare_audit.py | 73 | The audit: judge CER with digits spelled, the two-judge rule, audio metrics, review and listening lists, transcript caches, no text in reports; real Parakeet (skips without the model) |
-| test_prepare_coverage.py | 52 | The split: quotas per tag, whole paragraphs, one contiguous held-out block, no paragraph, text or audio in two splits |
-| test_prepare_manifest.py | 18 | The manifest: row contract, rates from word times without the pads, the filter report, hash re-check, flagged clips kept out of val and test, the round trip through `TTSDataset` |
-| test_prepare_gold.py | 71 | The gold scorer: one-to-one matching, unsafe cuts, edge and pause-centre errors, lost speech and lost words, Audacity labels |
+| test_prepare_coverage.py | 58 | The split: quotas per tag, whole paragraphs, one contiguous held-out block, no paragraph, text or audio in two splits |
+| test_prepare_manifest.py | 20 | The manifest: row contract, rates from word times without the pads, the filter report, hash re-check, flagged clips kept out of val and test, the round trip through `TTSDataset` |
+| test_prepare_gold.py | 80 | The gold scorer: one-to-one matching, unsafe cuts, edge and pause-centre errors, lost speech and lost words, Audacity labels |
 | test_prepare_config.py | 25 | The YAML: `example.yaml` loads and is complete, unknown keys name their path, fed keys, derived defaults, the judge check |
 | test_prepare_pipeline.py | 27 | The entry point: stage order, errors, the align stage's ASR cache, the audit's judge check |
 | test_prepare_all.py | 10 | `prepare_corpus.py all` end to end on a tiny synthetic book with a stub aligner and stub judges, with negative controls |

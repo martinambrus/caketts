@@ -7,7 +7,7 @@ It was built and measured on one Czech audiobook of 9.09 hours (10 parts, one na
 ## What you need
 
 - **Recordings:** one WAV file per part, `raw/<part>.wav`. A part is a chapter or a session; the stages stream the audio, and parts of 26 to 60 minutes were used. Any sample rate; stereo is mixed to mono. Name the parts so that their natural order (`a2` before `a10`) is the book order: the split and the held-out block follow it. Keep a part under about 12,000 words (roughly 2 hours of narration): the align stage matches the text words to the ASR words in a table of at most 150 million cells and stops with `ValueError: split the part` above that.
-- **The text of each part, as the narrator read it.** The pipeline never repairs the text from the audio. Where the narrator departs from the book, the clip is dropped (207 of the 499 clips dropped in the first book). Text the narrator read is worth more than any later fix: see "Choosing the text" below.
+- **The text of each part, as the narrator read it.** The pipeline never repairs the text from the audio. Where the narrator departs from the book, the clip is dropped (about 41% of the clips the audit dropped in the first book). Text the narrator read is worth more than any later fix: see "Choosing the text" below.
 - **A GPU is recommended.** On one 60-minute part the ASR pass took 2 minutes on a 6 GB NVIDIA GPU; on the CPU of the same machine the ASR pass took 17 minutes and the alignment 38 more. The whole first book took 42 minutes on the GPU.
 - Python 3.13 and [uv](https://docs.astral.sh/uv/); `espeak-ng` comes with the project through `espeakng-loader`.
 
@@ -156,7 +156,7 @@ Each manifest row has `id`, `audio` (the absolute path of the clip), `text`, `la
 
 ### gold (optional): checking the cut against speech you verified
 
-The scorer takes a gold file (`gold.file`, JSON: verified speech spans and pause ranges per part, see `src/data/prepare/gold.py`) or one Audacity label file per part (`gold.audacity: {a1: labels-a1.txt}`): in Audacity, label each pause between two sentences, from the end of the last word to the start of the next, and export the labels (TAB separated: start, end, label; seconds). Labels give the pause-centre error only; verified speech spans also give the speech-edge error and the main criterion, **no speech cut off**: a matched span that loses an ASR-confirmed word (an ASR word within 50 ms of speech-level audio that no clip holds). Words of rejected units are never cut, by design, so they do not count: a lost word that lies between two `ok` units with a rejected unit between them, less 80 ms (the cut's search window) at each `ok` edge, is reported apart as a rejected-unit word (`rejected words` in `gold/report.md`). On the first book (248 verified spans) it was 2 of 153 matched spans (1.3%) while rejected-unit words still counted: one span held speech of a rejected unit, the other a late first word. The unsafe-cut rate (a clip edge strictly inside a gold span) is reported for information only, since a gold span can hold pauses of its own.
+The scorer takes a gold file (`gold.file`, JSON: verified speech spans and pause ranges per part, see `src/data/prepare/gold.py`) or one Audacity label file per part (`gold.audacity: {a1: labels-a1.txt}`): in Audacity, label each pause between two sentences, from the end of the last word to the start of the next, and export the labels (TAB separated: start, end, label; seconds). Labels give the pause-centre error only; verified speech spans also give the speech-edge error and the main criterion, **no speech cut off**: a matched span that loses an ASR-confirmed word (an ASR word within 50 ms of speech-level audio that no clip holds). Words of rejected units are never cut, by design, so they do not count: a lost word that lies between two `ok` units with a rejected unit between them, less 80 ms (the cut's search window) at each `ok` edge, is reported apart as a rejected-unit word (`rejected words` in `gold/report.md`). On the first book (248 verified spans) it is 1 of 153 matched spans (0.7%): a first word the aligner placed late, which no clip holds; 16 words of rejected units in 4 spans are listed apart (counted as lost, it was 2 of 153). The unsafe-cut rate (a clip edge strictly inside a gold span) is reported for information only, since a gold span can hold pauses of its own.
 
 ## Choosing the aligner and the judges
 
@@ -172,7 +172,7 @@ Every model behind a stage is chosen by config; the weights keep their own licen
 
 All five take about 12.8 GB of disk; the recommended Czech setup (`xls-r-cs`, Parakeet and Canary) takes 7.7 GB. NVIDIA Forced Aligner is not used: it takes CTC or hybrid models only, and Parakeet-TDT is neither. The ASR models run through `transformers`, not NeMo. `uroman` (group `align`) is under a permission text that asks to acknowledge the software in publications; the PyPI classifier says Apache, and the text in the package is what applies.
 
-The same text, audio, ASR cache and cut settings with only `align.backend` changed (first book, 5,072 units before the unit re-fit; the GPU figures are the memory in use, including about 1.5 GB of other programs):
+The same text, audio, ASR cache and cut settings with only `align.backend` changed (first book, 5,072 units before the unit re-fit, the gold column still counting the words of rejected units as lost; the GPU figures are the memory in use, including about 1.5 GB of other programs):
 
 | aligner | units `ok` | low_conf / unmatched | matched gold spans | matched spans losing a word | clips | align time, warm ASR cache | peak RAM / GPU |
 |---|---|---|---|---|---|---|---|
@@ -210,12 +210,12 @@ Czech, 10 parts, 9.091 hours, text = the narrator's rewrite with the EPUB's chap
 | recordings | 10 parts | 9.091 |
 | text units | 4,952 (56,791 words; 24 clause cuts; none over the cap) | |
 | aligned `ok` | 4,721 (95.3%); 221 `low_conf` and 10 `unmatched` rejected | |
-| cut clips | 4,586 (129 merged; 8 re-split pieces); longest 19.34 s | 7.360 with pads |
-| dropped by the audit | 499 (10.9%): narrator deviation 207, number forms 134, short clip 120, judges disagree 38 | 0.747 |
-| manifest | 4,086 | 6.613 (72.7% of the recordings) |
-| train / val / test / held-out | 3,782 / 44 / 52 / 208 | 6.068 / 0.099 / 0.118 / 0.327 |
+| cut clips | 4,586 (129 merged; 8 re-split pieces); longest 19.39 s | 7.364 with pads |
+| dropped by the audit | 501 (10.9%); the causes of the 499 drops before the clip-edge change: narrator deviation 207, number forms 134, short clip 120, judges disagree 38 | 0.751 |
+| manifest | 4,084 | 6.613 (72.7% of the recordings) |
+| train / val / test / held-out | 3,819 / 42 / 49 / 174 | 6.107 / 0.094 / 0.113 / 0.300 |
 
-The held-out block is one chapter of 102 paragraphs. One test quota (parenthesis) could not be met. Cut flags: `no_quiet_cut` 83 clips (1.8%), `short_pause` 322 (7.0%), `over_cap` 0. Pause medians: sentence 0.95 s, paragraph 1.73 s, chapter 2.93 s, comma 0.10 s. The text has no digits after normalisation, so there are no number or date clips. The checks passed: 4,586 distinct clip hashes and no overlaps, 0 shared audio between splits, manifest invariants, the round trip through `TTSDataset` and `TTSCollator` for all 4,086 rows, and no book text in any report.
+The held-out block is one chapter of 58 paragraphs (10 of its units missing: 8 dropped clips and 2 rejected units). One test quota (parenthesis) could not be met. Cut flags: `no_quiet_cut` 83 clips (1.8%), `short_pause` 322 (7.0%), `over_cap` 0. Pad edges on a frame louder than the quiet level: 7 of 9,172 (211 pads extended outward, 4 kept by the ASR-word guard). Pause medians: sentence 0.95 s, paragraph 1.73 s, chapter 2.93 s, comma 0.10 s. The text has no digits after normalisation, so there are no number or date clips. The checks passed: 4,586 distinct clip hashes and no overlaps, 0 shared audio between splits, manifest invariants, the round trip through `TTSDataset` and `TTSCollator` for all 4,084 rows (2,186 quote tokens), and no book text in any report.
 
 The cut defaults were tuned on the gold of 8 parts and checked on 2 held-out parts (quiet level 12 to 15 dB and the guarded bridge to speech-level audio): the gold spans losing a word fell from 17 to 5 of 246, the median start-edge error from 60 to 10 ms, and the clips with noise at the start edge by about 60%, at the cost of more `short_pause` clips (178 to 382: a breath absorbed into the speech shrinks the measured gap) and pause medians that measure breath-free silence (sentence 1.13 s to 0.93 s).
 
@@ -223,7 +223,7 @@ The unit-length estimate (`estimate` in the text stage, which decides the 17 s c
 
 ## What it does not do
 
-- It does not repair the text from the audio: where the narrator deviates, the clip is dropped (207 of 499 here). A repair from the ASR words is a design item, not built.
+- It does not repair the text from the audio: where the narrator deviates, the clip is dropped (about 41% of the drops here). A repair from the ASR words is a design item, not built.
 - It does not read what the normalizer cannot read: `|`, `•` and a `/` it cannot place (such as `139/VII`) stop the text stage; list them in a lexicon. The normalizer reads `/` between words ("or"), between numbers and in a ratio such as `Kč/kg`.
 - Only Czech has run on a real book, and the aligner comparison exists for Czech only. The config accepts `language` `cs` and `sk` only (the normalizer's languages): English appears only as `<en>` spans inside a Czech or Slovak text.
 - The manifest's rates and the pauses in `pauses.json` describe this narrator in these recordings; recompute them for another book.
