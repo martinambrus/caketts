@@ -88,3 +88,32 @@ def test_collator_carries_conditioning(corpus, g2p):
     t_len = batch["phoneme_lengths"]
     assert (batch["phoneme_ids"][0, t_len[0]:] == 0).all()
     assert (batch["mels"][2, :, batch["mel_lengths"][2]:] == 0).all()
+
+
+def _tone(seconds, freq=150.0):
+    t = np.arange(int(seconds * SR)) / SR
+    return (0.1 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+
+
+def _cached_dataset(tmp_path, g2p, ap, wav, seconds):
+    sf.write(wav, _tone(seconds), SR)
+    row = {"id": "u", "audio": str(wav), "text": "Ano.", "lang": "cs"}
+    ds = TTSDataset([row], ap, {}, g2p, speaker_ids={"narrator": 0}, mel_cache_dir=str(tmp_path / "mels"))
+    return ds, row
+
+
+def test_mel_cache_is_reused_while_the_audio_is_unchanged(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    first, second = ds._mel(row), ds._mel(row)
+    assert len(calls) == 1 and torch.equal(first, second)
+
+
+def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)

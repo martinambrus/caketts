@@ -13,6 +13,7 @@ Fixes relative to v1:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -101,7 +102,8 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            p = self.cache / f"{row['id']}.pt"
+            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
         mel = self.audio.compute_mel(self.audio.load_audio(row["audio"]))
