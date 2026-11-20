@@ -32,7 +32,7 @@ lexicon:  # optional: learn the words the book prints differently from how the n
 text:
   text_dir: null  # directory with the book texts <part><suffix>; null = raw_dir, or <work_dir>/source/epub with a source section
   suffix: null  # suffix of the book texts; null = .txt.orig, or .txt with a source section
-  parts: null  # parts to process; null = the top-level parts, else every <part><suffix> of text_dir
+  parts: null  # parts to process; null = the top-level parts, or the stems of raw_dir/*.wav
   book_config: {}  # settings of the text normalizer for this book, see TextNormalizer
   headings: {}  # per part the line numbers of the text file that are headings, {a1: [1, 40]}
   placement: null  # placement.json that marks chapter starts; null = <work_dir>/source/epub/placement.json with a source section
