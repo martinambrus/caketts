@@ -1,5 +1,7 @@
 """Data pipeline: drop-don't-crop filtering, strict symbols, conditioning carried into batches."""
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -127,6 +129,38 @@ def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
     assert ds._mel(row).shape[1] == ap.n_frames(SR)
     sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
     assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def test_mel_cache_does_not_read_the_audio_when_the_row_has_its_sha256(tmp_path, g2p, monkeypatch):
+    ds, row = _cached_dataset(tmp_path, g2p, AudioProcessor(), tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    ds._mel(row)
+    reads, read_bytes = [], Path.read_bytes
+    monkeypatch.setattr(Path, "read_bytes", lambda self: (reads.append(self), read_bytes(self))[1])
+    ds._mel(row)
+    assert reads == []
+
+
+def test_mel_cache_is_keyed_by_the_sha256_of_the_row(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "b" * 64})
+    assert len(calls) == 2
+
+
+def test_mel_cache_follows_a_recut_that_the_manifest_row_names(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel({**row, "sha256": _sha256(tmp_path / "u.wav")}).shape[1] == ap.n_frames(SR // 2)
 
 
 def _stats_dataset(tmp_path, g2p, amplitudes):

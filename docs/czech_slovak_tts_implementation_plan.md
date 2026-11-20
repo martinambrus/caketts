@@ -4029,7 +4029,9 @@ Claude Code Prompt 4.3: Create src/data/dataset.py exactly as the reference belo
  - Strict symbol lookup (UnknownSymbolError names the utterance); language IDs per token.
  - Mel targets are normalised with corpus statistics (corpus_mel_stats: rows spread evenly over the
    set, not the first N, which are the first chapters), padded with 0. The mel cache file is named
-   by the clip id and a hash of its audio, so a re-cut under the same id never loads an old mel.
+   by the clip id and the sha256 of its audio (the manifest row's own, else a hash of the file), so a
+   re-cut under the same id never loads an old mel and a cached mel of a row with a sha256 is served
+   without reading the WAV.
  - Batches carry speaker_ids, boundary_ids and rates for the conditioning in Step 8.
 ```
 
@@ -4084,7 +4086,8 @@ class FilterReport:
 
 
 def load_manifest(path: str) -> List[Dict]:
-    """JSONL, one utterance per line. Required: id, audio, text, lang. See the plan, Step 4."""
+    """JSONL, one utterance per line. Required: id, audio, text, lang. The sha256 of a row's audio, when it has one, names
+    its mel cache file. See the plan, Step 4."""
     rows = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -4141,7 +4144,7 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            digest = row.get("sha256") or hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
             p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
@@ -4418,7 +4421,9 @@ class TestTrimming:
 ```python
 # tests/test_data_pipeline.py
 """Data pipeline: drop-don't-crop filtering, strict symbols, conditioning carried into batches."""
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -4546,6 +4551,38 @@ def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
     assert ds._mel(row).shape[1] == ap.n_frames(SR)
     sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
     assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def test_mel_cache_does_not_read_the_audio_when_the_row_has_its_sha256(tmp_path, g2p, monkeypatch):
+    ds, row = _cached_dataset(tmp_path, g2p, AudioProcessor(), tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    ds._mel(row)
+    reads, read_bytes = [], Path.read_bytes
+    monkeypatch.setattr(Path, "read_bytes", lambda self: (reads.append(self), read_bytes(self))[1])
+    ds._mel(row)
+    assert reads == []
+
+
+def test_mel_cache_is_keyed_by_the_sha256_of_the_row(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "a" * 64}), ds._mel({**row, "sha256": "b" * 64})
+    assert len(calls) == 2
+
+
+def test_mel_cache_follows_a_recut_that_the_manifest_row_names(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    row["sha256"] = _sha256(tmp_path / "u.wav")
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel({**row, "sha256": _sha256(tmp_path / "u.wav")}).shape[1] == ap.n_frames(SR // 2)
 
 
 def _stats_dataset(tmp_path, g2p, amplitudes):

@@ -45,7 +45,8 @@ class FilterReport:
 
 
 def load_manifest(path: str) -> List[Dict]:
-    """JSONL, one utterance per line. Required: id, audio, text, lang. See the plan, Step 4."""
+    """JSONL, one utterance per line. Required: id, audio, text, lang. The sha256 of a row's audio, when it has one, names
+    its mel cache file. See the plan, Step 4."""
     rows = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -102,7 +103,7 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            digest = row.get("sha256") or hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
             p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
