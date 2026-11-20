@@ -3,7 +3,7 @@ import pytest
 
 from src.text.phonemizer import (
     CzechSlovakPhonemizer, PUNCT_TOKENS, STRESS_MARKS, WORD_BOUNDARY,
-    UnknownSymbolError, build_vocabulary, tokens_to_ids,
+    UnknownSymbolError, build_vocabulary, mark_role, tokens_to_ids,
 )
 
 CS = CzechSlovakPhonemizer("cs")
@@ -194,3 +194,18 @@ class TestVocabulary:
 
     def test_vocabulary_is_deterministic(self, vocab):
         assert build_vocabulary(COVERAGE) == vocab
+
+
+class TestMarkRole:
+    @pytest.mark.parametrize("text,i,expected", [
+        ("„a“", 0, "open"), ("„a“", 2, "close"), ("‚a‘", 0, "open"), ("‚a’", 2, "close"),
+        ("(a)", 0, "open"), ("(a)", 2, "close"), ("[a]", 0, "open"), ("[a]", 2, "close"),
+        ("»a«", 0, "open"), ("»a«", 2, "close"), ("«a»", 0, "open"), ("«a»", 2, "close"),
+        ('"a"', 0, "open"), ('"a"', 2, "close"), ('x "a" y', 2, "open"), ('x "a" y', 4, "close"),
+        ("—\"a", 1, "open"), ("„\"a", 1, "open"), ('a" "b', 1, "close"), ('a" "b', 3, "open"),
+        ("d'a", 1, None), ("d’a", 1, None), ('a"b', 1, None),
+        ("a, b", 1, None), ("a ,b", 2, "open"), ("a ,1", 2, None), ("a", 0, None), (" ", 0, None),
+        ("a”", 1, "close"), ("a ”b", 2, "close"),
+    ])
+    def test_mark_role(self, text, i, expected):
+        assert mark_role(text, i) == expected

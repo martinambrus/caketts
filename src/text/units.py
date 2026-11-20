@@ -15,10 +15,7 @@ paired with the narration after it.
 `pause` names the pause that follows the unit: "clause" after a clause cut, else "sentence", "paragraph" or "chapter"
 by the boundary.
 
-Quotes are tracked by position, so the straight " and ' that open and close alike work: „ ‚ ( [ open and ) ] ” ’
-close; “ ‘ » « ‹ › " ' open after the start, a space, a dash or an opening mark when a non-space follows, and close
-otherwise; a mark between two letters is an apostrophe; a closer never takes the depth below 0; an old Slovak
-,Ahoj!' opens with a comma after a space.
+Quotes and brackets are tracked by position with `mark_role` in src/text/phonemizer.py.
 
 Usage:
     build_units(segment("„Ne. Nikdy. Rozumíš?“ zašeptala."))   # one Unit holding the three sentences
@@ -29,6 +26,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable, List, Sequence, Tuple
 
+from src.text.phonemizer import mark_role
 from src.text.segmenter import Sentence
 
 _SPAN = re.compile(r"<(cs|sk|en)>.*?</\1>", re.DOTALL)
@@ -36,7 +34,6 @@ _TAG = re.compile(r"</?(?:cs|sk|en)>")
 _CLAUSE = re.compile(r"(?:(?<=[,;:—–…])|(?<=\s-))\s+(?=\S)")
 _DOTS = re.compile(r"\.{2,}")
 _SPACED_HYPHEN = re.compile(r"(?<=\s)-(?=\s)")
-_OPENING_CONTEXT = frozenset(" \t\n—–-([„‚“‘»«‹›\"'")
 _PAUSE = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
 
 
@@ -74,24 +71,12 @@ def _depths(text: str, depth: int) -> List[int]:
     """The quote and bracket depth after each character of text, entering with `depth`."""
     text = _SPAN.sub(lambda m: " " * len(m.group()), text)
     depths = []
-    for i, ch in enumerate(text):
-        prev = text[i - 1] if i else " "
-        nxt = text[i + 1] if i + 1 < len(text) else " "
-        if ch in "„‚([":
+    for i in range(len(text)):
+        role = mark_role(text, i)
+        if role == "open":
             depth += 1
-        elif ch in ")]":
+        elif role == "close":
             depth = max(0, depth - 1)
-        elif ch in "“”‘’»«‹›\"'":
-            if prev.isalnum() and nxt.isalnum():
-                pass
-            elif ch in "”’":
-                depth = max(0, depth - 1)
-            elif prev in _OPENING_CONTEXT and not nxt.isspace():
-                depth += 1
-            else:
-                depth = max(0, depth - 1)
-        elif ch == "," and prev in " \t\n" and nxt.isalpha():
-            depth += 1
         depths.append(depth)
     return depths
 

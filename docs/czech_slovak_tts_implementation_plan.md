@@ -3166,6 +3166,30 @@ SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKE
 
 _WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
+_OPENING_CONTEXT = frozenset(" \t\n—–-([„‚“‘»«‹›\"'")
+
+
+def mark_role(text: str, i: int) -> Optional[str]:
+    """"open" or "close" for the quote or bracket mark at text[i], decided by its position; None for any other character
+    and for a mark between two letters (an apostrophe). „ ‚ ( [ open and ) ] ” ’ close; “ ‘ » « ‹ › " ' open after the start,
+    a space, a dash or an opening mark when a non-space follows, and close otherwise; an old Slovak ,Ahoj!' opens with a
+    comma after a space."""
+    ch = text[i]
+    prev = text[i - 1] if i else " "
+    nxt = text[i + 1] if i + 1 < len(text) else " "
+    if ch in "„‚([":
+        return "open"
+    if ch in ")]":
+        return "close"
+    if ch in "“”‘’»«‹›\"'":
+        if prev.isalnum() and nxt.isalnum():
+            return None
+        if ch in "”’":
+            return "close"
+        return "open" if (prev in _OPENING_CONTEXT and not nxt.isspace()) else "close"
+    if ch == "," and prev in " \t\n" and nxt.isalpha():
+        return "open"
+    return None
 
 # Paired obstruents in espeak-ng 1.52 cs/sk output (voiced -> voiceless)
 VOICED_TO_VOICELESS = {
@@ -3591,7 +3615,7 @@ import pytest
 
 from src.text.phonemizer import (
     CzechSlovakPhonemizer, PUNCT_TOKENS, STRESS_MARKS, WORD_BOUNDARY,
-    UnknownSymbolError, build_vocabulary, tokens_to_ids,
+    UnknownSymbolError, build_vocabulary, mark_role, tokens_to_ids,
 )
 
 CS = CzechSlovakPhonemizer("cs")
@@ -3782,6 +3806,21 @@ class TestVocabulary:
 
     def test_vocabulary_is_deterministic(self, vocab):
         assert build_vocabulary(COVERAGE) == vocab
+
+
+class TestMarkRole:
+    @pytest.mark.parametrize("text,i,expected", [
+        ("„a“", 0, "open"), ("„a“", 2, "close"), ("‚a‘", 0, "open"), ("‚a’", 2, "close"),
+        ("(a)", 0, "open"), ("(a)", 2, "close"), ("[a]", 0, "open"), ("[a]", 2, "close"),
+        ("»a«", 0, "open"), ("»a«", 2, "close"), ("«a»", 0, "open"), ("«a»", 2, "close"),
+        ('"a"', 0, "open"), ('"a"', 2, "close"), ('x "a" y', 2, "open"), ('x "a" y', 4, "close"),
+        ("—\"a", 1, "open"), ("„\"a", 1, "open"), ('a" "b', 1, "close"), ('a" "b', 3, "open"),
+        ("d'a", 1, None), ("d’a", 1, None), ('a"b', 1, None),
+        ("a, b", 1, None), ("a ,b", 2, "open"), ("a ,1", 2, None), ("a", 0, None), (" ", 0, None),
+        ("a”", 1, "close"), ("a ”b", 2, "close"),
+    ])
+    def test_mark_role(self, text, i, expected):
+        assert mark_role(text, i) == expected
 ```
 
 ---
