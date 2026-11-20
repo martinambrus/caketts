@@ -494,7 +494,7 @@ sentence-initial number word. A lowercase word goes on ("„Kam jdeš?“ zeptal
 the period is an initial ("V. Havel"), and a <cs>/<sk>/<en> span is never split.
 
 Usage:
-    segment("# První\\n\\nPřišel. Odešel.\\n")[2]   # Sentence('Odešel.', 'chapter_end', chapter=0, paragraph=1)
+    segment("# První\\n\\nPřišel. Odešel.\\n")[2]   # Sentence('Odešel.', 'chapter_end', chapter=0, paragraph=1, line=2)
 """
 from __future__ import annotations
 
@@ -514,25 +514,32 @@ _CANDIDATE = re.compile(
 @dataclass(frozen=True)
 class Sentence:
     """`boundary` is what follows the sentence: "mid", "para_end" or "chapter_end" (the keys of
-    src.data.dataset.BOUNDARY_IDS). `chapter` and `paragraph` count from 0, the paragraph within its chapter."""
+    src.data.dataset.BOUNDARY_IDS). `chapter` and `paragraph` count from 0, the paragraph within its chapter.
+    `heading` is True for the sentences of a "# " line; `line` counts from 0 the first line of the sentence's block in
+    the text given to `segment`."""
     text: str
     boundary: str
     chapter: int
     paragraph: int
+    heading: bool = False
+    line: int = 0
 
 
-def _paragraphs(text: str) -> Iterator[Tuple[bool, str]]:
-    """The paragraphs of book text as (is_heading, text), the lines of a paragraph joined by one space. A heading line
-    also ends the paragraph before it."""
+def _paragraphs(text: str) -> Iterator[Tuple[bool, str, int]]:
+    """The paragraphs of book text as (is_heading, text, first line), the lines of a paragraph joined by one space. A
+    heading line also ends the paragraph before it."""
     lines: List[str] = []
-    for line in [*text.splitlines(), ""]:
+    first = 0
+    for number, line in enumerate([*text.splitlines(), ""]):
         if line.startswith("# ") or not line.strip():
             if lines:
-                yield False, " ".join(lines)
+                yield False, " ".join(lines), first
                 lines = []
             if line.startswith("# "):
-                yield True, line[2:]
+                yield True, line[2:], number
         else:
+            if not lines:
+                first = number
             lines.append(line.strip())
 
 
@@ -557,24 +564,24 @@ def segment(text: str) -> List[Sentence]:
     """Split normalised book text into sentences, each labelled with the boundary that follows it. A heading line starts
     a chapter, even one with no text; text before the first heading is the first chapter, so a text without a heading
     is one chapter."""
-    found: List[Tuple[str, int, int]] = []  # sentence, chapter, paragraph
+    found: List[Tuple[str, int, int, bool, int]] = []  # sentence, chapter, paragraph, heading, line
     chapter = paragraph = -1
-    for heading, block in _paragraphs(text):
+    for heading, block, line in _paragraphs(text):
         sentences = _sentences(block)
         if heading or (chapter < 0 and sentences):
             chapter, paragraph = chapter + 1, -1
         if sentences:
             paragraph += 1
-            found += [(s, chapter, paragraph) for s in sentences]
+            found += [(s, chapter, paragraph, heading, line) for s in sentences]
     result = []
-    for i, (s, c, p) in enumerate(found):
+    for i, (s, c, p, h, n) in enumerate(found):
         if i + 1 == len(found) or found[i + 1][1] != c:
             boundary = "chapter_end"
         elif found[i + 1][2] != p:
             boundary = "para_end"
         else:
             boundary = "mid"
-        result.append(Sentence(s, boundary, c, p))
+        result.append(Sentence(s, boundary, c, p, h, n))
     return result
 ```
 
@@ -2845,6 +2852,25 @@ STRUCTURE = {  # id: (book text, [(text, boundary, chapter, paragraph)])
         ("První", "para_end", 0, 0), ("Přišel.", "chapter_end", 0, 1)]),
 }
 
+FIELDS = {  # id: (book text, [(text, heading, line)]); line counts from 0 the first line of the sentence's block
+    "one-line": ("Přišel.", [("Přišel.", False, 0)]),
+    "heading-and-body": ("# První\n\nPřišel.", [("První", True, 0), ("Přišel.", False, 2)]),
+    "two-paragraphs": ("Přišel.\n\nOdešel.", [("Přišel.", False, 0), ("Odešel.", False, 2)]),
+    "joined-lines-share-the-first-line": ("Přišel\nodešel. Potom\nšel spát.\n\nKonec.", [
+        ("Přišel odešel.", False, 0), ("Potom šel spát.", False, 0), ("Konec.", False, 4)]),
+    "leading-blank-lines": ("\n\nPřišel.\n\n", [("Přišel.", False, 2)]),
+    "heading-with-two-sentences": ("# Kapitola jedna. Návrat\n\nText.", [
+        ("Kapitola jedna.", True, 0), ("Návrat", True, 0), ("Text.", False, 2)]),
+    "text-before-first-heading": ("Úvod.\n\n# První\n\nPřišel.", [
+        ("Úvod.", False, 0), ("První", True, 2), ("Přišel.", False, 4)]),
+    "heading-without-blank-lines": ("Přišel.\n# První\nOdešel.", [
+        ("Přišel.", False, 0), ("První", True, 1), ("Odešel.", False, 2)]),
+    "letterless-paragraph-keeps-lines": ("# A\n\n* * *\n\nText.", [("A", True, 0), ("Text.", False, 4)]),
+    "empty-heading-adds-no-sentence": ("Text.\n\n# \n\nMore.", [("Text.", False, 0), ("More.", False, 4)]),
+    "crlf": ("Přišel.\r\nOdešel.\r\n\r\nKonec.\r\n", [("Přišel.", False, 0), ("Odešel.", False, 0), ("Konec.", False, 3)]),
+    "lone-carriage-returns": ("Přišel\rodešel.\r\rKonec.", [("Přišel odešel.", False, 0), ("Konec.", False, 3)]),
+}
+
 PIPELINES = {  # id: (language, book text, [(text, boundary, chapter, paragraph)])
     "czech": ("cs", """# Kapitola 1
 
@@ -2951,6 +2977,21 @@ def test_structure_and_labels(text, expected):
 
 def test_sentence_fields_and_order():
     assert segment("Přišel.") == [Sentence("Přišel.", "chapter_end", 0, 0)]
+
+
+@pytest.mark.parametrize("text,expected", FIELDS.values(), ids=list(FIELDS))
+def test_heading_flag_and_source_line(text, expected):
+    assert [(s.text, s.heading, s.line) for s in segment(text)] == expected
+
+
+@pytest.mark.parametrize("text", [text for text, _ in STRUCTURE.values()] + [text for text, _ in FIELDS.values()],
+                         ids=[*(f"structure-{key}" for key in STRUCTURE), *(f"fields-{key}" for key in FIELDS)])
+def test_source_line_is_the_block_start_and_the_heading_flag_follows_the_marker(text):
+    lines = text.splitlines()
+    for s in segment(text):
+        assert lines[s.line].strip() and lines[s.line].startswith("# ") == s.heading
+        if not s.heading:
+            assert s.line == 0 or not lines[s.line - 1].strip() or lines[s.line - 1].startswith("# ")
 
 
 def test_every_label_occurs_and_is_a_known_id():
@@ -3843,11 +3884,18 @@ class AudioProcessor:
 
     # ---- trimming ------------------------------------------------------------------------
     def trim(self, wav: torch.Tensor, speech_start_s: float, speech_end_s: float,
-             pad_s: float = 0.15) -> torch.Tensor:
-        """Keep [first speech - pad, last speech + pad]. Bounds from a forced aligner are best."""
+             pad_s: float = 0.15, prev_cut_s: Optional[float] = None,
+             next_cut_s: Optional[float] = None) -> torch.Tensor:
+        """Keep [first speech - pad, last speech + pad]. Bounds from a forced aligner are best.
+        Pass the cut point shared with each neighbouring clip (the same value to both clips) and
+        neither clip reaches past it, so two clips never share a sample."""
         sr = self.cfg.sample_rate
         a = max(0, int(round((speech_start_s - pad_s) * sr)))
         b = min(wav.shape[-1], int(round((speech_end_s + pad_s) * sr)))
+        if prev_cut_s is not None:
+            a = max(a, int(round(prev_cut_s * sr)))
+        if next_cut_s is not None:
+            b = min(b, int(round(next_cut_s * sr)))
         return wav[..., a:b]
 
     def detect_speech_bounds(self, wav: torch.Tensor, noise_floor_db: Optional[float] = None,
@@ -3956,6 +4004,7 @@ Fixes relative to v1:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass
@@ -4044,7 +4093,8 @@ class TTSDataset(Dataset):
 
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
-            p = self.cache / f"{row['id']}.pt"
+            digest = hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
+            p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
             if p.exists():
                 return torch.load(p)
         mel = self.audio.compute_mel(self.audio.load_audio(row["audio"]))
@@ -4096,10 +4146,11 @@ class TTSCollator:
 
 
 def corpus_mel_stats(dataset: TTSDataset, max_items: int = 2000) -> Tuple[float, float]:
-    """Scalar mean/std of log-mel over (a sample of) the training set, as in Matcha-TTS."""
+    """Scalar mean/std of log-mel over (an even sample of) the training set, as in Matcha-TTS."""
     s, s2, n = 0.0, 0.0, 0
-    for i in range(min(len(dataset), max_items)):
-        m = dataset._mel(dataset.rows[i])
+    count = min(len(dataset), max_items)
+    for i in range(count):
+        m = dataset._mel(dataset.rows[i * len(dataset) // count])
         s += m.sum().item(); s2 += (m ** 2).sum().item(); n += m.numel()
     mean = s / n
     return mean, (s2 / n - mean ** 2) ** 0.5
@@ -4299,6 +4350,19 @@ class TestTrimming:
         assert start <= 0.51 and end >= 1.49
         trimmed = ap.trim(wav, start, end)
         assert trimmed.shape[-1] >= int((1.0 + 0.3) * sr) - 1
+
+    def test_neighbouring_clips_never_share_a_sample(self, ap):
+        """A 100 ms pause is shorter than two 150 ms pads: both clips stop at the cut they share."""
+        sr = ap.cfg.sample_rate
+        wav = torch.arange(3 * sr, dtype=torch.float32).unsqueeze(0)  # every sample holds its own index
+        first = ap.trim(wav, 0.5, 1.5, next_cut_s=1.55)
+        second = ap.trim(wav, 1.6, 2.5, prev_cut_s=1.55)
+        assert first[0, -1] + 1 == second[0, 0] == round(1.55 * sr)
+        assert first[0, 0] == round(0.35 * sr) and second[0, -1] + 1 == round(2.65 * sr)
+
+    def test_cut_points_beyond_the_pads_change_nothing(self, ap):
+        wav = speechlike(3.0)
+        assert torch.equal(ap.trim(wav, 0.5, 1.5, prev_cut_s=0.0, next_cut_s=3.0), ap.trim(wav, 0.5, 1.5))
 ```
 
 ```python
@@ -4312,7 +4376,7 @@ import soundfile as sf
 import torch
 
 from src.data.audio import AudioProcessor
-from src.data.dataset import TTSCollator, TTSDataset, filter_manifest, load_manifest
+from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
 SR = 24000
@@ -4393,6 +4457,62 @@ def test_collator_carries_conditioning(corpus, g2p):
     t_len = batch["phoneme_lengths"]
     assert (batch["phoneme_ids"][0, t_len[0]:] == 0).all()
     assert (batch["mels"][2, :, batch["mel_lengths"][2]:] == 0).all()
+
+
+def _tone(seconds, freq=150.0):
+    t = np.arange(int(seconds * SR)) / SR
+    return (0.1 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+
+
+def _cached_dataset(tmp_path, g2p, ap, wav, seconds):
+    sf.write(wav, _tone(seconds), SR)
+    row = {"id": "u", "audio": str(wav), "text": "Ano.", "lang": "cs"}
+    ds = TTSDataset([row], ap, {}, g2p, speaker_ids={"narrator": 0}, mel_cache_dir=str(tmp_path / "mels"))
+    return ds, row
+
+
+def test_mel_cache_is_reused_while_the_audio_is_unchanged(tmp_path, g2p):
+    ap, calls = AudioProcessor(), []
+    compute = ap.compute_mel
+    ap.compute_mel = lambda wav: (calls.append(1), compute(wav))[1]
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    first, second = ds._mel(row), ds._mel(row)
+    assert len(calls) == 1 and torch.equal(first, second)
+
+
+def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
+    ap = AudioProcessor()
+    ds, row = _cached_dataset(tmp_path, g2p, ap, tmp_path / "u.wav", 1.0)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR)
+    sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
+    assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _stats_dataset(tmp_path, g2p, amplitudes):
+    rows = []
+    for i, amp in enumerate(amplitudes):
+        path = tmp_path / f"s{i}.wav"
+        sf.write(path, (amp * np.random.default_rng(i).standard_normal(SR // 2)).astype(np.float32), SR)
+        rows.append({"id": f"s{i}", "audio": str(path), "text": "Ano.", "lang": "cs"})
+    return TTSDataset(rows, AudioProcessor(), {}, g2p, speaker_ids={"narrator": 0})
+
+
+def _mean_of(ds, indices):
+    mels = [ds._mel(ds.rows[i]) for i in indices]
+    return sum(m.sum().item() for m in mels) / sum(m.numel() for m in mels)
+
+
+def test_mel_stats_sample_evenly_over_the_whole_set(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01] * 4 + [0.3] * 4)
+    mean, std = corpus_mel_stats(ds, max_items=4)
+    assert mean == pytest.approx(_mean_of(ds, [0, 2, 4, 6]))
+    assert abs(mean - _mean_of(ds, [0, 1, 2, 3])) > 1.0 and std > 0
+
+
+def test_mel_stats_use_every_row_when_the_limit_allows(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01, 0.05, 0.1, 0.3, 0.02])
+    assert corpus_mel_stats(ds, max_items=50)[0] == pytest.approx(_mean_of(ds, range(5)))
+    assert corpus_mel_stats(ds, max_items=5)[0] == pytest.approx(_mean_of(ds, range(5)))
 ```
 
 ---
