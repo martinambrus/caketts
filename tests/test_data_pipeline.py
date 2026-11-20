@@ -7,7 +7,7 @@ import soundfile as sf
 import torch
 
 from src.data.audio import AudioProcessor
-from src.data.dataset import TTSCollator, TTSDataset, filter_manifest, load_manifest
+from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
 SR = 24000
@@ -117,3 +117,30 @@ def test_mel_cache_follows_a_recut_under_the_same_id(tmp_path, g2p):
     assert ds._mel(row).shape[1] == ap.n_frames(SR)
     sf.write(tmp_path / "u.wav", _tone(0.5, 300.0), SR)
     assert ds._mel(row).shape[1] == ap.n_frames(SR // 2)
+
+
+def _stats_dataset(tmp_path, g2p, amplitudes):
+    rows = []
+    for i, amp in enumerate(amplitudes):
+        path = tmp_path / f"s{i}.wav"
+        sf.write(path, (amp * np.random.default_rng(i).standard_normal(SR // 2)).astype(np.float32), SR)
+        rows.append({"id": f"s{i}", "audio": str(path), "text": "Ano.", "lang": "cs"})
+    return TTSDataset(rows, AudioProcessor(), {}, g2p, speaker_ids={"narrator": 0})
+
+
+def _mean_of(ds, indices):
+    mels = [ds._mel(ds.rows[i]) for i in indices]
+    return sum(m.sum().item() for m in mels) / sum(m.numel() for m in mels)
+
+
+def test_mel_stats_sample_evenly_over_the_whole_set(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01] * 4 + [0.3] * 4)
+    mean, std = corpus_mel_stats(ds, max_items=4)
+    assert mean == pytest.approx(_mean_of(ds, [0, 2, 4, 6]))
+    assert abs(mean - _mean_of(ds, [0, 1, 2, 3])) > 1.0 and std > 0
+
+
+def test_mel_stats_use_every_row_when_the_limit_allows(tmp_path, g2p):
+    ds = _stats_dataset(tmp_path, g2p, [0.01, 0.05, 0.1, 0.3, 0.02])
+    assert corpus_mel_stats(ds, max_items=50)[0] == pytest.approx(_mean_of(ds, range(5)))
+    assert corpus_mel_stats(ds, max_items=5)[0] == pytest.approx(_mean_of(ds, range(5)))
