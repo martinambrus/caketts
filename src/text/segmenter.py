@@ -13,7 +13,7 @@ sentence-initial number word. A lowercase word goes on ("„Kam jdeš?“ zeptal
 the period is an initial ("V. Havel"), and a <cs>/<sk>/<en> span is never split.
 
 Usage:
-    segment("# První\\n\\nPřišel. Odešel.\\n")[2]   # Sentence('Odešel.', 'chapter_end', chapter=0, paragraph=1)
+    segment("# První\\n\\nPřišel. Odešel.\\n")[2]   # Sentence('Odešel.', 'chapter_end', chapter=0, paragraph=1, line=2)
 """
 from __future__ import annotations
 
@@ -33,25 +33,32 @@ _CANDIDATE = re.compile(
 @dataclass(frozen=True)
 class Sentence:
     """`boundary` is what follows the sentence: "mid", "para_end" or "chapter_end" (the keys of
-    src.data.dataset.BOUNDARY_IDS). `chapter` and `paragraph` count from 0, the paragraph within its chapter."""
+    src.data.dataset.BOUNDARY_IDS). `chapter` and `paragraph` count from 0, the paragraph within its chapter.
+    `heading` is True for the sentences of a "# " line; `line` counts from 0 the first line of the sentence's block in
+    the text given to `segment`."""
     text: str
     boundary: str
     chapter: int
     paragraph: int
+    heading: bool = False
+    line: int = 0
 
 
-def _paragraphs(text: str) -> Iterator[Tuple[bool, str]]:
-    """The paragraphs of book text as (is_heading, text), the lines of a paragraph joined by one space. A heading line
-    also ends the paragraph before it."""
+def _paragraphs(text: str) -> Iterator[Tuple[bool, str, int]]:
+    """The paragraphs of book text as (is_heading, text, first line), the lines of a paragraph joined by one space. A
+    heading line also ends the paragraph before it."""
     lines: List[str] = []
-    for line in [*text.splitlines(), ""]:
+    first = 0
+    for number, line in enumerate([*text.splitlines(), ""]):
         if line.startswith("# ") or not line.strip():
             if lines:
-                yield False, " ".join(lines)
+                yield False, " ".join(lines), first
                 lines = []
             if line.startswith("# "):
-                yield True, line[2:]
+                yield True, line[2:], number
         else:
+            if not lines:
+                first = number
             lines.append(line.strip())
 
 
@@ -76,22 +83,22 @@ def segment(text: str) -> List[Sentence]:
     """Split normalised book text into sentences, each labelled with the boundary that follows it. A heading line starts
     a chapter, even one with no text; text before the first heading is the first chapter, so a text without a heading
     is one chapter."""
-    found: List[Tuple[str, int, int]] = []  # sentence, chapter, paragraph
+    found: List[Tuple[str, int, int, bool, int]] = []  # sentence, chapter, paragraph, heading, line
     chapter = paragraph = -1
-    for heading, block in _paragraphs(text):
+    for heading, block, line in _paragraphs(text):
         sentences = _sentences(block)
         if heading or (chapter < 0 and sentences):
             chapter, paragraph = chapter + 1, -1
         if sentences:
             paragraph += 1
-            found += [(s, chapter, paragraph) for s in sentences]
+            found += [(s, chapter, paragraph, heading, line) for s in sentences]
     result = []
-    for i, (s, c, p) in enumerate(found):
+    for i, (s, c, p, h, n) in enumerate(found):
         if i + 1 == len(found) or found[i + 1][1] != c:
             boundary = "chapter_end"
         elif found[i + 1][2] != p:
             boundary = "para_end"
         else:
             boundary = "mid"
-        result.append(Sentence(s, boundary, c, p))
+        result.append(Sentence(s, boundary, c, p, h, n))
     return result
