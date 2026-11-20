@@ -430,10 +430,10 @@ def test_late_first_word_is_inside_the_clip():
     assert c.start_sample <= b[1][0] and abs(c.pad_start_s - PAD) <= 0.01
 
 
-def test_late_first_word_is_cut_off_without_bridging():
+def test_late_first_word_without_bridging_is_taken_in_by_the_quiet_edge():
     pcm, b, edges = _late_word_part()
     plan, _ = _plan_hand(pcm, edges, CutConfig(bridge_s=0.0))
-    assert plan.clips[0].start_sample > b[1][0]
+    assert plan.clips[0].start_sample == b[1][0] - F
 
 
 def test_late_start_inside_a_breath_clips_start_before_the_breath():
@@ -1192,3 +1192,209 @@ def test_over_cap_split_keeps_an_en_span_whole():
     assert [u["words"] for u in out_units] == [words[:6], words[6:]]
     assert [u["boundary"] for u in out_units] == ["mid", "para_end"]
     assert [(s["start_s"], s["end_s"]) for s in out_spans] == [(0.0, 9.2), (9.5, 24.0)]
+
+
+# ---------------------------------------------------------------- clip edges on a quiet frame
+
+EDGE_FLOOR = -60.0
+EDGE_QUIET_DB = 15.0
+
+
+def edge_pcm(n_frames, loud):
+    x = np.full(n_frames * F, 33, dtype=np.int16)
+    for f in loud:
+        x[f * F:(f + 1) * F] = 3277
+    return x
+
+
+def edge_start(pcm, a, c_prev, prev_quiet=True, room=10 ** 9):
+    return cut.quiet_start(pcm, a, c_prev, prev_quiet, EDGE_FLOOR, EDGE_QUIET_DB, F, room)
+
+
+def edge_end(pcm, b, c_next, next_quiet=True, room=10 ** 9):
+    return cut.quiet_end(pcm, b, c_next, next_quiet, EDGE_FLOOR, EDGE_QUIET_DB, F, room)
+
+
+def test_quiet_edges_stay():
+    pcm = edge_pcm(40, [])
+    assert edge_start(pcm, 20 * F, 0) == 20 * F
+    assert edge_end(pcm, 20 * F, 40 * F) == 20 * F
+
+
+@pytest.mark.parametrize("k", [1, 3])
+def test_loud_start_edge_moves_outward_to_the_quiet_window(k):
+    pcm = edge_pcm(40, range(20 - k + 1, 22))
+    assert edge_start(pcm, 20 * F, 0) == (20 - k) * F
+
+
+@pytest.mark.parametrize("k", [1, 3])
+def test_loud_end_edge_moves_outward_to_the_quiet_window(k):
+    pcm = edge_pcm(40, range(18, 20 + k - 1))
+    assert edge_end(pcm, 20 * F, 40 * F) == (20 + k - 1) * F + F
+
+
+def test_off_grid_edge_steps_by_whole_frames():
+    pcm = edge_pcm(40, range(18, 23))
+    assert edge_start(pcm, 20 * F + 7, 0) == 16 * F + 7
+    assert edge_end(pcm, 20 * F + 7, 40 * F) == 24 * F + 7
+
+
+def test_loud_run_down_to_a_quiet_cut_point_stops_at_the_cut_point():
+    pcm = edge_pcm(40, range(8, 22))
+    assert edge_start(pcm, 20 * F, 10 * F) == 10 * F
+    pcm = edge_pcm(40, range(18, 32))
+    assert edge_end(pcm, 20 * F, 30 * F) == 30 * F
+
+
+def test_loud_run_down_to_a_non_quiet_cut_point_leaves_the_edge():
+    pcm = edge_pcm(40, range(8, 22))
+    assert edge_start(pcm, 20 * F, 10 * F, prev_quiet=False) == 20 * F
+    pcm = edge_pcm(40, range(18, 32))
+    assert edge_end(pcm, 20 * F, 30 * F, next_quiet=False) == 20 * F
+
+
+def test_edge_at_the_cut_point_or_part_end_is_untouched():
+    pcm = edge_pcm(40, range(0, 40))
+    assert edge_start(pcm, 0, 0) == 0
+    assert edge_start(pcm, 10 * F, 10 * F) == 10 * F
+    assert edge_end(pcm, 40 * F, 40 * F) == 40 * F
+    assert edge_end(pcm, 30 * F, 30 * F, next_quiet=False) == 30 * F
+
+
+def test_loud_run_to_the_part_edges_stops_at_them():
+    pcm = edge_pcm(40, range(0, 22))
+    assert edge_start(pcm, 20 * F, 0) == 0
+    pcm = edge_pcm(40, range(18, 40))
+    assert edge_end(pcm, 20 * F, 40 * F) == 40 * F
+
+
+def test_edge_never_moves_inward_nor_past_the_cut_point():
+    for loud in ([], [19], range(10, 21), range(0, 40)):
+        pcm = edge_pcm(40, loud)
+        for q in (True, False):
+            assert 5 * F <= edge_start(pcm, 20 * F, 5 * F, q) <= 20 * F
+            assert 20 * F <= edge_end(pcm, 20 * F, 35 * F, q) <= 35 * F
+
+
+def test_extension_stops_at_the_room_and_stays_loud():
+    pcm = edge_pcm(40, range(10, 22))
+    assert edge_start(pcm, 20 * F, 0, room=3 * F + 5) == 17 * F
+    assert edge_end(pcm, 20 * F, 40 * F, room=3 * F + 5) == 23 * F
+    assert edge_start(pcm, 20 * F, 0, room=0) == 20 * F
+    assert edge_end(pcm, 20 * F, 40 * F, room=F - 1) == 20 * F
+
+
+def test_quiet_window_within_the_room_is_still_reached():
+    pcm = edge_pcm(40, range(18, 22))
+    assert edge_start(pcm, 20 * F, 0, room=3 * F) == 17 * F
+    pcm = edge_pcm(40, range(18, 22))
+    assert edge_end(pcm, 20 * F, 40 * F, room=2 * F) == 22 * F
+
+
+def test_cut_point_beyond_the_room_is_not_taken():
+    pcm = edge_pcm(40, range(8, 22))
+    assert edge_start(pcm, 20 * F, 10 * F, room=5 * F) == 15 * F
+    assert edge_start(pcm, 20 * F, 10 * F, room=10 * F) == 10 * F
+
+
+def test_both_edges_of_one_gap_loud_stop_at_the_cut_point():
+    pcm = edge_pcm(40, range(8, 32))
+    end_k, start_k1 = edge_end(pcm, 12 * F, 20 * F), edge_start(pcm, 28 * F, 20 * F)
+    assert (end_k, start_k1) == (20 * F, 20 * F)
+    pcm = edge_pcm(40, [11, 12, 27, 28])
+    end_k, start_k1 = edge_end(pcm, 12 * F, 20 * F), edge_start(pcm, 28 * F, 20 * F)
+    assert end_k == 14 * F and start_k1 == 26 * F and end_k <= start_k1
+
+
+def burst(pcm, a, b, seed):
+    out = pcm.astype(np.float64)
+    out[a:b] += np.random.default_rng(seed).standard_normal(b - a) * 10 ** (-30 / 20) * 32768
+    return np.clip(np.round(out), -32768, 32767).astype(np.int16)
+
+
+def edge_rows(plan, pcm):
+    floor, rows = plan.stats["floor_db"], []
+    for c in plan.clips:
+        if frame_db_np(pcm[c.start_sample:c.start_sample + F])[0] - floor > CutConfig.quiet_db:
+            rows.append((c.id, "start"))
+        if frame_db_np(pcm[c.end_sample - F:c.end_sample])[0] - floor > CutConfig.quiet_db:
+            rows.append((c.id, "end"))
+    return rows
+
+
+def test_run_cut_places_edges_on_quiet_frames_without_changing_anything_else(tmp_path):
+    d = std()
+    spans = stub_spans(d["units"], d["truth"], 0.02, 3)
+    base = cut.plan_part("p", d["pcm"], SR, d["units"], spans, CutConfig())
+    c_start = next(c for c in base.clips if c.units[0] == "p-00003")
+    c_end = next(c for c in base.clips if c.units[-1] == "p-00005")
+    pcm = burst(d["pcm"], c_start.start_sample, c_start.start_sample + 2 * F, 1)
+    pcm = burst(pcm, c_end.end_sample - 2 * F, c_end.end_sample, 2)
+    assert {(c_start.id, "start"), (c_end.id, "end")} <= set(edge_rows(base, pcm))
+
+    write_work(tmp_path, {"p": (pcm, d["units"], spans)})
+    cut.run_cut(tmp_path, ["p"], CutConfig())
+    plan = cut.plan_part("p", pcm, SR, d["units"], spans, CutConfig())
+    rows = [json.loads(line) for line in (tmp_path / "cut" / "p.cuts.jsonl").read_text().splitlines()]
+    flagged = {c.id for c in plan.clips if "no_quiet_cut" in c.flags}
+    assert {cid for cid, _ in edge_rows(plan, pcm)} <= flagged
+    assert [r["start_sample"] for r in rows] == [c.start_sample for c in plan.clips]
+
+    by_id, base_by_id = {c.id: c for c in plan.clips}, {c.id: c for c in base.clips}
+    assert by_id.keys() == base_by_id.keys()
+    for cid, c in by_id.items():
+        b0 = base_by_id[cid]
+        for f in ("units", "text", "boundary", "speech_start", "speech_end", "al_start", "al_end", "gap_before_s",
+                  "gap_after_s", "flags"):
+            assert getattr(c, f) == getattr(b0, f), f"{cid}.{f}"
+        assert c.pad_start_s == (c.speech_start - c.start_sample) / SR
+        assert c.pad_end_s == (c.end_sample - c.speech_end) / SR
+        assert c.start_sample <= b0.start_sample and c.end_sample >= b0.end_sample
+    assert by_id[c_start.id].start_sample == c_start.start_sample - F
+    assert by_id[c_end.id].end_sample == c_end.end_sample + F
+    cut.check_clips(plan.clips, len(pcm), round(CutConfig().search_s * SR) + F)
+    for r in rows:
+        wav, _ = sf.read(str(tmp_path / "cut" / "clips" / f"{r['id']}.wav"), dtype="int16")
+        assert np.array_equal(wav, pcm[r["start_sample"]:r["end_sample"]])
+
+
+def test_extension_never_takes_a_clip_past_the_cap():
+    d = std()
+    spans = stub_spans(d["units"], d["truth"], 0.02, 3)
+    base = cut.plan_part("p", d["pcm"], SR, d["units"], spans, CutConfig())
+    c = next(c for c in base.clips if c.units == ["p-00001", "p-00002"])
+    length = c.end_sample - c.start_sample
+    pcm = burst(d["pcm"], c.start_sample, c.start_sample + 2 * F, 1)
+    pcm = burst(pcm, c.end_sample - 2 * F, c.end_sample, 2)
+    tight = CutConfig(max_clip_s=length / SR)
+    plan = cut.plan_part("p", pcm, SR, d["units"], spans, tight)
+    t = next(x for x in plan.clips if x.id == c.id)
+    assert (t.start_sample, t.end_sample) == (c.start_sample, c.end_sample)
+    assert {(t.id, "start"), (t.id, "end")} <= set(edge_rows(plan, pcm))
+    one = CutConfig(max_clip_s=(length + F) / SR)
+    plan = cut.plan_part("p", pcm, SR, d["units"], spans, one)
+    t = next(x for x in plan.clips if x.id == c.id)
+    assert t.end_sample - t.start_sample <= round(one.max_clip_s * SR)
+    assert (t.start_sample, t.end_sample) == (c.start_sample - F, c.end_sample)
+    roomy = cut.plan_part("p", pcm, SR, d["units"], spans, CutConfig())
+    r = next(x for x in roomy.clips if x.id == c.id)
+    assert (r.start_sample, r.end_sample) == (c.start_sample - F, c.end_sample + F)
+    assert (r.id, "start") not in edge_rows(roomy, pcm) and (r.id, "end") not in edge_rows(roomy, pcm)
+
+
+def test_both_edges_of_one_gap_loud_do_not_overlap():
+    d = std()
+    spans = stub_spans(d["units"], d["truth"], 0.02, 3)
+    base = cut.plan_part("p", d["pcm"], SR, d["units"], spans, CutConfig())
+    c1 = next(c for c in base.clips if c.units[-1] == "p-00006")
+    c2 = next(c for c in base.clips if c.units[0] == "p-00007")
+    pcm = burst(d["pcm"], c1.end_sample - 2 * F, c1.end_sample, 1)
+    pcm = burst(pcm, c2.start_sample, c2.start_sample + 2 * F, 2)
+    plan = cut.plan_part("p", pcm, SR, d["units"], spans, CutConfig())
+    n1 = next(c for c in plan.clips if c.id == c1.id)
+    n2 = next(c for c in plan.clips if c.id == c2.id)
+    assert n1.end_sample >= n1.speech_end and n2.start_sample <= n2.speech_start
+    assert not {(c1.id, "end"), (c2.id, "start")} & set(edge_rows(plan, pcm))
+    assert n1.end_sample <= n2.start_sample
+    cut.check_clips(plan.clips, len(pcm), round(CutConfig().search_s * SR) + F)
+    cut.check_unique_hashes([(c.id, c.sha256) for c in plan.clips])
