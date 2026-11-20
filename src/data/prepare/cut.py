@@ -296,7 +296,7 @@ def _word_spans(text: str) -> list[tuple[int, int]]:
 
 
 def _cap_ranges(words: list, pos: list, tags: list, lo: int, hi: int, cfg: CutConfig) -> list[tuple[int, int]]:
-    if words[hi - 1]["end"] - words[lo]["start"] + 2 * cfg.pad_s <= cfg.max_clip_s:
+    if words[hi - 1]["end"] - words[lo]["start"] + 2 * cfg.pad_s + 2 * (cfg.search_s + cfg.bridge_s) <= cfg.max_clip_s:
         return [(lo, hi)]
     n, m = hi - lo, cfg.min_split_words
     ks = [k for k in range(lo + m, hi - m + 1) if not any(a < pos[k][0] < b for a, b in tags)]
@@ -317,7 +317,7 @@ def split_over_cap(units: Sequence[dict], spans: Sequence[dict], cfg: CutConfig,
         pos = _word_spans(text)
         if (ids[u.get("id")] != 1 or span.get("status", "ok") != "ok" or not _num(span.get("start_s"))
                 or not _num(span.get("end_s")) or not span["start_s"] < span["end_s"]
-                or (span["end_s"] - span["start_s"]) + 2 * cfg.pad_s <= cfg.max_clip_s
+                or (span["end_s"] - span["start_s"]) + 2 * cfg.pad_s + 2 * (cfg.search_s + cfg.bridge_s) <= cfg.max_clip_s
                 or not isinstance(words, list) or len(words) != len(pos)
                 or not all(isinstance(w, dict) and _num(w.get("start")) and _num(w.get("end")) for w in words)):
             new_units.append(u)
@@ -401,7 +401,8 @@ def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans:
         if groups and it.ok and groups[-1][-1].ok:
             last = groups[-1][-1]
             est = sum(x.unit.get("est_s") or 0.0 for x in groups[-1]) + (it.unit.get("est_s") or 0.0)
-            if can_merge(last, it, it.s_ref - last.e_ref, est, cfg, sr):
+            fits = (it.e_ref - groups[-1][0].s_ref) / sr + 2 * cfg.pad_s <= cfg.max_clip_s  # measured, not estimated, length
+            if fits and can_merge(last, it, it.s_ref - last.e_ref, est, cfg, sr):
                 groups[-1].append(it)
                 continue
         groups.append([it])

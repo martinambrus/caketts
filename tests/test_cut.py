@@ -1009,6 +1009,68 @@ def test_over_cap_unit_splits_at_the_longest_pause():
     assert c1.text == group[0]["text"] and c2.text == group[1]["text"]
 
 
+def _merge_pair(speech, seed, inset=0.0):
+    items = [pz(0.5), sp(speech, est_s=8.5), pz(0.2), sp(speech, "para_end", est_s=8.5), pz(0.5)]
+    pcm, truth = make_part(items, seed)
+    units = make_units(items)
+    for u in units:
+        u["paragraph"] = 0
+    spans = stub_spans(units, truth, 0.02, 1)
+    spans[0]["start_s"] += inset
+    spans[1]["end_s"] -= inset
+    return cut.plan_part("p", pcm, SR, units, spans, CutConfig()), units
+
+
+def test_merge_is_refused_when_the_measured_span_would_exceed_the_cap():
+    plan, units = _merge_pair(10.15, 78)
+    assert len(plan.clips) == 2 and all(len(c.units) == 1 for c in plan.clips)
+    assert all("over_cap" not in c.flags for c in plan.clips)
+
+
+def test_merge_guard_measures_the_refined_span_not_the_aligner_span():
+    plan, units = _merge_pair(9.9, 83, inset=0.3)
+    assert len(plan.clips) == 2 and all(len(c.units) == 1 for c in plan.clips)
+
+
+def test_merge_still_happens_when_the_measured_span_fits_the_cap():
+    plan, units = _merge_pair(9.25, 79)
+    assert len(plan.clips) == 1 and plan.clips[0].units == [u["id"] for u in units]
+    assert (plan.clips[0].end_sample - plan.clips[0].start_sample) / SR <= 20.0
+
+
+def _clause_unit(half, seed):
+    items = [pz(0.5), sp(half), pz(0.6), sp(half, "para_end"), pz(0.5)]
+    return split_case(items, 0, 1, seed)
+
+
+def test_split_uses_the_slack_for_the_refined_edges():
+    pcm, truth, units, spans, group = _clause_unit(9.4, 80)
+    assert 19.4 + 2 * PAD <= 20.0 < 19.4 + 2 * PAD + 2 * (0.08 + 0.35)
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    assert [c.id for c in sorted(plan.clips, key=lambda c: c.start_sample)] == [f"{units[0]['id']}.1", f"{units[0]['id']}.2"]
+    assert all("over_cap" not in c.flags for c in plan.clips)
+
+
+def test_split_leaves_a_unit_well_under_the_limit_alone():
+    pcm, truth, units, spans, group = _clause_unit(8.7, 81)
+    out_units, out_spans = cut.split_over_cap(units, spans, CutConfig(), SR)
+    assert out_units == units and out_spans == spans
+
+
+def test_unit_near_the_cap_without_a_valid_pause_is_not_split_and_the_flag_follows_the_length():
+    items = [pz(0.5), sp(19.4, est_s=19.4), pz(0.5)]
+    pcm, truth = make_part(items, 82)
+    units = make_units(items)
+    spans = stub_spans(units, truth, 0.02, 1, words=False)
+    units[0], spans[0]["words"] = _five_words_at(units[0], truth, 0)
+    out_units, out_spans = cut.split_over_cap(units, spans, CutConfig(), SR)
+    assert out_units == units and out_spans == spans
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    assert len(plan.clips) == 1
+    c = plan.clips[0]
+    assert ("over_cap" in c.flags) == ((c.end_sample - c.start_sample) / SR > 20.0)
+
+
 def test_over_cap_pieces_are_not_merged_back_over_a_short_pause():
     items, (pcm, truth, units, spans, group) = two_halves(0.2, 72)
     plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
@@ -1031,6 +1093,12 @@ def test_over_cap_unit_splits_into_three_at_both_pauses():
         assert c.start_sample <= truth["speech"][i][0] + F and c.end_sample >= truth["speech"][i][1] - F
     for i in (0, 1):
         assert truth["pause_after"][i]["start"] <= cl[i].end_sample <= truth["pause_after"][i]["end"]
+
+
+def _five_words_at(u, truth, i):
+    s, e = truth["speech"][i]
+    text = "Rain tapped on the roof"
+    return {**u, "text": text, "words": WORD_RE.findall(text)}, _timed_words(WORD_RE.findall(text), s / SR, e / SR)
 
 
 def _five_words(u, truth):
