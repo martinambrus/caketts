@@ -149,17 +149,21 @@ Dependencies are managed with uv and are already in the repository: pyproject.to
 (minimums = the versions the tests were run with), uv.lock pins every version, .python-version
 pins Python 3.13, and python-preference = "only-managed" keeps an active conda or system Python
 out of the project. `uv sync` creates .venv; run every command with `uv run`.
-  - torch and torchaudio come from the PyTorch CPU index. On a CUDA machine, delete the
-    pytorch-cpu index and the [tool.uv.sources] entries (PyPI's Linux torch wheels are the
-    CUDA 13 build), then run `uv lock`.
+  - torch and torchaudio are one build per environment, chosen by dependency group: the default
+    group cpu (the PyTorch CPU index; `uv sync` and CI), or group cu130 (CUDA 13) on an NVIDIA
+    machine: `uv sync --group align --group cu130 --no-group cpu`. A plain `uv run` syncs the
+    default groups again and puts the CPU build back, so run a CUDA environment with
+    `.venv/bin/python` or `uv run --no-sync`. A plain `pip install .` no longer brings torch.
+  - group align adds uroman, which only the mms-300m aligner of Step 4.2 needs
   - torchaudio is used only for resample / forced_align; audio I/O goes through soundfile.
   - link-mode = "hardlink" shares installed files with the uv cache instead of copying them.
   - To upgrade: `uv lock --upgrade`, run the whole test suite, commit uv.lock.
+Parakeet-TDT-0.6B-v3 and Canary-1B-v2 run through transformers in this environment (Step 4.2:
+src/data/prepare/asr.py). nemo_toolkit[asr] is not used: it pins many packages and does not
+resolve with the core pins.
 Evaluation-only tools stay out of uv.lock:
   - PyICU (CLDR cross-check, Step 2.4): `uv run --with PyICU scripts/cldr_crosscheck.py`;
     needs libicu-dev
-  - nemo_toolkit[asr]>=2.3 (Parakeet-TDT-0.6B-v3, Canary-1B-v2): its own environment, created
-    when Steps 4.2, 12 and 14 start, because it pins many packages
 
 Create pytest.ini with pythonpath = . and a "slow" marker.
 ```
@@ -6152,16 +6156,18 @@ git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN
 git -C third_party/BigVGAN checkout 7d2b454
 uv run pytest tests/ -q
 
-# 2. data (Step 4.2) and G2P review (Step 3.2)
-uv run scripts/prepare_corpus.py --audio raw/ --text book.txt --lang sk --out data/narrator.jsonl
-uv run scripts/g2p_review.py --manifest data/narrator.jsonl --out review/sk_words.tsv
-uv run scripts/build_vocab.py --manifests data/*.jsonl --lexicon lexicon/lexicon.json --out lexicon/vocab.json
+# 2. data (Step 4.2, docs/corpus-preparation.md) and G2P review (Step 3.2)
+uv sync --group align --group cu130 --no-group cpu    # NVIDIA GPU: CUDA build of torch (CPU only: uv sync --group align); from here on use uv run --no-sync
+cp configs/data/example.yaml book.yaml                # set language, raw_dir (recordings and texts), work_dir, align.backend
+uv run --no-sync scripts/prepare_corpus.py all --config book.yaml    # -> work/manifest/{train,val,test,heldout}.jsonl
+uv run --no-sync scripts/g2p_review.py --manifest work/manifest/train.jsonl --out review/sk_words.tsv
+uv run --no-sync scripts/build_vocab.py --manifests work/manifest/{train,val,test,heldout}.jsonl --lexicon lexicon/lexicon.json --out lexicon/vocab.json
 
-# 3. training (Step 11)
-uv run scripts/train.py --config configs/training/pretrain.yaml
-uv run scripts/tempo_labels.py --checkpoint checkpoints/pretrain.pt --manifest data/narrator.jsonl
-uv run scripts/train.py --config configs/training/finetune_narrator.yaml
+# 3. training (Step 11): v1 trains from scratch on the narrator; the pretraining comparison is Step 15
+uv run --no-sync scripts/train.py --config configs/training/finetune_narrator.yaml   # stage 2, ~20k steps with the rates at the corpus mean (Step 4.4)
+uv run --no-sync scripts/tempo_labels.py --checkpoint checkpoints/narrator.pt --manifest work/manifest/train.jsonl
+uv run --no-sync scripts/train.py --config configs/training/finetune_narrator.yaml   # continue with the labels
 
 # 4. a book with verification and a QA report (Step 12)
-uv run scripts/synthesize_book.py --checkpoint checkpoints/narrator.pt --book book.txt --lang sk --out out/
+uv run --no-sync scripts/synthesize_book.py --checkpoint checkpoints/narrator.pt --book book.txt --lang sk --out out/
 ```

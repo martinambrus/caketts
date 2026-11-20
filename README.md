@@ -53,6 +53,7 @@ These are still prompts with acceptance criteria in the plan:
 
 ```bash
 uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv; uv: https://docs.astral.sh/uv/
+# NVIDIA GPU instead: uv sync --group align --group cu130 --no-group cpu   (CUDA 13 build of torch; then run with uv run --no-sync)
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
 git -C "${BIGVGAN_DIR:-third_party/BigVGAN}" checkout 7d2b454     # the commit the tests ran with
 uv run pytest tests/ -q -m "not slow"   # 2560 tests, about 40 s on CPU
