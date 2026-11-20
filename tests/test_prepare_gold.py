@@ -1,7 +1,9 @@
 """Gold-set scorer tests (src/data/prepare/gold.py). Synthetic data only; times in the unit tests use sample_rate 1000 so samples are ms."""
 import json
 
+import numpy as np
 import pytest
+import soundfile as sf
 
 from src.data.prepare import cut, gold
 from src.data.prepare.cut import CutConfig
@@ -297,3 +299,436 @@ def test_end_to_end_with_the_real_cutter(tmp_path):
     assert ok["aligner"]["matched"] == 5
     bad = gold.score_run(gold_of(int(0.3 * rate)), tmp_path, ["p"])["parts"]["p"]
     assert bad["matched"] < ok["matched"] or bad["start_error"]["median_ms"] > ok["start_error"]["median_ms"]
+
+
+# ---------------------------------------------------------------- lost speech
+
+F = 240
+THR = -45.0
+LOUD, QUIET = -30.0, -70.0
+
+
+def lv(n, loud):
+    """frame levels: n frames, LOUD inside the [a, b) frame ranges of loud, QUIET elsewhere."""
+    out = np.full(n, QUIET)
+    for a, b in loud:
+        out[a:b] = LOUD
+    return out
+
+
+def lost(spans, clips, level, floor=-60.0):
+    return gold._lost_speech([(a * F, b * F) for a, b in spans], [(a * F, b * F) for a, b in clips], level, F, THR, floor)
+
+
+def zero():
+    return {"head_s": 0.0, "inner_s": 0.0, "tail_s": 0.0, "lost_s": 0.0, "max_over_floor_db": None}
+
+
+def test_core_fully_covered_span_loses_nothing():
+    assert lost([(0, 10)], [(0, 10)], lv(10, [(0, 10)])) == [zero()]
+    assert lost([(2, 8)], [(0, 10)], lv(10, [(0, 10)])) == [zero()]
+
+
+def test_core_head_inner_tail_counts():
+    r = lost([(0, 10)], [(3, 10)], lv(10, [(0, 10)]))[0]
+    assert (r["head_s"], r["inner_s"], r["tail_s"], r["lost_s"]) == (0.03, 0.0, 0.0, 0.03)
+    r = lost([(0, 10)], [(0, 6)], lv(10, [(0, 10)]))[0]
+    assert (r["head_s"], r["inner_s"], r["tail_s"], r["lost_s"]) == (0.0, 0.0, 0.04, 0.04)
+    r = lost([(0, 10)], [(0, 3), (6, 10)], lv(10, [(0, 10)]))[0]
+    assert (r["head_s"], r["inner_s"], r["tail_s"], r["lost_s"]) == (0.0, 0.03, 0.0, 0.03)
+    r = lost([(0, 12)], [(2, 4), (7, 9)], lv(12, [(0, 12)]))[0]
+    assert (r["head_s"], r["inner_s"], r["tail_s"], r["lost_s"]) == (0.02, 0.03, 0.03, 0.08)
+    assert r["max_over_floor_db"] == 30.0
+
+
+def test_core_quiet_gap_is_not_lost():
+    assert lost([(0, 10)], [(0, 3), (6, 10)], lv(10, [(0, 3), (6, 10)])) == [zero()]
+    assert lost([(0, 10)], [(2, 10)], lv(10, [(2, 10)])) == [zero()]
+
+
+def test_core_partly_inside_frames_are_not_judged():
+    level = lv(10, [(0, 10)])
+    r = gold._lost_speech([(F // 2, 10 * F - F // 2)], [(F, 9 * F)], level, F, THR, -60.0)
+    assert r == [zero()]
+
+
+def test_core_level_equal_to_threshold_is_not_speech():
+    level = lv(10, [(0, 3), (6, 10)])
+    level[3:6] = THR
+    assert lost([(0, 10)], [(0, 3), (6, 10)], level) == [zero()]
+    level[3:6] = THR + 0.1
+    assert lost([(0, 10)], [(0, 3), (6, 10)], level)[0]["inner_s"] == 0.03
+
+
+def test_core_touching_clips_count_as_one():
+    level = lv(10, [(0, 10)])
+    assert gold._lost_speech([(0, 10 * F)], [(0, 5 * F + 120), (5 * F + 120, 10 * F)], level, F, THR, -60.0) == [zero()]
+    r = gold._lost_speech([(0, 10 * F)], [(0, 5 * F + 120), (5 * F + 121, 10 * F)], level, F, THR, -60.0)
+    assert r[0]["inner_s"] == 0.01
+
+
+def test_core_span_without_an_overlapping_clip_is_not_judged():
+    level = lv(20, [(0, 20)])
+    assert lost([(0, 10)], [(12, 20)], level) == [None]
+    assert lost([(5, 10)], [(0, 5)], level) == [None]
+    assert lost([(0, 10), (12, 20)], [(12, 20)], level) == [None, zero()]
+
+
+def audio(root, part, segs, total_s=10.0, floor=-60.0, speech_db=15.0, report=True):
+    """segs: [(start_s, end_s, dbfs)] constant square-wave levels on a zero background; start/end on 10 ms frames."""
+    pcm = np.zeros(round(total_s * SR), dtype=np.int16)
+    for a, b, db in segs:
+        pcm[round(a * SR):round(b * SR)] = round(32768 * 10 ** (db / 20))
+        pcm[round(a * SR):round(b * SR):2] *= -1
+    (root / "audio").mkdir(parents=True, exist_ok=True)
+    sf.write(str(root / "audio" / f"{part}.24k.wav"), pcm, SR, subtype="PCM_16")
+    if report:
+        (root / "cut").mkdir(parents=True, exist_ok=True)
+        rp = root / "cut" / "report.json"
+        parts = json.loads(rp.read_text())["parts"] if rp.exists() else {}
+        parts[part] = {"floor_db": floor, "speech_thr_db": None if floor is None else floor + speech_db}
+        rp.write_text(json.dumps({"parts": parts}))
+
+
+def lost_of(root, g, part="a", **kw):
+    r = gold.score_run(g, root, [part], 0.5, **kw)
+    return r["parts"][part]["lost_speech"], r
+
+
+def test_lost_speech_trimmed_clip_fails_and_is_named(tmp_path):
+    g = mk_gold([(1, 2), (3, 4)])
+    audio(tmp_path, "a", [(1, 2, -30), (3, 4, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 2.0), (3.3, 4.0)], pad_start=0, pad_end=0)
+    ls, r = lost_of(tmp_path, g)
+    assert ls["covered_spans"] == 2 and ls["lost_spans"] == 1 and ls["lost_speech_rate"] == 0.5
+    assert ls["lost_s"] == 0.3 and ls["floor_db"] == -60.0 and ls["speech_thr_db"] == -45.0
+    assert r["lost"] == [{"part": "a", "gold_clip": "T-1", "matched": True, "end_reliable": True, "lost_s": 0.3, "head_s": 0.3,
+                          "inner_s": 0.0, "tail_s": 0.0, "max_over_floor_db": 30.0, "words": None}]
+    assert ls["matched_covered"] == 2 and ls["matched_lost_spans"] == 1 and ls["matched_lost_speech_rate"] == 0.5
+    write_cuts(tmp_path, "a", [(1.0, 2.0), (3.0, 4.0)], pad_start=0, pad_end=0)
+    ls, r = lost_of(tmp_path, g)
+    assert ls["matched_lost_speech_rate"] == 0 and ls["lost_speech_rate"] == 0 and ls["lost_s"] == 0 and r["lost"] == []
+
+
+def test_lost_speech_tail_and_inner_split(tmp_path):
+    g = mk_gold([(1, 3)])
+    audio(tmp_path, "a", [(1, 3, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 1.5), (1.7, 2.6)], pad_start=0, pad_end=0)
+    row = lost_of(tmp_path, g)[1]["lost"][0]
+    assert (row["head_s"], row["inner_s"], row["tail_s"], row["lost_s"]) == (0.0, 0.2, 0.4, 0.6)
+
+
+def test_lost_speech_end_unreliable_span_is_scanned_only_up_to_its_end(tmp_path):
+    g = mk_gold([(1, 2)], reliable=[False])
+    audio(tmp_path, "a", [(1, 2.5, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 1.7)], pad_start=0, pad_end=0)
+    ls, r = lost_of(tmp_path, g)
+    assert r["lost"][0]["tail_s"] == 0.3 and r["lost"][0]["end_reliable"] is False and ls["lost_s"] == 0.3
+    write_cuts(tmp_path, "a", [(1.0, 2.0)], pad_start=0, pad_end=0)
+    assert lost_of(tmp_path, g)[0]["lost_s"] == 0
+
+
+def test_lost_speech_matched_vs_covered(tmp_path):
+    g = mk_gold([(1, 3), (5, 6)])
+    audio(tmp_path, "a", [(1, 3, -30), (5, 6, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 1.8), (5.0, 6.0)], pad_start=0, pad_end=0)
+    ls, r = lost_of(tmp_path, g)
+    assert r["parts"]["a"]["matched"] == 1
+    assert ls["covered_spans"] == 2 and ls["lost_spans"] == 1 and ls["lost_speech_rate"] == 0.5
+    assert ls["matched_covered"] == 1 and ls["matched_lost_spans"] == 0 and ls["matched_lost_speech_rate"] == 0
+    assert [(x["gold_clip"], x["matched"]) for x in r["lost"]] == [("T-0", False)]
+
+
+def test_lost_speech_unjudged_span_and_empty_rates(tmp_path):
+    g = mk_gold([(1, 2), (6, 7)])
+    audio(tmp_path, "a", [(1, 2, -30), (6, 7, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 2.0)], pad_start=0, pad_end=0)
+    ls = lost_of(tmp_path, g)[0]
+    assert ls["covered_spans"] == 1 and ls["lost_speech_rate"] == 0
+    write_cuts(tmp_path, "a", [(3.0, 4.0)], pad_start=0, pad_end=0)
+    ls = lost_of(tmp_path, g)[0]
+    assert ls["covered_spans"] == 0 and ls["lost_speech_rate"] is None and ls["matched_lost_speech_rate"] is None
+
+
+def test_lost_speech_db_override(tmp_path):
+    g = mk_gold([(1, 2)])
+    audio(tmp_path, "a", [(1, 2, -42)])
+    write_cuts(tmp_path, "a", [(1.0, 1.5)], pad_start=0, pad_end=0)
+    assert lost_of(tmp_path, g)[0]["lost_s"] == 0.5
+    ls = lost_of(tmp_path, g, speech_db=15.0)[0]
+    assert ls["lost_s"] == 0.5 and ls["speech_thr_db"] == -45.0
+    ls = lost_of(tmp_path, g, speech_db=20.0)[0]
+    assert ls["lost_s"] == 0 and ls["speech_thr_db"] == -40.0
+
+
+OLD_KEYS = {"gold_spans", "matched", "unsafe_edges", "unsafe_spans", "unsafe_cut_rate", "single_clip_spans", "unsafe_spans_single_clip",
+            "unsafe_cut_rate_single_clip", "start_error", "end_error", "aligner", "pauses"}
+
+
+def test_lost_speech_is_none_without_audio_report_or_floor(tmp_path):
+    g = mk_gold([(1, 2)])
+    write_cuts(tmp_path, "a", [(1.0, 1.5)], pad_start=0, pad_end=0)
+    r = score(tmp_path, g)
+    assert r["parts"]["a"]["lost_speech"] is None and r["total"]["lost_speech"] is None and r["lost"] == []
+    assert set(r["parts"]["a"]) - {"lost_speech"} == OLD_KEYS
+    audio(tmp_path, "a", [(1, 2, -30)], report=False)
+    assert score(tmp_path, g)["parts"]["a"]["lost_speech"] is None
+    audio(tmp_path, "a", [(1, 2, -30)], floor=None)
+    assert score(tmp_path, g)["parts"]["a"]["lost_speech"] is None
+    assert lost_of(tmp_path, g, speech_db=15.0)[0] is None
+    audio(tmp_path, "a", [(1, 2, -30)])
+    assert score(tmp_path, g)["parts"]["a"]["lost_speech"]["lost_s"] == 0.5
+
+
+def test_lost_speech_total_pools_counts(tmp_path):
+    g = mk_gold([(1, 2), (3, 4)])
+    g["parts"]["b"] = mk_gold([(1, 2)])["parts"]["a"]
+    audio(tmp_path, "a", [(1, 2, -30), (3, 4, -30)])
+    audio(tmp_path, "b", [(1, 2, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 2.0), (3.2, 4.0)], pad_start=0, pad_end=0)
+    write_cuts(tmp_path, "b", [(1.0, 2.0)], pad_start=0, pad_end=0)
+    r = gold.score_run(g, tmp_path, ["a", "b"])
+    t = r["total"]["lost_speech"]
+    assert t["covered_spans"] == 3 and t["lost_spans"] == 1 and t["lost_speech_rate"] == round(1 / 3, 6)
+    assert t["matched_covered"] == 3 and t["matched_lost_spans"] == 1 and t["lost_s"] == 0.2
+    assert t["floor_db"] is None and t["speech_thr_db"] is None
+    assert r["parts"]["b"]["lost_speech"]["lost_speech_rate"] == 0
+
+
+def test_run_gold_lost_speech_reports_are_identical_and_free_of_text(tmp_path):
+    work = tmp_path / "work"
+    g = mk_gold([(1, 2), (3, 4)])
+    gp = tmp_path / "gold.json"
+    gp.write_text(json.dumps(g))
+    audio(work, "a", [(1, 2, -30), (3, 4, -30)])
+    write_cuts(work, "a", [(1.0, 2.0), (3.3, 4.0)], pad_start=0, pad_end=0)
+    rep = gold.run_gold(work, ["a"], GoldConfig(file=str(gp)))
+    assert rep["parts"]["a"]["lost_speech"]["lost_spans"] == 1
+    first = {n: (work / "gold" / n).read_bytes() for n in ("report.json", "report.md")}
+    for blob in first.values():
+        assert b"GOLDMARK" not in blob and b"CLIPMARK" not in blob
+    md = first["report.md"].decode()
+    assert "## Lost speech" in md and "lost rate" in md and "T-1" in md
+    gold.run_gold(work, ["a"], GoldConfig(file=str(gp)))
+    assert {n: (work / "gold" / n).read_bytes() for n in first} == first
+    write_cuts(work, "a", [(1.0, 2.0), (3.0, 4.0)], pad_start=0, pad_end=0)
+    gold.run_gold(work, ["a"], GoldConfig(file=str(gp)))
+    assert "## Lost speech\n\nnone" in (work / "gold" / "report.md").read_text()
+
+
+def cutter_work(tmp_path):
+    items = [pz(0.5)]
+    for i in range(5):
+        items += [sp(1.2 + 0.3 * (i % 3), est_s=3.0), pz(0.8) if i < 4 else pz(0.5)]
+    pcm, truth = make_part(items, 5)
+    units = make_units(items, "p")
+    write_work(tmp_path, {"p": (pcm, units, stub_spans(units, truth, 0.02, 5))})
+    cut.run_cut(tmp_path, ["p"], CutConfig())
+    return units, truth
+
+
+def rewrite_clips(root, edges, pad=None):
+    path = root / "cut" / "p.cuts.jsonl"
+    rows = [json.loads(x) for x in path.read_text().splitlines()]
+    assert len(rows) == len(edges)
+    for row, (a, b) in zip(rows, edges):
+        row["start_sample"], row["end_sample"] = a, b
+        if pad is not None:
+            row["pad_start_s"] = row["pad_end_s"] = pad
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+
+
+def real_gold(units, truth, widen=0):
+    return {"sample_rate": SR, "parts": {"p": [{"clip": u["id"], "speech_start": s - widen, "speech_end": e + widen}
+                                                  for u, (s, e) in zip(units, truth["speech"])]}, "pauses": []}
+
+
+def test_lost_speech_negative_control_with_the_real_cutter(tmp_path):
+    units, truth = cutter_work(tmp_path)
+    ok = gold.score_run(real_gold(units, truth), tmp_path, ["p"])
+    assert ok["parts"]["p"]["lost_speech"]["matched_lost_speech_rate"] == 0 and ok["lost"] == []
+    assert ok["parts"]["p"]["lost_speech"]["covered_spans"] == 5
+    inside = int(0.3 * SR)
+    rewrite_clips(tmp_path, [(s + inside, e + 2400) for s, e in truth["speech"]])
+    bad = gold.score_run(real_gold(units, truth), tmp_path, ["p"])
+    assert bad["parts"]["p"]["lost_speech"]["matched_lost_speech_rate"] > 0
+    assert bad["parts"]["p"]["unsafe_cut_rate"] > 0
+    assert [x["gold_clip"] for x in bad["lost"]] == [u["id"] for u in units] and {x["part"] for x in bad["lost"]} == {"p"}
+    for x in bad["lost"]:
+        assert abs(x["head_s"] - 0.3) <= 0.03 and x["tail_s"] == 0.0
+
+
+def test_unsafe_edge_in_a_quiet_pause_is_not_lost_speech(tmp_path):
+    units, truth = cutter_work(tmp_path)
+    pad, widen = int(0.1 * SR), int(0.3 * SR)
+    rewrite_clips(tmp_path, [(s - pad, e + pad) for s, e in truth["speech"]])
+    r = gold.score_run(real_gold(units, truth, widen), tmp_path, ["p"])["parts"]["p"]
+    assert r["unsafe_cut_rate"] > 0 and r["lost_speech"]["lost_spans"] == 0 and r["lost_speech"]["covered_spans"] == 5
+
+
+# ---------------------------------------------------------------- ASR-confirmed lost words
+
+def lostw(spans, clips, level, mids, floor=-60.0):
+    return gold._lost_speech([(a * F, b * F) for a, b in spans], [(a * F, b * F) for a, b in clips], level, F, THR, floor,
+                             word_mids=None if mids is None else np.array(sorted(mids)))
+
+
+def mid(f):
+    return (f + 0.5) * F / SR
+
+
+def test_core_word_on_a_lost_frame_counts_once():
+    level = lv(30, [(0, 30)])
+    assert lostw([(0, 20)], [(0, 10)], level, [mid(12)])[0]["words"] == 1
+    assert lostw([(0, 20)], [(0, 10)], level, [mid(12), mid(13)])[0]["words"] == 2
+
+
+def test_core_word_tolerance_is_five_frames():
+    level = lv(30, [(0, 30)])
+    assert lostw([(0, 20)], [(0, 10)], level, [mid(5)])[0]["words"] == 1
+    assert lostw([(0, 20)], [(0, 10)], level, [mid(4)])[0]["words"] == 0
+    assert lostw([(0, 20)], [(0, 10)], level, [mid(4), mid(5)])[0]["words"] == 1
+
+
+def test_core_word_tolerance_is_five_frames_after_the_lost_frames_too():
+    level = lv(30, [(0, 30)])
+    assert lostw([(0, 20)], [(10, 20)], level, [mid(14)])[0]["words"] == 1
+    assert lostw([(0, 20)], [(10, 20)], level, [mid(15)])[0]["words"] == 0
+
+
+def test_core_word_outside_the_span_does_not_count():
+    level = lv(30, [(0, 30)])
+    assert lostw([(0, 20)], [(0, 10)], level, [mid(22)])[0]["words"] == 0
+    assert lostw([(0, 20)], [(0, 10)], level, [mid(22), mid(15)])[0]["words"] == 1
+
+
+def test_core_lost_run_without_a_word_has_words_zero():
+    level = lv(30, [(0, 30)])
+    r = lostw([(0, 20)], [(0, 10)], level, [])[0]
+    assert r["lost_s"] == 0.1 and r["words"] == 0
+    assert lostw([(0, 10)], [(0, 10)], level, [mid(5)])[0]["words"] == 0
+
+
+def test_core_without_word_mids_words_is_none():
+    level = lv(30, [(0, 30)])
+    r = lostw([(0, 20)], [(0, 10)], level, None)[0]
+    assert r["lost_s"] == 0.1 and r.get("words") is None
+
+
+def write_asr(root, part, words, **extra):
+    (root / "align").mkdir(parents=True, exist_ok=True)
+    (root / "align" / f"{part}.asr.json").write_text(json.dumps({"audio_sha256": "0", "config": {}, "model_id": "stub",
+                                                                 "words": [[w, a, b] for w, a, b in words], **extra}))
+
+
+def word_at(t, w=0.2):
+    return ("w", t - w / 2, t + w / 2)
+
+
+def test_word_fields_with_the_cache(tmp_path):
+    g = mk_gold([(1, 2), (3, 4)])
+    audio(tmp_path, "a", [(1, 2, -30), (3, 4, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 2.0), (3.3, 4.0)], pad_start=0, pad_end=0)
+    write_asr(tmp_path, "a", [word_at(1.5), word_at(3.1), word_at(3.7)])
+    ls, r = lost_of(tmp_path, g)
+    assert ls["lost_spans"] == 1 and ls["matched_lost_speech_rate"] == 0.5
+    assert (ls["word_spans"], ls["lost_words"], ls["word_rate"]) == (1, 1, 0.5)
+    assert (ls["matched_word_spans"], ls["matched_word_rate"]) == (1, 0.5)
+    assert ls["criterion"] == "words" and ls["criterion_rate"] == 0.5
+    assert [(x["gold_clip"], x["words"]) for x in r["lost"]] == [("T-1", 1)]
+    assert r["total"]["lost_speech"]["criterion"] == "words" and r["total"]["lost_speech"]["lost_words"] == 1
+
+
+def test_no_cache_means_energy_criterion(tmp_path):
+    g = mk_gold([(1, 2), (3, 4)])
+    audio(tmp_path, "a", [(1, 2, -30), (3, 4, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 2.0), (3.3, 4.0)], pad_start=0, pad_end=0)
+    ls, r = lost_of(tmp_path, g)
+    for k in ("word_spans", "lost_words", "word_rate", "matched_word_spans", "matched_word_rate"):
+        assert ls[k] is None
+    assert ls["criterion"] == "energy" and ls["criterion_rate"] == ls["matched_lost_speech_rate"] == 0.5
+    assert r["lost"][0].get("words") is None
+
+
+def test_total_words_only_when_every_part_has_the_cache(tmp_path):
+    g = mk_gold([(1, 2), (3, 4)])
+    g["parts"]["b"] = mk_gold([(1, 2)])["parts"]["a"]
+    audio(tmp_path, "a", [(1, 2, -30), (3, 4, -30)])
+    audio(tmp_path, "b", [(1, 2, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 2.0), (3.2, 4.0)], pad_start=0, pad_end=0)
+    write_cuts(tmp_path, "b", [(1.3, 2.0)], pad_start=0, pad_end=0)
+    write_asr(tmp_path, "a", [word_at(3.1)])
+    t = gold.score_run(g, tmp_path, ["a", "b"])["total"]["lost_speech"]
+    assert t["criterion"] == "energy" and t["criterion_rate"] == t["matched_lost_speech_rate"] == round(2 / 3, 6)
+    for k in ("word_spans", "lost_words", "word_rate", "matched_word_spans", "matched_word_rate"):
+        assert t[k] is None
+    write_asr(tmp_path, "b", [word_at(1.1)])
+    r = gold.score_run(g, tmp_path, ["a", "b"])
+    t = r["total"]["lost_speech"]
+    assert t["criterion"] == "words" and (t["word_spans"], t["lost_words"], t["word_rate"]) == (2, 2, round(2 / 3, 6))
+    assert (t["matched_word_spans"], t["matched_word_rate"]) == (2, round(2 / 3, 6)) and t["criterion_rate"] == round(2 / 3, 6)
+    assert r["parts"]["b"]["lost_speech"]["criterion"] == "words"
+
+
+@pytest.mark.parametrize("content", ["not json", "[]", json.dumps({"words": 3}), json.dumps({"words": [["w", 1.0]]}),
+                                     json.dumps({"audio_sha256": "0"}), json.dumps({"words": [["w", "x", 2.0]]})])
+def test_corrupt_asr_cache_raises_naming_the_file(tmp_path, content):
+    g = mk_gold([(1, 2)])
+    audio(tmp_path, "a", [(1, 2, -30)])
+    write_cuts(tmp_path, "a", [(1.0, 2.0)], pad_start=0, pad_end=0)
+    (tmp_path / "align").mkdir(exist_ok=True)
+    (tmp_path / "align" / "a.asr.json").write_text(content)
+    with pytest.raises(ValueError, match="a.asr.json"):
+        score(tmp_path, g)
+
+
+def asr_per_unit(root, truth, at=0.5):
+    write_asr(root, "p", [word_at((s + at * (e - s)) / SR) for s, e in truth["speech"]])
+
+
+def test_lost_words_negative_control_with_the_real_cutter(tmp_path):
+    units, truth = cutter_work(tmp_path)
+    asr_per_unit(tmp_path, truth)
+    ls = gold.score_run(real_gold(units, truth), tmp_path, ["p"])["parts"]["p"]["lost_speech"]
+    assert ls["criterion"] == "words" and ls["matched_word_rate"] == 0 and ls["criterion_rate"] == 0 and ls["lost_words"] == 0
+    rewrite_clips(tmp_path, [(s + int(0.3 * SR), e + 2400) for s, e in truth["speech"]])
+    write_asr(tmp_path, "p", [word_at(s / SR + 0.1) for s, _ in truth["speech"]])
+    bad = gold.score_run(real_gold(units, truth), tmp_path, ["p"])
+    ls = bad["parts"]["p"]["lost_speech"]
+    assert ls["matched_word_rate"] > 0 and ls["lost_words"] >= 1 and ls["criterion_rate"] == ls["matched_word_rate"]
+    assert ls["criterion"] == "words" and ls["matched_word_spans"] >= 1
+    assert bad["lost"] and all(x["words"] >= 1 for x in bad["lost"])
+    assert [x["gold_clip"] for x in bad["lost"]] == [u["id"] for u in units]
+
+
+def test_breath_in_a_pause_is_lost_energy_but_not_a_lost_word(tmp_path):
+    items = [pz(0.5), sp(1.2, est_s=3.0), pz(1.2, "breath", 0.5), sp(1.2, est_s=3.0), pz(0.5)]
+    pcm, truth = make_part(items, 5)
+    units = make_units(items, "p")
+    write_work(tmp_path, {"p": (pcm, units, stub_spans(units, truth, 0.02, 5))})
+    cut.run_cut(tmp_path, ["p"], CutConfig())
+    rewrite_clips(tmp_path, list(truth["speech"]), pad=0.0)
+    (s0, e0), (s1, e1) = truth["speech"]
+    g = {"sample_rate": SR, "parts": {"p": [{"clip": "p-0", "speech_start": s0, "speech_end": e0 + int(0.9 * SR)}]}, "pauses": []}
+    asr_per_unit(tmp_path, truth)
+    ls = gold.score_run(g, tmp_path, ["p"])["parts"]["p"]["lost_speech"]
+    assert ls["lost_s"] > 0 and ls["matched_covered"] == 1 and ls["matched_lost_spans"] == 1
+    assert ls["lost_words"] == 0 and ls["word_spans"] == 0 and ls["criterion"] == "words" and ls["criterion_rate"] == 0
+
+
+def test_run_gold_word_reports_are_identical_and_free_of_text(tmp_path):
+    work = tmp_path / "work"
+    gp = tmp_path / "gold.json"
+    gp.write_text(json.dumps(mk_gold([(1, 2), (3, 4)])))
+    audio(work, "a", [(1, 2, -30), (3, 4, -30)])
+    write_cuts(work, "a", [(1.0, 2.0), (3.3, 4.0)], pad_start=0, pad_end=0)
+    write_asr(work, "a", [("GOLDMARK", 3.0, 3.2), ("CLIPMARK", 1.4, 1.6)])
+    rep = gold.run_gold(work, ["a"], GoldConfig(file=str(gp)))
+    assert rep["parts"]["a"]["lost_speech"]["lost_words"] == 1
+    first = {n: (work / "gold" / n).read_bytes() for n in ("report.json", "report.md")}
+    for blob in first.values():
+        assert b"GOLDMARK" not in blob and b"CLIPMARK" not in blob
+    md = first["report.md"].decode()
+    assert "lost words" in md and "word rate" in md and "criterion rate" in md and "words 1" in md
+    gold.run_gold(work, ["a"], GoldConfig(file=str(gp)))
+    assert {n: (work / "gold" / n).read_bytes() for n in first} == first

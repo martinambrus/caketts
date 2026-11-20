@@ -35,13 +35,14 @@ class CutConfig:
     frame_s: float = 0.010
     search_s: float = 0.08
     min_quiet_s: float = 0.04
-    quiet_db: float = 12.0
+    quiet_db: float = 15.0
     speech_db: float = 15.0
     floor_percentile: float = 5.0
     max_est_s: float = 17.0
     max_clip_s: float = 20.0
     min_split_words: int = 3
     close_s: float = 0.03
+    bridge_s: float = 0.35
 
 
 @dataclass
@@ -165,40 +166,68 @@ def _anchor(db: np.ndarray, thr: float, lo: int, hi: int, ref: int, late: bool) 
     return int(near.max() if late else near.min())
 
 
-def _extend(db: np.ndarray, thr: float, f: int, look: int, limit: int, forward: bool) -> int:
+def _extend(db: np.ndarray, thr: float, f: int, look: int, limit: int, forward: bool, bridge: int = 0) -> int:
     while True:
         if forward:
             a, b = f + 1, min(f + 1 + look, limit, len(db))
         else:
             a, b = max(f - look, limit, 0), f
         hit = np.flatnonzero(db[a:b] > thr) if a < b else np.empty(0, dtype=int)
-        if not hit.size:
+        if hit.size:
+            f = a + int(hit[-1] if forward else hit[0])
+            continue
+        if bridge <= look:
             return f
-        f = a + int(hit[-1] if forward else hit[0])
+        if forward:
+            a, b = f + 1, min(f + 1 + bridge, limit, len(db))
+        else:
+            a, b = max(f - bridge, limit, 0), f
+        cand = (a + np.flatnonzero(db[a:b] > thr)) if a < b else np.empty(0, dtype=int)
+        for k in (cand if forward else cand[::-1]):
+            end = _extend(db, thr, int(k), look, limit, forward)
+            lo, hi = (int(k), end) if forward else (end, int(k))
+            if int((db[lo:hi + 1] > thr).sum()) >= max(1, look):
+                f = int(k)
+                break
+        else:
+            return f
 
 
-def refine_gap(db: np.ndarray, floor_db: float, e: int, s: int, cfg: CutConfig, sr: int) -> tuple[int, int]:
-    F, m, thr = round(cfg.frame_s * sr), round(cfg.search_s * sr), floor_db + cfg.speech_db
+def _edges(db, thr, e, s, cfg, sr, bridge):
+    F, m = round(cfg.frame_s * sr), round(cfg.search_s * sr)
     look = round(cfg.close_s * sr / F)
     fm = ((e + s) // 2) // F
     fe = _anchor(db, thr, (e - m) // F, min(fm, _ceil_div(e + m, F)), max(e - 1, 0) // F, True)
     fs = _anchor(db, thr, max(fm, (s - m) // F), _ceil_div(s + m, F), s // F, False)
-    return ((e if fe is None else (_extend(db, thr, fe, look, fm, True) + 1) * F),
-            (s if fs is None else _extend(db, thr, fs, look, fm, False) * F))
+    return ((e if fe is None else (_extend(db, thr, fe, look, fm, True, bridge) + 1) * F),
+            (s if fs is None else _extend(db, thr, fs, look, fm, False, bridge) * F))
+
+
+def refine_gap(db: np.ndarray, floor_db: float, e: int, s: int, cfg: CutConfig, sr: int) -> tuple[int, int]:
+    F, thr = round(cfg.frame_s * sr), floor_db + cfg.speech_db
+    bridge = round(cfg.bridge_s * sr / F)
+    e1, s1 = _edges(db, thr, e, s, cfg, sr, bridge)
+    if not bridge:
+        return e1, s1
+    e0, s0 = _edges(db, thr, e, s, cfg, sr, 0)
+    for ce, cs in ((e1, s1), (e0, s1), (e1, s0)):
+        if ce < cs and choose_cut(db, floor_db, ce, cs, cfg, sr) is not None:
+            return ce, cs
+    return e0, s0
 
 
 def refine_start(db: np.ndarray, floor_db: float, s: int, cfg: CutConfig, sr: int) -> int:
     F, m = round(cfg.frame_s * sr), round(cfg.search_s * sr)
     thr, look = floor_db + cfg.speech_db, round(cfg.close_s * sr / F)
     f = _anchor(db, thr, (s - m) // F, _ceil_div(s + m, F), s // F, False)
-    return s if f is None else _extend(db, thr, f, look, 0, False) * F
+    return s if f is None else _extend(db, thr, f, look, 0, False, round(cfg.bridge_s * sr / F)) * F
 
 
 def refine_end(db: np.ndarray, floor_db: float, e: int, cfg: CutConfig, sr: int) -> int:
     F, m = round(cfg.frame_s * sr), round(cfg.search_s * sr)
     thr, look = floor_db + cfg.speech_db, round(cfg.close_s * sr / F)
     f = _anchor(db, thr, (e - m) // F, _ceil_div(e + m, F), max(e - 1, 0) // F, True)
-    return e if f is None else (_extend(db, thr, f, look, len(db), True) + 1) * F
+    return e if f is None else (_extend(db, thr, f, look, len(db), True, round(cfg.bridge_s * sr / F)) + 1) * F
 
 
 def can_merge(a: SeqItem, b: SeqItem, gap: int, group_est_s: float, cfg: CutConfig, sr: int) -> bool:
@@ -267,7 +296,7 @@ def _word_spans(text: str) -> list[tuple[int, int]]:
 
 
 def _cap_ranges(words: list, pos: list, tags: list, lo: int, hi: int, cfg: CutConfig) -> list[tuple[int, int]]:
-    if words[hi - 1]["end"] - words[lo]["start"] + 2 * cfg.pad_s <= cfg.max_clip_s:
+    if words[hi - 1]["end"] - words[lo]["start"] + 2 * cfg.pad_s + 2 * (cfg.search_s + cfg.bridge_s) <= cfg.max_clip_s:
         return [(lo, hi)]
     n, m = hi - lo, cfg.min_split_words
     ks = [k for k in range(lo + m, hi - m + 1) if not any(a < pos[k][0] < b for a, b in tags)]
@@ -288,7 +317,7 @@ def split_over_cap(units: Sequence[dict], spans: Sequence[dict], cfg: CutConfig,
         pos = _word_spans(text)
         if (ids[u.get("id")] != 1 or span.get("status", "ok") != "ok" or not _num(span.get("start_s"))
                 or not _num(span.get("end_s")) or not span["start_s"] < span["end_s"]
-                or (span["end_s"] - span["start_s"]) + 2 * cfg.pad_s <= cfg.max_clip_s
+                or (span["end_s"] - span["start_s"]) + 2 * cfg.pad_s + 2 * (cfg.search_s + cfg.bridge_s) <= cfg.max_clip_s
                 or not isinstance(words, list) or len(words) != len(pos)
                 or not all(isinstance(w, dict) and _num(w.get("start")) and _num(w.get("end")) for w in words)):
             new_units.append(u)
@@ -372,7 +401,8 @@ def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans:
         if groups and it.ok and groups[-1][-1].ok:
             last = groups[-1][-1]
             est = sum(x.unit.get("est_s") or 0.0 for x in groups[-1]) + (it.unit.get("est_s") or 0.0)
-            if can_merge(last, it, it.s_ref - last.e_ref, est, cfg, sr):
+            fits = (it.e_ref - groups[-1][0].s_ref) / sr + 2 * cfg.pad_s <= cfg.max_clip_s  # measured, not estimated, length
+            if fits and can_merge(last, it, it.s_ref - last.e_ref, est, cfg, sr):
                 groups[-1].append(it)
                 continue
         groups.append([it])

@@ -258,8 +258,8 @@ def test_fixture_is_deterministic():
 
 def test_config_defaults_match_spec():
     c = CutConfig()
-    assert (c.pad_s, c.frame_s, c.search_s, c.min_quiet_s, c.quiet_db, c.speech_db) == (0.15, 0.010, 0.08, 0.04, 12.0, 15.0)
-    assert (c.floor_percentile, c.max_est_s, c.max_clip_s, c.min_split_words, c.close_s) == (5.0, 17.0, 20.0, 3, 0.03)
+    assert (c.pad_s, c.frame_s, c.search_s, c.min_quiet_s, c.quiet_db, c.speech_db) == (0.15, 0.010, 0.08, 0.04, 15.0, 15.0)
+    assert (c.floor_percentile, c.max_est_s, c.max_clip_s, c.min_split_words, c.close_s, c.bridge_s) == (5.0, 17.0, 20.0, 3, 0.03, 0.35)
 
 
 def test_trivial_functions():
@@ -382,11 +382,110 @@ def test_refine_follows_a_decay_beyond_the_search_window():
 
 
 def test_refine_bridges_a_dip_of_two_frames_but_not_three():
-    cfg = CutConfig()
+    cfg = CutConfig(quiet_db=12.0, bridge_s=0.0)
     assert cut.refine_end(_db(300, [(0, 100), (102, 110)]), -60.0, 99 * F, cfg, SR) == 110 * F
     assert cut.refine_end(_db(300, [(0, 100), (103, 110)]), -60.0, 99 * F, cfg, SR) == 100 * F
     assert cut.refine_start(_db(300, [(190, 300), (180, 188)]), -60.0, 191 * F, cfg, SR) == 180 * F
     assert cut.refine_start(_db(300, [(190, 300), (180, 187)]), -60.0, 191 * F, cfg, SR) == 190 * F
+
+
+def test_bridge_defaults():
+    c = CutConfig()
+    assert c.quiet_db == 15.0 and c.bridge_s == 0.35
+
+
+def _hand(segs, seed=4):
+    """-> pcm int16 and the segment bounds in samples; segs are (kind, dur) with kind floor, voice or breath."""
+    rng = np.random.default_rng(seed)
+    lens = [_samples(d) for _, d in segs]
+    x = rng.standard_normal(sum(lens)) * 10 ** (-60 / 20)
+    pos, bounds = 0, []
+    for (kind, _), n in zip(segs, lens):
+        if kind == "voice":
+            x[pos:pos + n] += _voice(n, rng)
+        elif kind == "breath":
+            x[pos:pos + n] += _breath(n, rng)
+        bounds.append((pos, pos + n))
+        pos += n
+    return np.clip(np.round(x * 32768), -32768, 32767).astype(np.int16), bounds
+
+
+def _plan_hand(pcm, edges, cfg):
+    """edges: aligner (start, end) in samples per unit."""
+    units = make_units([sp(1.0)] * (len(edges) - 1) + [sp(1.0, "para_end")])
+    truth = {"speech": edges, "pause_after": {i: {"dur": (edges[i + 1][0] - edges[i][1]) / SR} for i in range(len(edges) - 1)}}
+    return cut.plan_part("p", pcm, SR, units, stub_spans(units, truth, 0.0, 1), cfg), units
+
+
+def _late_word_part():
+    pcm, b = _hand([("floor", 0.6), ("voice", 0.3), ("floor", 0.12), ("voice", 2.0), ("floor", 1.0), ("voice", 1.5), ("floor", 0.6)])
+    return pcm, b, [(b[3][0] + int(0.02 * SR), b[3][1]), (b[5][0], b[5][1])]
+
+
+def test_late_first_word_is_inside_the_clip():
+    pcm, b, edges = _late_word_part()
+    plan, _ = _plan_hand(pcm, edges, CutConfig())
+    c = plan.clips[0]
+    assert abs(c.speech_start - b[1][0]) <= F
+    assert c.start_sample <= b[1][0] and abs(c.pad_start_s - PAD) <= 0.01
+
+
+def test_late_first_word_is_cut_off_without_bridging():
+    pcm, b, edges = _late_word_part()
+    plan, _ = _plan_hand(pcm, edges, CutConfig(bridge_s=0.0))
+    assert plan.clips[0].start_sample > b[1][0]
+
+
+def test_late_start_inside_a_breath_clips_start_before_the_breath():
+    pcm, b = _hand([("floor", 0.6), ("breath", 0.3), ("floor", 0.1), ("voice", 2.0), ("floor", 1.0), ("voice", 1.5), ("floor", 0.6)])
+    plan, _ = _plan_hand(pcm, [(b[3][0] + int(0.02 * SR), b[3][1]), (b[5][0], b[5][1])], CutConfig())
+    c = plan.clips[0]
+    db = frame_db_np(pcm)
+    assert abs(c.start_sample - (b[1][0] - int(PAD * SR))) <= 4 * F
+    assert db[c.start_sample // F] <= np.percentile(db, 5) + 15.0
+
+
+def test_bridging_both_sides_into_a_breath_keeps_a_quiet_cut():
+    pcm, b = _hand([("floor", 0.6), ("voice", 1.5), ("floor", 0.2), ("breath", 0.3), ("floor", 0.2), ("voice", 1.5), ("floor", 0.6)])
+    plan, _ = _plan_hand(pcm, [(b[1][0], b[1][1]), (b[5][0], b[5][1])], CutConfig())
+    db = frame_db_np(pcm)
+    assert len(plan.clips) == 2 and not any("no_quiet_cut" in c.flags for c in plan.clips)
+    assert db[plan.clips[0].end_sample // F] <= np.percentile(db, 5) + 15.0
+    assert plan.clips[0].end_sample <= plan.clips[1].start_sample
+
+
+def test_bridge_stays_on_its_side_of_the_midpoint():
+    cfg, thr = CutConfig(), -45.0
+    db = _db(300, [(0, 100), (121, 130), (140, 300)])
+    assert cut._extend(db, thr, 99, 3, 120, True, 35) == 99
+    assert cut.refine_gap(db, -60.0, 100 * F, 140 * F, cfg, SR) == (100 * F, 121 * F)
+    near_e = _db(300, [(0, 100), (125, 135), (200, 300)])
+    assert cut.refine_gap(near_e, -60.0, 100 * F, 200 * F, cfg, SR) == (135 * F, 200 * F)
+    near_s = _db(300, [(0, 100), (165, 175), (200, 300)])
+    assert cut.refine_gap(near_s, -60.0, 100 * F, 200 * F, cfg, SR) == (100 * F, 165 * F)
+    assert cut._extend(near_s, thr, 99, 3, 150, True, 60) == 99
+    assert cut._extend(db, thr, 99, 0, 120, True, 35) == 99
+
+
+def test_bridge_needs_a_burst_not_a_blip():
+    db = _db(300, [(0, 100), (120, 122)])
+    assert cut.refine_end(db, -60.0, 99 * F, CutConfig(), SR) == 100 * F
+    assert cut.refine_end(_db(300, [(0, 100), (120, 123)]), -60.0, 99 * F, CutConfig(), SR) == 123 * F
+
+
+def test_bridge_fallback_prefers_the_start_side_bridge():
+    db = _db(400, [(0, 100), (110, 190), (200, 300)])
+    assert cut.refine_gap(db, -60.0, 100 * F, 200 * F, CutConfig(), SR) == (100 * F, 150 * F)
+
+
+def test_bridge_applies_at_the_first_start_and_the_last_end():
+    cfg, off = CutConfig(), CutConfig(bridge_s=0.0)
+    first = _db(300, [(0, 30), (60, 300)])
+    assert cut.refine_start(first, -60.0, 62 * F, cfg, SR) == 0
+    assert cut.refine_start(first, -60.0, 62 * F, off, SR) == 60 * F
+    last = _db(300, [(0, 100), (130, 160)])
+    assert cut.refine_end(last, -60.0, 99 * F, cfg, SR) == 160 * F
+    assert cut.refine_end(last, -60.0, 99 * F, off, SR) == 100 * F
 
 
 @pytest.mark.parametrize("loud,lo,hi,expect", [
@@ -910,6 +1009,68 @@ def test_over_cap_unit_splits_at_the_longest_pause():
     assert c1.text == group[0]["text"] and c2.text == group[1]["text"]
 
 
+def _merge_pair(speech, seed, inset=0.0):
+    items = [pz(0.5), sp(speech, est_s=8.5), pz(0.2), sp(speech, "para_end", est_s=8.5), pz(0.5)]
+    pcm, truth = make_part(items, seed)
+    units = make_units(items)
+    for u in units:
+        u["paragraph"] = 0
+    spans = stub_spans(units, truth, 0.02, 1)
+    spans[0]["start_s"] += inset
+    spans[1]["end_s"] -= inset
+    return cut.plan_part("p", pcm, SR, units, spans, CutConfig()), units
+
+
+def test_merge_is_refused_when_the_measured_span_would_exceed_the_cap():
+    plan, units = _merge_pair(10.15, 78)
+    assert len(plan.clips) == 2 and all(len(c.units) == 1 for c in plan.clips)
+    assert all("over_cap" not in c.flags for c in plan.clips)
+
+
+def test_merge_guard_measures_the_refined_span_not_the_aligner_span():
+    plan, units = _merge_pair(9.9, 83, inset=0.3)
+    assert len(plan.clips) == 2 and all(len(c.units) == 1 for c in plan.clips)
+
+
+def test_merge_still_happens_when_the_measured_span_fits_the_cap():
+    plan, units = _merge_pair(9.25, 79)
+    assert len(plan.clips) == 1 and plan.clips[0].units == [u["id"] for u in units]
+    assert (plan.clips[0].end_sample - plan.clips[0].start_sample) / SR <= 20.0
+
+
+def _clause_unit(half, seed):
+    items = [pz(0.5), sp(half), pz(0.6), sp(half, "para_end"), pz(0.5)]
+    return split_case(items, 0, 1, seed)
+
+
+def test_split_uses_the_slack_for_the_refined_edges():
+    pcm, truth, units, spans, group = _clause_unit(9.4, 80)
+    assert 19.4 + 2 * PAD <= 20.0 < 19.4 + 2 * PAD + 2 * (0.08 + 0.35)
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    assert [c.id for c in sorted(plan.clips, key=lambda c: c.start_sample)] == [f"{units[0]['id']}.1", f"{units[0]['id']}.2"]
+    assert all("over_cap" not in c.flags for c in plan.clips)
+
+
+def test_split_leaves_a_unit_well_under_the_limit_alone():
+    pcm, truth, units, spans, group = _clause_unit(8.7, 81)
+    out_units, out_spans = cut.split_over_cap(units, spans, CutConfig(), SR)
+    assert out_units == units and out_spans == spans
+
+
+def test_unit_near_the_cap_without_a_valid_pause_is_not_split_and_the_flag_follows_the_length():
+    items = [pz(0.5), sp(19.4, est_s=19.4), pz(0.5)]
+    pcm, truth = make_part(items, 82)
+    units = make_units(items)
+    spans = stub_spans(units, truth, 0.02, 1, words=False)
+    units[0], spans[0]["words"] = _five_words_at(units[0], truth, 0)
+    out_units, out_spans = cut.split_over_cap(units, spans, CutConfig(), SR)
+    assert out_units == units and out_spans == spans
+    plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
+    assert len(plan.clips) == 1
+    c = plan.clips[0]
+    assert ("over_cap" in c.flags) == ((c.end_sample - c.start_sample) / SR > 20.0)
+
+
 def test_over_cap_pieces_are_not_merged_back_over_a_short_pause():
     items, (pcm, truth, units, spans, group) = two_halves(0.2, 72)
     plan = cut.plan_part("p", pcm, SR, units, spans, CutConfig())
@@ -932,6 +1093,12 @@ def test_over_cap_unit_splits_into_three_at_both_pauses():
         assert c.start_sample <= truth["speech"][i][0] + F and c.end_sample >= truth["speech"][i][1] - F
     for i in (0, 1):
         assert truth["pause_after"][i]["start"] <= cl[i].end_sample <= truth["pause_after"][i]["end"]
+
+
+def _five_words_at(u, truth, i):
+    s, e = truth["speech"][i]
+    text = "Rain tapped on the roof"
+    return {**u, "text": text, "words": WORD_RE.findall(text)}, _timed_words(WORD_RE.findall(text), s / SR, e / SR)
 
 
 def _five_words(u, truth):

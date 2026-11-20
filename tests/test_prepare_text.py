@@ -447,7 +447,7 @@ CAP_PARAGRAPHS = [
 @pytest.fixture(scope="module")
 def cap_run(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("cap")
-    report, out = run(tmp, {"p1": book(*CAP_PARAGRAPHS)}, max_est_s=4.0)
+    report, out = run(tmp, {"p1": book(*CAP_PARAGRAPHS)}, max_est_s=3.0)
     return report, units_of(out)
 
 

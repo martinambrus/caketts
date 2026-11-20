@@ -6,9 +6,10 @@ training and rendering see the same units.
 A unit is one sentence, except that a quote or bracket still open at the end of a sentence keeps the next sentence
 of the same paragraph in the unit while the text estimate of the unit stays within `max_s` ("„Ne. Nikdy. Rozumíš?“
 zašeptala." is one unit). When the cap stops such a quote, the next unit starts inside it and goes on by the same
-rule. A unit whose estimate exceeds `max_s` is cut after a clause mark (, ; : — – …), never inside a <cs>/<sk>/<en>
-span; where no clause cut leaves three words on each side it stays whole and is flagged `over_cap`. A unit never
-crosses a paragraph, short sentences are never merged, and a closed quote is never paired with the narration after it.
+rule. A unit whose estimate exceeds `max_s` is cut after a clause mark (, ; : — – … or a hyphen with a space on each
+side), never inside a <cs>/<sk>/<en> span; where no clause cut leaves three words on each side it stays whole and is
+flagged `over_cap`. A unit never crosses a paragraph, short sentences are never merged, and a closed quote is never
+paired with the narration after it.
 
 `boundary` is the label of the unit's last sentence (every piece of a cut sentence before its last is "mid") and
 `pause` names the pause that follows the unit: "clause" after a clause cut, else "sentence", "paragraph" or "chapter"
@@ -32,7 +33,9 @@ from src.text.segmenter import Sentence
 
 _SPAN = re.compile(r"<(cs|sk|en)>.*?</\1>", re.DOTALL)
 _TAG = re.compile(r"</?(?:cs|sk|en)>")
-_CLAUSE = re.compile(r"(?<=[,;:—–…])\s+(?=\S)")
+_CLAUSE = re.compile(r"(?:(?<=[,;:—–…])|(?<=\s-))\s+(?=\S)")
+_DOTS = re.compile(r"\.{2,}")
+_SPACED_HYPHEN = re.compile(r"(?<=\s)-(?=\s)")
 _OPENING_CONTEXT = frozenset(" \t\n—–-([„‚“‘»«‹›\"'")
 _PAUSE = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
 
@@ -57,11 +60,13 @@ class Unit:
     over_cap: bool = False
 
 
-def estimate_s(text: str, a: float = -0.52, b: float = 0.0843, c: float = 0.394, e: float = 1.27) -> float:
-    """Spoken seconds of a text: a + b per letter + c per , ; : — – + e per . ! ? …, the language tags not counted;
-    fitted on the narrator's old clips, to be re-fitted per narrator."""
-    text = _TAG.sub("", text)
-    return (a + b * sum(ch.isalpha() for ch in text) + c * sum(ch in ",;:—–" for ch in text)
+def estimate_s(text: str, a: float = -0.70, b: float = 0.0765, c: float = 0.297, e: float = 0.788) -> float:
+    """Spoken seconds of a text (pads excluded): a + b per letter + c per , ; : — – and per spaced hyphen + e per
+    . ! ? … (a run of dots counts once), the language tags not counted; fitted on the whole narrator book (4574 clips,
+    RMSE 0.89 s), to be re-fitted per narrator."""
+    text = _DOTS.sub(".", _TAG.sub("", text))
+    return (a + b * sum(ch.isalpha() for ch in text)
+            + c * (sum(ch in ",;:—–" for ch in text) + len(_SPACED_HYPHEN.findall(text)))
             + e * sum(ch in ".!?…" for ch in text))
 
 
@@ -124,7 +129,7 @@ def _pieces(text: str, depth: int, max_s: float, estimate: Callable[[str], float
     cuts = [c for c in cuts if quote_depth(text[:c], depth) == 0] or cuts
     longer = {c: max(estimate(text[:c]), estimate(text[c:])) for c in cuts}
     near = [c for c in cuts if longer[c] <= min(longer.values()) + 1.0]
-    cut = min([c for c in near if text[:c].rstrip()[-1] in ";:—–…"] or near, key=longer.get)
+    cut = min([c for c in near if text[:c].rstrip()[-1] in ";:—–…-"] or near, key=longer.get)
     head, tail = text[:cut].strip(), text[cut:].strip()
     first = _pieces(head, depth, max_s, estimate)
     return first + _pieces(tail, first[-1][2], max_s, estimate)

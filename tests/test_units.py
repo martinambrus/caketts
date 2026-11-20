@@ -19,16 +19,16 @@ def cap(s):
     return s[0].upper() + s[1:]
 
 
-# Letters x 0.0843 - 0.52 + 0.394 per [,;:—–] + 1.27 per [.!?…], by hand.
-# LONG: 30 + 30 + 27 words. Pieces 150 letters + "," = 12.645 - 0.52 + 0.394 = 12.519; 150 letters + ";" = 12.519;
-# 135 letters + "." = 11.3805 - 0.52 + 1.27 = 12.1305. Whole: 435 letters, 2 marks, 1 stop = 36.6705 - 0.52 + 0.788 + 1.27 = 38.2085.
+# Letters x 0.0765 - 0.70 + 0.297 per [,;:—–] or spaced hyphen + 0.788 per [.!?…] (a run of dots once), by hand.
+# LONG: 30 + 30 + 27 words. Pieces 150 letters + "," = 11.475 - 0.70 + 0.297 = 11.072; 150 letters + ";" = 11.072;
+# 135 letters + "." = 10.3275 - 0.70 + 0.788 = 10.4155. Whole: 435 letters, 2 marks, 1 stop = 33.2775 - 0.70 + 0.594 + 0.788 = 33.9595.
 LONG = cap(words(30)) + ", " + words(30) + "; " + words(27) + "."
 LONG_PIECES = [(cap(words(30)) + ",", "mid"), (words(30) + ";", "mid"), (words(27) + ".", "chapter_end")]
-# ONLY_COMMA: 89 words, 445 letters, 1 comma, 1 stop = 37.5135 - 0.52 + 0.394 + 1.27 = 38.6575; the only cut leaves a 1-word piece.
+# ONLY_COMMA: 89 words, 445 letters, 1 comma, 1 stop = 34.0425 - 0.70 + 0.297 + 0.788 = 34.4275; the only cut leaves a 1-word piece.
 ONLY_COMMA = "Dobrý, " + words(88, 1) + "."
 # QUOTE4: sentences of 20, 18, 18 and 29 letters (the last with the attribution), one stop each except the last (two).
-# S1 = 2.436; S1+S2 = 38 letters, 2 stops = 5.2234; S1+S2+S3 = 8.0108; S3+S4 = 47 letters, 3 stops = 7.2521;
-# all four = 85 letters, 5 stops = 12.9955; S2 = S3 = 2.2674; S4 = 29 letters, 2 stops = 4.4647.
+# S1 = 1.618; S1+S2 = 38 letters, 2 stops = 3.783; S1+S2+S3 = 5.948; S3+S4 = 47 letters, 3 stops = 5.2595;
+# all four = 85 letters, 5 stops = 9.7425; S2 = S3 = 1.465; S4 = 29 letters, 2 stops = 3.0945.
 QUOTE4 = ("{o}Věta číslo jedna je tady. Věta číslo dvě je tady. Věta číslo tři je tady. "
           "Věta číslo čtyři je tady.{c} dodal tiše.")
 
@@ -90,7 +90,7 @@ TABLE = {  # id: (book text, max_s, [(unit text, boundary)])
         [("První", "para_end"), ("Přišel.", "mid"), ("Odešel.", "para_end"), ("Zůstal.", "chapter_end")]),
     "long-sentence-clause-cut": (LONG, 17.0, LONG_PIECES),
     "long-quote-cap-cut-then-rejoined": (
-        QUOTE4.format(o="„", c="“"), 7.5,
+        QUOTE4.format(o="„", c="“"), 5.5,
         [("„Věta číslo jedna je tady. Věta číslo dvě je tady.", "mid"),
          ("Věta číslo tři je tady. Věta číslo čtyři je tady.“ dodal tiše.", "chapter_end")]),
     "stray-closer-first": (
@@ -130,13 +130,16 @@ def U(text, boundary, kind, open_before=0, open_after=0, over_cap=False):
     return (text, boundary, kind, open_before, open_after, over_cap)
 
 
-# Cuts: the stripped piece texts; each piece estimated by hand as in the table comments (5-letter words, 0.4215 s each).
-# cut-prefers-semicolon: 26 words "," 12 words ";" 22 words ".". Cut after "," = 10.833 | 15.475 (longer 15.475); cut after ";"
-# = 16.285 | 10.023 (longer 16.285); within 1 s (0.81), so ";" wins and both pieces are <= 17.
-# cut-prefers-minimiser: 26 "," 13 ";" 21 ".": cut after ";" = 16.7065 | 9.6015, 1.2315 above the comma cut, so "," wins.
-# short-outside-cut-is-not-admissible: "Ano," leaves a 1-word piece, so the cut inside the quote (13.17 | 13.4) is the only one.
+# Cuts: the stripped piece texts; each piece estimated by hand as in the table comments (5-letter words, 0.3825 s each).
+# cut-prefers-semicolon: 26 words "," 12 words ";" 23 words ".". Cut after "," = 9.542 | 13.7725 (longer 13.7725); cut after ";"
+# = 14.429 | 8.8855 (longer 14.429); within 1 s (0.6565), so ";" wins and both pieces are <= 17.
+# cut-prefers-minimiser: 26 "," 13 ";" 21 ".": cut after ";" = 14.8115 | 8.1195, 1.4215 above the comma cut (13.39), so "," wins.
+# spaced-hyphen-is-the-only-clause-cut: 30 words, " - ", 30 words: pieces 11.072 (the hyphen counts) and 10.4155, whole 23.335.
+# cut-prefers-spaced-hyphen-to-comma: 26 "," 11 " -" 23 ".": cut after "," = 9.542 | 13.39 (longer 13.39); cut after the hyphen
+# = 14.047 | 8.8855 (longer 14.047); within 1 s (0.657), so the hyphen wins as a strong mark.
+# short-outside-cut-is-not-admissible: "Ano," leaves a 1-word piece, so the cut inside the quote is the only one.
 # cut-avoids-open-quote: 12 words "," then a quote of 25 "," 25 words: the only cut with no quote open is the first.
-# The 50-word rest (22.219) is cut at the comma inside the quote, as the only cut left: 10.41 and 11.2875.
+# The 50-word rest is cut at the comma inside the quote, as the only cut left.
 PROBES = {  # id: (book text, max_s, [(text, boundary, kind, open_before, open_after, over_cap)])
     "quote-opens-paragraph": (
         'Přišel.\n\n"Ahoj. Jak se máš?" zeptal se.', 17.0,
@@ -180,7 +183,7 @@ PROBES = {  # id: (book text, max_s, [(text, boundary, kind, open_before, open_a
         'Odešel (řekl "Jdu pryč. Nevrátím se.") a nevrátil se.', 17.0,
         [U('Odešel (řekl "Jdu pryč. Nevrátím se.") a nevrátil se.', "chapter_end", "joined")]),
     "quote-cut-two-and-two": (
-        QUOTE4.format(o='"', c='"'), 7.5,
+        QUOTE4.format(o='"', c='"'), 5.5,
         [U('"Věta číslo jedna je tady. Věta číslo dvě je tady.', "mid", "joined", 0, 1),
          U('Věta číslo tři je tady. Věta číslo čtyři je tady." dodal tiše.', "chapter_end", "joined", 1, 0)]),
     "quote-cut-into-singletons": (
@@ -202,8 +205,8 @@ PROBES = {  # id: (book text, max_s, [(text, boundary, kind, open_before, open_a
         "# „Úvod\n\n# Konec", 17.0,
         [U("„Úvod", "chapter_end", "sentence", 0, 1), U("Konec", "chapter_end", "sentence")]),
     "cut-prefers-semicolon": (
-        cap(words(26)) + ", " + words(12) + "; " + words(22) + ".", 17.0,
-        [U(cap(words(26)) + ", " + words(12) + ";", "mid", "split"), U(words(22) + ".", "chapter_end", "split")]),
+        cap(words(26)) + ", " + words(12) + "; " + words(23) + ".", 17.0,
+        [U(cap(words(26)) + ", " + words(12) + ";", "mid", "split"), U(words(23) + ".", "chapter_end", "split")]),
     "cut-prefers-minimiser": (
         cap(words(26)) + ", " + words(13) + "; " + words(21) + ".", 17.0,
         [U(cap(words(26)) + ",", "mid", "split"), U(words(13) + "; " + words(21) + ".", "chapter_end", "split")]),
@@ -214,9 +217,15 @@ PROBES = {  # id: (book text, max_s, [(text, boundary, kind, open_before, open_a
     "short-outside-cut-is-not-admissible": (
         "Ano, „" + words(30) + ", " + words(30) + ".“", 17.0,
         [U("Ano, „" + words(30) + ",", "mid", "split", 0, 1), U(words(30) + ".“", "chapter_end", "split", 1, 0)]),
+    "spaced-hyphen-is-the-only-clause-cut": (
+        cap(words(30)) + " - " + words(30) + ".", 17.0,
+        [U(cap(words(30)) + " -", "mid", "split"), U(words(30) + ".", "chapter_end", "split")]),
+    "cut-prefers-spaced-hyphen-to-comma": (
+        cap(words(26)) + ", " + words(11) + " - " + words(23) + ".", 17.0,
+        [U(cap(words(26)) + ", " + words(11) + " -", "mid", "split"), U(words(23) + ".", "chapter_end", "split")]),
     "span-comma-never-cut": (
-        cap(words(18)) + " <en>a b c, d e f</en> " + words(18) + ", " + words(5) + ".", 17.0,
-        [U(cap(words(18)) + " <en>a b c, d e f</en> " + words(18) + ",", "mid", "split"),
+        cap(words(19)) + " <en>a b c, d e f</en> " + words(19) + ", " + words(5) + ".", 17.0,
+        [U(cap(words(19)) + " <en>a b c, d e f</en> " + words(19) + ",", "mid", "split"),
          U(words(5) + ".", "chapter_end", "split")]),
     "span-only-comma-over-cap": (
         cap(words(40)) + " <en>a b c, d e f</en> " + words(40) + ".", 17.0,
@@ -224,7 +233,7 @@ PROBES = {  # id: (book text, max_s, [(text, boundary, kind, open_before, open_a
 }
 
 PAUSES = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
-_CLAUSE_CUT = re.compile(r"(?<=[,;:—–…])\s+(?=\S)")
+_CLAUSE_CUT = re.compile(r"(?:(?<=[,;:—–…])|(?<=\s-))\s+(?=\S)")
 _SPAN = re.compile(r"<(cs|sk|en)>.*?</\1>", re.DOTALL)
 
 
@@ -530,15 +539,22 @@ def test_quote_depth_default_start_is_zero():
     assert quote_depth('„Ahoj') == quote_depth('„Ahoj', 0) == 1
 
 
-# a = -0.52, b = 0.0843 per letter, c = 0.394 per [,;:—–], e = 1.27 per [.!?…]
+# a = -0.70, b = 0.0765 per letter, c = 0.297 per [,;:—–] or spaced hyphen, e = 0.788 per [.!?…] (a run of dots once)
+NEW = {"a": -0.70, "b": 0.0765, "c": 0.297, "e": 0.788}
 ESTIMATES = {
-    "empty": ("", {}, -0.52),
-    "letters-and-stop": ("Ahoj.", {}, -0.52 + 4 * 0.0843 + 1.27),  # 1.0872
-    "every-mark-counts": ("a, b; c: d — e – f.", {}, -0.52 + 6 * 0.0843 + 5 * 0.394 + 1.27),  # 3.2258
-    "three-dots-count-three": ("Počkej...", {}, -0.52 + 6 * 0.0843 + 3 * 1.27),  # 3.7958
-    "one-ellipsis-char-counts-once": ("Počkej…", {}, -0.52 + 6 * 0.0843 + 1.27),  # 1.2558
-    "question-exclamation": ("Co?!", {}, -0.52 + 2 * 0.0843 + 2 * 1.27),  # 2.1886
-    "digits-and-quotes-are-not-letters": ("„A1B2“ 3", {}, -0.52 + 2 * 0.0843),  # -0.3514
+    "empty": ("", {}, -0.70),
+    "letters-and-stop": ("Ahoj.", {}, -0.70 + 4 * 0.0765 + 0.788),  # 0.394
+    "every-mark-counts": ("a, b; c: d — e – f.", {}, -0.70 + 6 * 0.0765 + 5 * 0.297 + 0.788),  # 2.032
+    "three-dots-count-once": ("Počkej...", NEW, -0.70 + 6 * 0.0765 + 0.788),
+    "two-dots-count-once": ("Počkej..", NEW, -0.70 + 6 * 0.0765 + 0.788),
+    "six-dots-count-once": ("......", NEW, -0.70 + 0.788),
+    "spaced-hyphen-counts-as-a-clause-mark": ("a - b.", NEW, -0.70 + 2 * 0.0765 + 0.297 + 0.788),
+    "hyphen-inside-a-word-is-not-a-mark": ("černo-bílý", NEW, -0.70 + 9 * 0.0765),
+    "leading-hyphen-is-not-a-mark": ("- a", NEW, -0.70 + 0.0765),
+    "hyphen-glued-on-one-side-is-not-a-mark": ("a -b- c", NEW, -0.70 + 3 * 0.0765),
+    "one-ellipsis-char-counts-once": ("Počkej…", {}, -0.70 + 6 * 0.0765 + 0.788),  # 0.547
+    "question-exclamation": ("Co?!", {}, -0.70 + 2 * 0.0765 + 2 * 0.788),  # 1.029
+    "digits-and-quotes-are-not-letters": ("„A1B2“ 3", {}, -0.70 + 2 * 0.0765),  # -0.547
     "custom-coefficients": ("abc, d.", {"a": 1.0, "b": 2.0, "c": 3.0, "e": 5.0}, 1.0 + 4 * 2.0 + 3.0 + 5.0),  # 17
 }
 
@@ -550,7 +566,9 @@ def test_estimate_s(key):
 
 
 def test_estimate_s_hand_values():
-    assert estimate_s("Ahoj.") == pytest.approx(1.0872, abs=1e-9)
-    assert estimate_s("a, b; c: d — e – f.") == pytest.approx(3.2258, abs=1e-9)
-    assert estimate_s(LONG) == pytest.approx(38.2085, abs=1e-9)
-    assert estimate_s(ONLY_COMMA) == pytest.approx(38.6575, abs=1e-9)
+    assert estimate_s("Ahoj.") == pytest.approx(0.394, abs=1e-9)
+    assert estimate_s("a, b; c: d — e – f.") == pytest.approx(2.032, abs=1e-9)
+    assert estimate_s("Počkej...") == pytest.approx(0.547, abs=1e-9)
+    assert estimate_s("a - b.") == pytest.approx(0.538, abs=1e-9)
+    assert estimate_s(LONG) == pytest.approx(33.9595, abs=1e-9)
+    assert estimate_s(ONLY_COMMA) == pytest.approx(34.4275, abs=1e-9)
