@@ -23,7 +23,7 @@
 | 4 | Hand-written phoneme list with a silent `<unk>` fallback; stress marks and punctuation glued onto phones; espeak-ng code `en` crashes | 41–62% of real Czech/Slovak tokens and 88% of English tokens became `<unk>` | Vocabulary built from real espeak-ng output; stress, word boundaries and punctuation are separate tokens; `en` → `en-us`; unknown symbols raise | `test_tokens_are_atomic`, `test_every_training_token_is_known`, `test_unknown_symbol_raises` |
 | 5 | `_apply_custom_pronunciation` was a stub | Lexicon fixes for names and espeak-ng errors silently did nothing | Word-level lexicon looked up before espeak-ng | `test_lexicon_override_is_applied` |
 | 6 | 80 HTK-scale, unnormalised mel bands with `center=True` | Features the BigVGAN checkpoint was never trained on (it expects 100 Slaney-normalised bands) | BigVGAN's exact mel computation | `test_identical_to_bigvgan_mel`, `test_mel_basis_matches_bigvgan_training` |
-| 7 | Trim at −40 dB below the loudest frame with no padding; the "LUFS" step was peak normalisation | Soft onsets and word endings cut off; clip edges varied by session | Bounds from forced alignment or the recording's noise floor, fixed 150 ms pads; EBU R128 per source file | `test_quiet_onset_is_not_cut`, `test_reaches_target_lufs` |
+| 7 | Trim at −40 dB below the loudest frame with no padding; the "LUFS" step was peak normalisation | Soft onsets and word endings cut off; clip edges varied by session | Bounds from forced alignment or the recording's noise floor, pads of about 150 ms on a quiet frame; EBU R128 per source file | `test_quiet_onset_is_not_cut`, `test_reaches_target_lufs` |
 
 ### Further defects found while fixing
 
@@ -3980,8 +3980,9 @@ licence of each model (a CC-BY-NC weight is the user's call per run).
     the text become gaps. Each unit is ok, low_conf or unmatched by the part's own scores; only ok units are
     cut. NeMo Forced Aligner cannot be used: it takes CTC or hybrid models only, not the pure-TDT Parakeet.
  5. cut: the aligner's spans lie inside the speech, so the speech edges move to the energy edges; the cut
-    point is the centre of the longest quiet run of the gap; each clip keeps a 150 ms pad that never passes
-    the cut point. A gap under two pads merges the units (same paragraph, within 17 s estimated and 20 s
+    point is the centre of the longest quiet run of the gap; each clip keeps a pad of about 150 ms that never
+    passes the cut point (a pad edge on a loud frame moves outward to the nearest quiet frame, within the
+    cut point and the 20 s cap). A gap under two pads merges the units (same paragraph, within 17 s estimated and 20 s
     measured) or flags short_pause; no quiet run flags no_quiet_cut; a clip over 20 s is split at a word
     pause. Hard assertions: no two clips share a sample, every clip holds its words, every clip hash is
     unique over the corpus. cut/pauses.json holds the narrator's median pause per type (comma, sentence,
@@ -3999,11 +4000,13 @@ licence of each model (a CC-BY-NC weight is the user's call per run).
      "chapter", "flags", "n_tokens", "sha256"}
     filter_manifest (Step 4.3) drops over-length (> 20 s), too-short (< 0.5 s) and impossible clips and
     never crops. The split gives val and test whole paragraphs to a quota per tag (min(5, 10%), rarest tag
-    first), one contiguous held-out block of one chapter (about 4% of the hours), and train the rest. No
-    paragraph, text of four words or more, or audio is in two splits. coverage.md counts clips and hours
+    first), one contiguous held-out block of one chapter (about 4% of the hours, at most twice that; of the
+    candidates the one with the fewest holes, the dropped clips and rejected units between its clips), and
+    train the rest. No paragraph, text of four words or more, or audio is in two splits. coverage.md counts clips and hours
     per tag and split.
  8. gold (optional): scores the cut against speech a person verified (a JSON file, or Audacity labels of
-    the pauses). No matched span may lose an ASR-confirmed word; the unsafe-cut rate is for information.
+    the pauses). No matched span may lose an ASR-confirmed word (the words of rejected units, which are
+    never cut, are reported apart); the unsafe-cut rate is for information.
 ```
 
 Decisions and results on the first book (Czech, 10 parts, 9.091 h, one narrator; the details are in `docs/corpus-preparation.md`):
@@ -4012,7 +4015,7 @@ Decisions and results on the first book (Czech, 10 parts, 9.091 h, one narrator;
 - **Text:** the narrator's rewrite of the book with the EPUB's chapters placed into it. On two parts, 94.7% of the units align (`ok`), against 75.7% for the EPUB text with a lexicon learned from the rewrite, and the audit drops 11.9% against 22.3%. 81% of the EPUB failures are text the narrator skipped or changed.
 - **Aligner:** `xls-r-cs` (Czech, Apache-2.0) aligns 95.4% of the units, `mms-1b-all` 91.3% and `mms-300m` (the code default, CC-BY-NC) 86.5%. All three give refined clip edges within 10 ms (median) of the gold.
 - **Audit:** two judges. One judge drops 22.2% of the clips of two parts and about half of those drops are false (numbers, short interjections, recognition errors); two judges drop 12.9%.
-- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.6% and informational): it is 2 of 153 matched spans, both diagnosed.
+- **Cut:** the margins (quiet level 15 dB, a guarded bridge of up to 0.35 s to speech-level audio) were tuned on the verified gold of 8 parts and checked on 2: the gold spans losing a word fell from 17 to 5 of 246. The pass criterion is that no matched span loses an ASR-confirmed word, not that no clip edge lies inside a gold span (a gold span holds pauses of its own, so that rate is 28.6% and informational): it was 2 of 153 matched spans while the words of rejected units still counted (one span held speech of a rejected unit, the other a late first word). A pad edge on a frame louder than the quiet level moves outward to the nearest quiet frame within the cut point and the 20 s cap, so a few pads are longer than 150 ms.
 - **Validation sets:** a paragraph with a clip flagged `short_pause`, `no_quiet_cut` or `over_cap` stays out of val and test (7.0% of the clips are `short_pause`), so the evaluation clips have uniform edges; those clips still train. One test quota (parenthesis) is unmet. The book has no digits after normalisation, so there are no number, date or abbreviation clips.
 - **Result:** 9.091 h of recordings, 4,952 units, 4,721 aligned `ok`, 4,586 clips (7.360 h with pads), 499 dropped by the audit, 4,086 clips kept: 6.613 h (72.7%), of which train 6.068 h, val 0.099 h, test 0.118 h and held-out 0.327 h. One cold run takes 42 min and 5.46 GiB of RAM on one 6 GB GPU.
 - **Pauses** (`cut/pauses.json`, breath-free): sentence 0.95 s, paragraph 1.73 s, chapter 2.93 s, comma 0.10 s.
@@ -5628,7 +5631,7 @@ Rules that make pace consistent:
 4. Keep style out of the duration path. (If style diffusion is ever added, smooth it across sentences.)
 5. Render unit by unit, with the units of training (`src/text/units.py`): one sentence, a quote or bracket kept whole while it is open, a clause cut above the length cap.
 6. Paragraph cadence comes only from the boundary flag.
-7. Insert pauses by rule from the narrator's measured medians per boundary type. `cut/pauses.json` of the corpus run holds them (comma, sentence, paragraph, chapter, and `pad_s`), and the `pause` of a unit says which one follows it ("clause" takes the comma median). Training clips start and end with up to `pad_s` of silence (the pad shrinks where the gap to a neighbour was under two pads: 7.0% of the clips of the first book), so a rendered unit already carries about two pads: insert `max(0, median − 2 × pad_s)`. On the first book the sentence median is 0.95 s, so 0.65 s is inserted; the comma median (0.10 s) is shorter than the two pads, so a clause cut inserts nothing.
+7. Insert pauses by rule from the narrator's measured medians per boundary type. `cut/pauses.json` of the corpus run holds them (comma, sentence, paragraph, chapter, and `pad_s`), and the `pause` of a unit says which one follows it ("clause" takes the comma median). Training clips start and end with about `pad_s` of silence (the pad shrinks where the gap to a neighbour was under two pads: 7.0% of the clips of the first book, and is longer where noise sat at the pad edge), so a rendered unit already carries about two pads: insert `max(0, median − 2 × pad_s)`. On the first book the sentence median is 0.95 s, so 0.65 s is inserted; the comma median (0.10 s) is shorter than the two pads, so a clause cut inserts nothing.
 
 ```text
 Claude Code Prompt 12.1: Create src/inference/synthesizer.py, scripts/synthesize_book.py and
