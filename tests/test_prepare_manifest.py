@@ -415,6 +415,20 @@ def test_rows_without_word_times_omit_the_rates(base):
         assert set(med) == {"articulation_rate", "pause_ratio"}
 
 
+def test_heldout_holes_count_the_dropped_clips_inside_its_span(base, tmp_path):
+    held = manifest_rows(base.work)["heldout"]
+    order = [c["id"] for c in base.cuts]
+    at = sorted(order.index(r["id"]) for r in held)
+    holes = base.report["heldout_holes"]
+    assert holes["span_clips"] == at[-1] - at[0] + 1
+    assert holes["dropped_clips"] == holes["span_clips"] - len(held) > 0
+    assert holes["cut_rejected_units"] == 0
+    from src.data.prepare.coverage import SplitConfig
+
+    none = run_manifest(build_work(tmp_path).work, PARTS, ManifestConfig(split=SplitConfig(heldout_share=2.0)))
+    assert none["heldout"] is None and none["heldout_holes"] is None
+
+
 def test_report_blocks(base):
     rep = base.report
     assert set(rep["hours"]) == set(SPLITS) and rep["hours"]["train"] > 0

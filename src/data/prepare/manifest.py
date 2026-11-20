@@ -99,7 +99,9 @@ def _markdown(report: dict) -> str:
     lines += ["", f"Rows without word times: {report['rows_without_word_times']}", "",
               "Split checks: " + ", ".join(f"{k}: {v}" for k, v in report["split_checks"].items()), "",
               "Unmet quotas: " + (json.dumps(report["unmet"], sort_keys=True) if any(report["unmet"].values()) else "none"),
-              "", "Held-out block: " + (json.dumps(report["heldout"], sort_keys=True) if report["heldout"] else "none"), ""]
+              "", "Held-out block: " + (json.dumps(report["heldout"], sort_keys=True) if report["heldout"] else "none"),
+              "Held-out holes (clips of its span that are not in it): "
+              + (json.dumps(report["heldout_holes"], sort_keys=True) if report["heldout_holes"] else "none"), ""]
     return "\n".join(lines)
 
 
@@ -114,13 +116,14 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
     sr = cfg.sample_rate
 
     rows, tokens_n, dropped, order, part_of = [], {}, {}, [], {}
-    units_by_id, counts, rejected = {}, {}, {}
+    units_by_id, counts, rejected, reject_rows = {}, {}, {}, {}
     for part in parts:
         units = _read_jsonl(work_dir / "text" / f"{part}.units.jsonl")
         cuts = _read_jsonl(work_dir / "cut" / f"{part}.cuts.jsonl")
         spans = {a["id"]: a for a in _read_jsonl(work_dir / "align" / f"{part}.align.jsonl")}
         audit = {a["id"]: a for a in _read_jsonl(work_dir / "audit" / f"{part}.audit.jsonl")}
-        rejected[part] = Counter(r["reason"] for r in _read_jsonl(work_dir / "cut" / f"{part}.rejects.jsonl"))
+        reject_rows[part] = _read_jsonl(work_dir / "cut" / f"{part}.rejects.jsonl")
+        rejected[part] = Counter(r["reason"] for r in reject_rows[part])
         counts[part] = {"units": len(units), "clips": len(cuts)}
         units_by_id.update({u["id"]: u for u in units})
         for c in cuts:
@@ -184,6 +187,16 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
         (out / f"{s}.jsonl").write_text(_dump_jsonl(by_split[s]), encoding="utf-8")
     (out / "dropped.jsonl").write_text(_dump_jsonl(dropped[i] for i in order if i in dropped), encoding="utf-8")
 
+    held = by_split["heldout"]
+    holes = None
+    if held:
+        at = [k for k, i in enumerate(order) if i in {r["id"] for r in held}]
+        span = order[at[0]:at[-1] + 1]
+        index = [units_by_id[u.split(".")[0]]["index"] for r in held for u in r["units"]]
+        holes = {"span_clips": len(span), "dropped_clips": sum(1 for i in span if i in dropped),
+                 "cut_rejected_units": sum(1 for r in reject_rows[held[0]["session"]]
+                                           if min(index) < units_by_id.get(r["id"], {}).get("index", -1) < max(index))}
+
     def waterfall(ids: set, base: dict, rej: Counter) -> dict:
         stage = Counter((d["stage"], d["reasons"][0]) for i, d in dropped.items() if i in ids)
         return {**base, "cut_rejected_units": dict(sorted(rej.items())),
@@ -204,6 +217,7 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
         "rows_without_word_times": sum(1 for r in kept if "articulation_rate" not in r and r["id"] in res.assignment),
         "split_checks": {"no_group_in_two_splits": True, "no_shared_audio": True, "heldout_contiguous": True},
         "unmet": res.unmet, "skipped_tags": res.skipped_tags, "quotas": res.quotas, "heldout": res.heldout,
+        "heldout_holes": holes,
         "seconds": round(time.perf_counter() - t0, 3)}
     (out / "report.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     (out / "report.md").write_text(_markdown(report), encoding="utf-8")
