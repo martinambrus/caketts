@@ -17,7 +17,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 import numpy as np
 import soundfile as sf
@@ -58,6 +58,19 @@ class AuditConfig:
     clip_run: int = 3
     listen_n: int = 50
     drop_reasons: tuple = ("cer",)
+    judges: tuple = ("parakeet-tdt-0.6b-v3", "canary-1b-v2")
+
+
+def validate_judges(cfg: AuditConfig) -> None:
+    valid = ", ".join(ASR_BACKENDS)
+    names = list(cfg.judges)
+    if not names:
+        raise ValueError(f"judges is empty; valid names: {valid}")
+    if len(set(names)) != len(names):
+        raise ValueError(f"judges has a duplicate name: {names}; valid names: {valid}")
+    unknown = [n for n in names if n not in ASR_BACKENDS]
+    if unknown:
+        raise ValueError(f"unknown judge name(s) {unknown}; valid names: {valid}")
 
 
 @dataclass
@@ -67,6 +80,7 @@ class JudgeResult:
     review_rows: list
     listening: list
     narrator: dict
+    exceeded_by: dict = field(default_factory=dict)
 
 
 def spell_digits(text: str, language: str) -> str:
@@ -159,26 +173,53 @@ def _band_summary(band: Optional[tuple], n: int, log: bool) -> dict:
 
 
 def judge(rows: Sequence[dict], cfg: AuditConfig) -> JudgeResult:
-    long_cer = [r["metrics"]["cer"] for r in rows
-                if r["metrics"]["cer"] is not None and r["metrics"]["ref_chars"] >= cfg.median_min_chars]
-    all_cer = [r["metrics"]["cer"] for r in rows if r["metrics"]["cer"] is not None]
-    pool = long_cer or all_cer
-    median_cer = float(np.median(pool)) if pool else 0.0
-    cer_threshold = median_cer + cfg.cer_margin
+    single = len(cfg.judges) == 1
+
+    def read(r: dict, name: str) -> tuple:
+        m = r["metrics"]
+        if single:
+            return m["cer"], m["edits"]
+        j = m.get("judges", {}).get(name)
+        if j is None:
+            raise ValueError(f"{r['id']}: metrics hold no values of judge {name}")
+        return j["cer"], j["edits"]
+
+    medians, thresholds, n_pool = {}, {}, {}
+    for name in cfg.judges:
+        pairs = [(read(r, name)[0], r["metrics"]["ref_chars"]) for r in rows]
+        long_cer = [c for c, n in pairs if c is not None and n >= cfg.median_min_chars]
+        all_cer = [c for c, _ in pairs if c is not None]
+        pool = long_cer or all_cer
+        medians[name] = float(np.median(pool)) if pool else 0.0
+        thresholds[name] = medians[name] + cfg.cer_margin
+        n_pool[name] = len(pool)
     rates = [r["metrics"]["rate"] for r in rows if r["metrics"]["rate"] is not None]
     levels = [r["metrics"]["lufs"] for r in rows if r["metrics"]["lufs"] is not None]
     rate_band = _band(rates, cfg.rate_sigma_floor, cfg, True)
     level_band = _band(levels, cfg.level_sigma_floor, cfg, False)
-    guard_saved = 0
-    verdicts, reasons_by, review_rows, risks = {}, {}, [], {}
+    guard_saved = {name: 0 for name in cfg.judges}
+    verdicts, reasons_by, review_rows, risks, exceeded_by = {}, {}, [], {}, {}
     for r in rows:
         m = r["metrics"]
         found = []
-        if m["cer"] is not None and m["cer"] > cer_threshold:
-            if (m["ref_chars"] > cfg.short_chars) or (m["edits"] >= cfg.min_edits):
-                found.append(("cer", "cer", m["cer"], cer_threshold))
+        seen, exceeding = [], []
+        for name in cfg.judges:
+            cer, edits = read(r, name)
+            seen.append((name, cer, thresholds[name]))
+            if cer is not None and cer > thresholds[name]:
+                if (m["ref_chars"] > cfg.short_chars) or (edits >= cfg.min_edits):
+                    exceeding.append((name, cer, thresholds[name]))
+                else:
+                    guard_saved[name] += 1
+        exceeded_by[r["id"]] = [name for name, _, _ in exceeding]
+        cer_excess = 0.0
+        if exceeding:
+            if single:
+                found.append(("cer", "cer", exceeding[0][1], exceeding[0][2]))
             else:
-                guard_saved += 1
+                code = "cer" if len(exceeding) == len(cfg.judges) else "cer_disputed"
+                found += [(code, f"cer:{name}", cer, thr) for name, cer, thr in seen]
+                cer_excess = 1 + min(2.0, max((cer - thr) / max(abs(thr), 1e-9) for _, cer, thr in exceeding))
         if rate_band is not None and m["rate"] is not None:
             if math.log(m["rate"]) < rate_band[2]:
                 found.append(("rate_low", "rate", m["rate"], math.exp(rate_band[2])))
@@ -199,11 +240,11 @@ def judge(rows: Sequence[dict], cfg: AuditConfig) -> JudgeResult:
             if code in flags:
                 found.append((code, "cut_flag", 1, 0))
         found.sort(key=lambda f: f[0])
-        reasons_by[r["id"]] = [f[0] for f in found]
+        reasons_by[r["id"]] = list(dict.fromkeys(f[0] for f in found))
         review_rows += [(r["id"], key, value, threshold, code) for code, key, value, threshold in found]
         risks[r["id"]] = round(sum(1.0 if key == "cut_flag"
                                    else 1 + min(2.0, abs(value - threshold) / max(abs(threshold), 1e-9))
-                                   for _, key, value, threshold in found), 6)
+                                   for _, key, value, threshold in found if not key.startswith("cer:")) + cer_excess, 6)
         if any(c in cfg.drop_reasons for c in reasons_by[r["id"]]):
             verdicts[r["id"]] = "drop"
         else:
@@ -211,10 +252,12 @@ def judge(rows: Sequence[dict], cfg: AuditConfig) -> JudgeResult:
     flagged = [(i, r["id"]) for i, r in enumerate(rows) if reasons_by[r["id"]]]
     flagged.sort(key=lambda t: (-risks[t[1]], t[0]))
     listening = [(rank, cid, risks[cid], reasons_by[cid]) for rank, (_, cid) in enumerate(flagged[:cfg.listen_n], 1)]
-    narrator = {"median_cer": median_cer, "cer_threshold": cer_threshold, "n_median": len(pool),
-                "guard_saved": guard_saved, "rate": _band_summary(rate_band, len(rates), True),
-                "level": _band_summary(level_band, len(levels), False)}
-    return JudgeResult(verdicts, reasons_by, review_rows, listening, narrator)
+    narrator = {"judges": {name: {"median_cer": medians[name], "cer_threshold": thresholds[name],
+                                  "n_median": n_pool[name], "guard_saved": guard_saved[name]} for name in cfg.judges},
+                "rate": _band_summary(rate_band, len(rates), True), "level": _band_summary(level_band, len(levels), False)}
+    if single:
+        narrator.update(narrator["judges"][cfg.judges[0]])
+    return JudgeResult(verdicts, reasons_by, review_rows, listening, narrator, exceeded_by)
 
 
 def _read_jsonl(path: Path) -> list:
@@ -272,6 +315,7 @@ def _share_over(values: list, threshold: float) -> Optional[float]:
 
 
 def _markdown(report: dict) -> str:
+    several = len(report["judges"]) > 1
     lines = ["# Audit report", "", f"ASR model: {report['asr_model']}", "",
              "| part | clips | transcripts cached | transcripts new | ok | review | drop | source clipped runs |",
              "|---|---|---|---|---|---|---|---|"]
@@ -282,83 +326,129 @@ def _markdown(report: dict) -> str:
     lines += ["", "| reason | clips | share |", "|---|---|---|"]
     for code, s in report["total"]["reasons"].items():
         lines.append(f"| {code} | {s['clips']} | {s['share']} |")
-    dist = report["cer_distribution"]
-    lines += ["", "| CER | " + " | ".join(n for n, _ in QUANTILES) + " | mean |", "|---|" + "---|" * 7]
-    for kind in ("raw", "spelled"):
-        d = dist[kind] or {}
-        lines.append(f"| {kind} | " + " | ".join(str(d.get(n)) for n in [*(n for n, _ in QUANTILES), "mean"]) + " |")
-    share = dist["share_over_threshold"]
     nar = report["narrator"]
-    lines += ["", "| quantity | value |", "|---|---|",
-              f"| share over threshold, digits spelled | {share['with_spelling']} |",
-              f"| share over threshold, digits not spelled | {share['without_spelling']} |",
-              f"| median CER | {nar['median_cer']} |", f"| CER threshold | {nar['cer_threshold']} |",
-              f"| clips in the median | {nar['n_median']} |", f"| guard saved | {report['guard_saved']} |",
-              f"| rate median / sigma / low / high / n | {' / '.join(str(nar['rate'][k]) for k in ('median', 'sigma', 'low', 'high', 'n'))} |",
+    lines += ["", "| CER | " + " | ".join(n for n, _ in QUANTILES) + " | mean |", "|---|" + "---|" * 7]
+    dists = report["cer_distribution"] if several else {"": report["cer_distribution"]}
+    for judge_name, dist in dists.items():
+        for kind in ("raw", "spelled"):
+            d = dist[kind] or {}
+            label = f"{kind} {judge_name}".strip()
+            lines.append(f"| {label} | " + " | ".join(str(d.get(n)) for n in [*(n for n, _ in QUANTILES), "mean"]) + " |")
+    lines += ["", "| quantity | value |", "|---|---|"]
+    for judge_name, dist in dists.items():
+        share, tag = dist["share_over_threshold"], f" {judge_name}" if several else ""
+        lines += [f"| share over threshold, digits spelled{tag} | {share['with_spelling']} |",
+                  f"| share over threshold, digits not spelled{tag} | {share['without_spelling']} |"]
+    if several:
+        for judge_name, n in nar["judges"].items():
+            lines += [f"| median CER {judge_name} | {n['median_cer']} |", f"| CER threshold {judge_name} | {n['cer_threshold']} |",
+                      f"| clips in the median {judge_name} | {n['n_median']} |",
+                      f"| guard saved {judge_name} | {n['guard_saved']} |"]
+        lines += [f"| CER exceeded by {who} | {k} |" for who, k in report["total"]["cer_exceeded_by"].items()]
+    else:
+        lines += [f"| median CER | {nar['median_cer']} |", f"| CER threshold | {nar['cer_threshold']} |",
+                  f"| clips in the median | {nar['n_median']} |", f"| guard saved | {report['guard_saved']} |"]
+    lines += [f"| rate median / sigma / low / high / n | {' / '.join(str(nar['rate'][k]) for k in ('median', 'sigma', 'low', 'high', 'n'))} |",
               f"| level median / sigma / low / high / n | {' / '.join(str(nar['level'][k]) for k in ('median', 'sigma', 'low', 'high', 'n'))} |",
               f"| seconds | {report['seconds']} |"]
     return "\n".join(lines) + "\n"
 
 
-def run_audit(work_dir: Path, parts: Sequence[str], cfg: AuditConfig = AuditConfig(), runner=None) -> dict:
+def _read_clip(work_dir: Path, cid: str) -> np.ndarray:
+    pcm, sr = sf.read(str(work_dir / "cut" / "clips" / f"{cid}.wav"), dtype="int16")
+    if sr != 24000:
+        raise ValueError(f"{cid}: clip must be 24000 Hz, got {sr} Hz")
+    return pcm
+
+
+def _transcribe_judge(work_dir: Path, out: Path, parts: Sequence[str], cuts_by_part: dict, name: str, model_id: str,
+                      runner, suffix: str, cfg: AuditConfig) -> tuple:
+    texts, counts, owned = {}, {}, None
+    try:
+        for part in parts:
+            cuts = cuts_by_part[part]
+            cache_path = out / f"{part}.asr{suffix}.jsonl"
+            cache = {r["id"]: r for r in _read_jsonl(cache_path)} if cache_path.exists() else {}
+            missing = [c["id"] for c in cuts
+                       if (cache.get(c["id"]) is None) or (cache[c["id"]]["sha256"] != c["sha256"])
+                       or (cache[c["id"]]["model_id"] != model_id)]
+            if missing and runner is None:
+                runner = owned = AsrRunner(AsrConfig(backend=name, language=cfg.language))
+            sha = {c["id"]: c["sha256"] for c in cuts}
+            for b in range(0, len(missing), cfg.asr_chunk):
+                chunk = missing[b:b + cfg.asr_chunk]
+                got = runner.transcribe([_to_16k(_read_clip(work_dir, cid)) for cid in chunk])
+                if len(got) != len(chunk):
+                    raise ValueError(f"{part}: ASR returned {len(got)} texts for {len(chunk)} clips")
+                for cid, text in zip(chunk, got):
+                    cache[cid] = {"id": cid, "sha256": sha[cid], "model_id": model_id, "text": text}
+            cache_path.write_text(_dump_jsonl(cache[c["id"]] for c in cuts))
+            texts[part] = {c["id"]: cache[c["id"]]["text"] for c in cuts}
+            counts[part] = {"new": len(missing), "cached": len(cuts) - len(missing)}
+    finally:
+        if owned is not None:
+            owned.close()
+    return texts, counts
+
+
+def run_audit(work_dir: Path, parts: Sequence[str], cfg: AuditConfig = AuditConfig(), runner=None,
+              aligner_model_id: Optional[str] = None) -> dict:
     t0 = time.perf_counter()
+    validate_judges(cfg)
+    several = len(cfg.judges) > 1
+    if runner is None:
+        runners = {}
+    elif isinstance(runner, Mapping):
+        runners = dict(runner)
+    elif several:
+        raise ValueError("several judges need a mapping judge name -> runner, not one runner")
+    else:
+        runners = {cfg.judges[0]: runner}
+    model_ids = {n: runners[n].model_id if n in runners else ASR_BACKENDS[n].model_id for n in cfg.judges}
+    if aligner_model_id is not None:
+        for n in cfg.judges:
+            if model_ids[n] == aligner_model_id:
+                raise ValueError(f"the aligner and the judge must be different models, both are {aligner_model_id}")
     work_dir = Path(work_dir)
     out = work_dir / "audit"
     out.mkdir(parents=True, exist_ok=True)
     floors = _floors(work_dir, parts)
-    model_id = runner.model_id if runner is not None else ASR_BACKENDS[AsrConfig().backend].model_id
-    owned = None
-    rows, cuts_by_id, hyps, sha_by_id, counts = [], {}, {}, {}, {}
-    try:
-        for part in parts:
-            cuts = _read_jsonl(work_dir / "cut" / f"{part}.cuts.jsonl")
-            cache_path = out / f"{part}.asr.jsonl"
-            cache = {r["id"]: r for r in _read_jsonl(cache_path)} if cache_path.exists() else {}
-            pcms, missing = {}, []
-            for c in cuts:
-                pcm, sr = sf.read(str(work_dir / "cut" / "clips" / f"{c['id']}.wav"), dtype="int16")
-                if sr != 24000:
-                    raise ValueError(f"{c['id']}: clip must be 24000 Hz, got {sr} Hz")
-                pcms[c["id"]] = pcm
-                hit = cache.get(c["id"])
-                if (hit is None) or (hit["sha256"] != c["sha256"]) or (hit["model_id"] != model_id):
-                    missing.append(c["id"])
-            if missing and runner is None:
-                runner = owned = AsrRunner(AsrConfig(language=cfg.language))
-            for b in range(0, len(missing), cfg.asr_chunk):
-                chunk = missing[b:b + cfg.asr_chunk]
-                texts = runner.transcribe([_to_16k(pcms[cid]) for cid in chunk])
-                if len(texts) != len(chunk):
-                    raise ValueError(f"{part}: ASR returned {len(texts)} texts for {len(chunk)} clips")
-                for cid, text in zip(chunk, texts):
-                    sha = next(c["sha256"] for c in cuts if c["id"] == cid)
-                    cache[cid] = {"id": cid, "sha256": sha, "model_id": model_id, "text": text}
-            cache_path.write_text(_dump_jsonl(cache[c["id"]] for c in cuts))
-            audio_info = work_dir / "audio" / f"{part}.json"
-            counts[part] = {"clips": len(cuts), "transcripts_new": len(missing),
-                            "transcripts_cached": len(cuts) - len(missing),
-                            "source_clipped_runs": json.loads(audio_info.read_text()).get("clipped_runs_in")
-                            if audio_info.exists() else None}
-            for c in cuts:
-                hyp = cache[c["id"]]["text"]
-                metrics = {**cer_stats(c["text"], hyp, cfg.language),
-                           **audio_metrics(pcms[c["id"]], 24000, floors[part], c["pad_start_s"], c["pad_end_s"],
-                                           c["text"], cfg)}
-                metrics = {k: _num(metrics[k]) for k in METRIC_KEYS}
-                rows.append({"id": c["id"], "part": part, "metrics": metrics, "flags": c["flags"]})
-                hyps[c["id"]] = hyp
-                sha_by_id[c["id"]] = c["sha256"]
-            pcms.clear()
-    finally:
-        if owned is not None:
-            owned.close()
+    cuts_by_part = {part: _read_jsonl(work_dir / "cut" / f"{part}.cuts.jsonl") for part in parts}
+    texts, jcounts = {}, {}
+    for n in cfg.judges:
+        texts[n], jcounts[n] = _transcribe_judge(work_dir, out, parts, cuts_by_part, n, model_ids[n], runners.get(n),
+                                                 f".{n}" if several else "", cfg)
+    rows, sha_by_id, hyps, hyps_by_judge, counts = [], {}, {}, {}, {}
+    for part in parts:
+        cuts = cuts_by_part[part]
+        audio_info = work_dir / "audio" / f"{part}.json"
+        counts[part] = {"clips": len(cuts), "transcripts_new": sum(jcounts[n][part]["new"] for n in cfg.judges),
+                        "transcripts_cached": sum(jcounts[n][part]["cached"] for n in cfg.judges),
+                        "source_clipped_runs": json.loads(audio_info.read_text()).get("clipped_runs_in")
+                        if audio_info.exists() else None}
+        if several:
+            counts[part]["by_judge"] = {n: jcounts[n][part] for n in cfg.judges}
+        for c in cuts:
+            pcm = _read_clip(work_dir, c["id"])
+            stats = {n: cer_stats(c["text"], texts[n][part][c["id"]], cfg.language) for n in cfg.judges}
+            best = min(cfg.judges, key=lambda n: stats[n]["cer"])
+            metrics = {**stats[best], **audio_metrics(pcm, 24000, floors[part], c["pad_start_s"], c["pad_end_s"],
+                                                      c["text"], cfg)}
+            metrics = {k: _num(metrics[k]) for k in METRIC_KEYS}
+            if several:
+                metrics["judges"] = {n: {k: _num(stats[n][k]) for k in ("cer", "cer_raw", "edits")} for n in cfg.judges}
+                hyps_by_judge[c["id"]] = {n: texts[n][part][c["id"]] for n in cfg.judges}
+            rows.append({"id": c["id"], "part": part, "metrics": metrics, "flags": c["flags"]})
+            hyps[c["id"]] = texts[best][part][c["id"]]
+            sha_by_id[c["id"]] = c["sha256"]
 
     res = judge(rows, cfg)
     ids_by_part = {part: [r["id"] for r in rows if r["part"] == part] for part in parts}
     for part in parts:
         (out / f"{part}.audit.jsonl").write_text(_dump_jsonl(
             {"id": r["id"], "part": part, "sha256": sha_by_id[r["id"]], "verdict": res.verdicts[r["id"]],
-             "reasons": res.reasons[r["id"]], "metrics": r["metrics"], "hyp": hyps[r["id"]]}
+             "reasons": res.reasons[r["id"]], "metrics": r["metrics"], "hyp": hyps[r["id"]],
+             **({"hyps": hyps_by_judge[r["id"]]} if several else {})}
             for r in rows if r["part"] == part))
     (out / "review.csv").write_text(_csv_text(("clip", "metric", "value", "threshold", "reason"), res.review_rows))
     (out / "listening.csv").write_text(_csv_text(
@@ -369,15 +459,28 @@ def run_audit(work_dir: Path, parts: Sequence[str], cfg: AuditConfig = AuditConf
     source = [c["source_clipped_runs"] for c in counts.values() if c["source_clipped_runs"] is not None]
     total = {**{k: sum(c[k] for c in counts.values()) for k in ("clips", "transcripts_new", "transcripts_cached")},
              "source_clipped_runs": sum(source) if source else None, **_stats([r["id"] for r in rows], res)}
-    spelled = [r["metrics"]["cer"] for r in rows if r["metrics"]["cer"] is not None]
-    raw = [r["metrics"]["cer_raw"] for r in rows if r["metrics"]["cer_raw"] is not None]
-    threshold = res.narrator["cer_threshold"]
-    report = {"config": dataclasses.asdict(cfg), "asr_model": model_id, "parts": per_part, "total": total,
-              "cer_distribution": {"raw": _distribution(raw), "spelled": _distribution(spelled),
-                                   "share_over_threshold": {"with_spelling": _share_over(spelled, threshold),
-                                                            "without_spelling": _share_over(raw, threshold)}},
-              "guard_saved": res.narrator["guard_saved"], "narrator": res.narrator,
-              "seconds": round(time.perf_counter() - t0, 3)}
+    nar = res.narrator
+    if several:
+        total["by_judge"] = {n: {k: sum(jcounts[n][p][k] for p in parts) for k in ("new", "cached")} for n in cfg.judges}
+        total["cer_exceeded_by"] = dict(sorted(Counter("+".join(res.exceeded_by[r["id"]]) or "none" for r in rows).items()))
+
+    def distribution(values: Sequence, threshold: float) -> dict:
+        spelled = [v["cer"] for v in values if v["cer"] is not None]
+        raw = [v["cer_raw"] for v in values if v["cer_raw"] is not None]
+        return {"raw": _distribution(raw), "spelled": _distribution(spelled),
+                "share_over_threshold": {"with_spelling": _share_over(spelled, threshold),
+                                         "without_spelling": _share_over(raw, threshold)}}
+
+    if several:
+        cer_distribution = {n: distribution([r["metrics"]["judges"][n] for r in rows],
+                                            nar["judges"][n]["cer_threshold"]) for n in cfg.judges}
+        guard_saved = {n: nar["judges"][n]["guard_saved"] for n in cfg.judges}
+    else:
+        cer_distribution = distribution([r["metrics"] for r in rows], nar["cer_threshold"])
+        guard_saved = nar["guard_saved"]
+    report = {"config": dataclasses.asdict(cfg), "asr_model": " + ".join(model_ids[n] for n in cfg.judges),
+              "judges": dict(model_ids), "parts": per_part, "total": total, "cer_distribution": cer_distribution,
+              "guard_saved": guard_saved, "narrator": nar, "seconds": round(time.perf_counter() - t0, 3)}
     (out / "report.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
     (out / "report.md").write_text(_markdown(report))
     return report

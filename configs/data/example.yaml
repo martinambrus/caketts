@@ -1,0 +1,134 @@
+# Corpus pipeline configuration. Every key is shown at its default; `null` marks a value derived from other keys.
+# A path is resolved against the directory of this file. Sections source, lexicon and gold are optional:
+# delete a section you do not use. Any other section can be deleted too and then takes its defaults.
+
+language: cs               # language code of the book (cs, sk, en); fed to text, align, align.asr, audit and manifest
+speaker: narrator          # speaker id written to every manifest row
+use_part_fragments: false  # keep the clips that start or end inside a sentence at a part border; fed to text and manifest
+raw_dir: raw               # directory with the recordings <part>.wav
+work_dir: work             # directory of every intermediate result and output
+parts: null                # part names; null = the stems of raw_dir/*.wav in natural order
+
+source:  # optional: build the book text of each part from an EPUB
+  epub:
+    path: book.epub  # the EPUB file
+    heading_tags: [h1, h2, h3, h4, h5, h6]  # HTML tags whose paragraphs are headings
+    chapter_regex: '^(?P<num>\d+)\s*/\s*(?P<title>\S.*)$'  # a paragraph that matches (groups num, title) is a chapter heading
+    chapter_format: '{num}. {title}'  # how a matched chapter heading is written
+    keep_tables: false  # keep the paragraphs that hold a TAB (tables); false = leave them out and list them
+    replacements: {}  # literal replacements {from: to} applied to the book text
+  orig_dir: raw  # directory with the texts <part><orig_suffix> whose words mark where each part starts and ends in the EPUB
+  orig_suffix: .txt.orig  # suffix of the texts in orig_dir
+  parts: null  # parts as [{name: a1, start: <item index or first words>}]; use it instead of orig_dir
+  solid: 3  # fewest consecutive equal words that count as a solid match between the EPUB and the orig texts
+
+lexicon:  # optional: learn the words the book prints differently from how the narrator says them
+  rewrite_dir: raw  # directory with the rewrite of the book that matches the narration, <part><rewrite_suffix>
+  path: null  # lexicon file the lexicon stage (over)writes; null = <work_dir>/lexicon.tsv. Edit a copy and set text.lexicon to it
+  book_dir: null  # directory with the book texts <part><book_suffix>; null = <work_dir>/source/epub
+  rewrite_suffix: .txt.orig  # suffix of the rewritten texts
+  book_suffix: .txt  # suffix of the book texts
+
+text:
+  text_dir: null  # directory with the book texts <part><suffix>; null = raw_dir, or <work_dir>/source/epub with a source section
+  suffix: null  # suffix of the book texts; null = .txt.orig, or .txt with a source section
+  parts: null  # parts to process; null = the top-level parts, or the stems of raw_dir/*.wav
+  book_config: {}  # settings of the text normalizer for this book, see TextNormalizer
+  headings: {}  # per part the line numbers of the text file that are headings, {a1: [1, 40]}
+  placement: null  # placement.json that marks chapter starts; null = <work_dir>/source/epub/placement.json with a source section
+  max_est_s: 17.0  # a unit estimated longer than this is cut at a clause boundary, seconds
+  estimate: {}  # coefficients a, b, c, e of the duration estimate, see estimate_s in src/text/units.py
+  heading_short_chars: 40  # a line shorter than this without a closing sentence mark is reported as a heading candidate
+  lexicon: null  # lexicon file whose applied book forms are replaced before normalising; null = the lexicon section's path
+  compare_dir: null  # rewrite to compare the normalised words with (review_disagreements.csv); null = lexicon.rewrite_dir
+  compare_suffix: null  # suffix of the texts in compare_dir; null = lexicon.rewrite_suffix
+  skip_unreadable: false  # blank a paragraph the normalizer cannot read and list it instead of stopping the stage
+
+audio:
+  target_lufs: -23.0  # integrated loudness of every part, LUFS
+  peak_ceiling: 0.99  # highest sample peak after the loudness gain (a peak limiter keeps below it)
+  clip_sr: 24000  # sample rate of the clips and of audio/<part>.24k.wav
+  align_sr: 16000  # sample rate of audio/<part>.16k.wav, the aligner and ASR input
+  block_s: 30.0  # length of one block of the streamed processing, seconds
+  clip_level: 0.9999  # share of full scale at which a source sample counts as clipped
+
+align:
+  backend: mms-300m  # aligner model: mms-300m, xls-r-cs (Czech only) or mms-1b-all
+  device: auto  # device of the aligner: auto, cpu or cuda
+  longform: auto  # auto = anchor on an ASR pass only for a part longer than block_max_s, always = for every part
+  block_max_s: 600.0  # longest audio aligned in one CTC pass, seconds
+  margin_s: 3.0  # audio kept before and after the words of a block, seconds
+  window_s: 30.0  # length of one model window, seconds
+  context_s: 2.0  # context at each side of a window that is dropped from its result, seconds
+  gap_min_words: 3  # fewest ASR words that make a stretch of speech not in the text
+  gap_min_s: 1.0  # shortest such stretch, seconds
+  ok_sigmas: 4.0  # a unit is ok when its mean score is within this many robust sigmas of the part's median
+  edge_ratio: 0.25  # a unit is ok only when its weaker edge word scores at least this share of the median edge score
+  unmatched_ratio: 0.5  # a unit scoring below this share of the median score has no span (unmatched)
+  sigma_floor: 0.02  # lower bound of the robust sigma of the unit scores
+  asr:
+    backend: parakeet-tdt-0.6b-v3  # ASR model that anchors the long-form alignment (needs word times)
+    device: auto  # device of the ASR model: auto, cpu or cuda
+    window_s: 35.0  # length of one ASR window, seconds
+    overlap_s: 1.0  # overlap of two ASR windows, seconds
+    batch_size: null  # windows per ASR batch; null = 4 on a GPU, 1 on a CPU
+    cut_search_s: 3.0  # how far from a window border the quietest spot is searched, seconds
+
+cut:
+  pad_s: 0.15  # silence kept before and after the speech of a clip, seconds
+  frame_s: 0.010  # frame of the energy measure, seconds
+  search_s: 0.08  # how far from an aligner edge the energy edge of the speech is searched, seconds
+  min_quiet_s: 0.04  # shortest quiet stretch that can hold a cut point, seconds
+  quiet_db: 12.0  # a frame up to this many dB above the part's noise floor is quiet
+  speech_db: 15.0  # a frame at least this many dB above the noise floor is speech
+  floor_percentile: 5.0  # percentile of the part's frame levels taken as the noise floor
+  max_est_s: 17.0  # two units merge across a short pause only up to this estimated duration, seconds
+  max_clip_s: 20.0  # a measured unit longer than this is cut at a pause, else the clip is flagged over_cap, seconds
+  min_split_words: 3  # fewest words on each side of such a cut
+  close_s: 0.03  # a dip in the speech level up to this long is bridged when following a speech edge, seconds
+
+audit:
+  asr_chunk: 32  # clips given to a judge at once
+  cer_margin: 0.05  # a judge flags a clip whose CER exceeds the corpus median CER by more than this
+  short_chars: 30  # a clip with up to this many characters is short and needs min_edits edits to be flagged
+  min_edits: 3  # fewest character edits of a short clip for the CER rule to fire
+  median_min_chars: 30  # the median CER is taken over the clips with at least this many characters
+  rate_frame_s: 0.02  # frame of the speaking-rate measure, seconds
+  rate_voiced_db: 35.0  # a frame within this many dB of the clip's loud level counts as voiced
+  rate_min_voiced_s: 1.0  # a clip with less voiced time has no rate, seconds
+  rate_sigma_floor: 0.05  # lower bound of the robust sigma of ln(rate)
+  level_min_s: 1.0  # shortest clip that gets a loudness measure, seconds
+  level_sigma_floor: 0.5  # lower bound of the robust sigma of the clip loudness, LU
+  sigmas: 3.0  # a rate or loudness this many robust sigmas from the median is flagged
+  min_clips: 20  # fewest clips needed for the rate and loudness bands
+  edge_frame_s: 0.01  # frame at each clip edge whose level is checked, seconds
+  edge_db: 12.0  # an edge frame this many dB above the part's noise floor is flagged as noisy
+  clip_level: 0.98  # share of full scale at which a clip sample counts as clipped
+  clip_run: 3  # consecutive clipped samples that make a clipping run
+  listen_n: 50  # length of the listening list (the riskiest clips)
+  drop_reasons: [cer]  # reasons that drop a clip from the manifests; every other reason only lists it for review
+  judges: [parakeet-tdt-0.6b-v3, canary-1b-v2]  # ASR judges, each other than the aligner; cer = all exceed, cer_disputed = only some
+
+manifest:
+  sample_rate: 24000  # sample rate of the clips
+  hop_s: 0.010666666666666666  # mel hop of the model in seconds (256 samples at 24 kHz)
+  max_duration_s: 20.0  # a clip longer than this is left out
+  min_duration_s: 0.5  # a clip shorter than this is left out
+  min_frames_per_token: 1.0  # a clip with fewer mel frames per text token is left out
+  min_pause_s: 0.12  # a gap between words shorter than this is no pause in the pause ratio, seconds
+  split:
+    seed: 0  # tie-break seed of the split
+    quota_max: 5  # most clips of one tag that val and test each take
+    quota_share: 0.10  # share of a tag's clips that val and test each take, up to quota_max
+    min_tag_clips: 3  # a tag with fewer clips gets no quota
+    heldout_share: 0.04  # share of the corpus hours held out as one block of consecutive paragraphs
+    text_overlap_words: 4  # a train clip whose text of this many words or more equals a val, test or held-out text is dropped
+    thin_clips: 30  # the coverage report calls a tag thin below this many clips
+    thin_hours: 0.1  # or below this many hours
+  exclude_flags: [short_pause, no_quiet_cut, over_cap]  # a clip with one of these cut flags keeps its paragraph out of val and test
+  exclude_tags: [part_fragment, over_cap]  # a clip with one of these tags keeps its paragraph out of val and test
+
+gold:  # optional: hand-verified gold set for the gold stage
+  file: null  # gold file (JSON with verified speech spans and pause ranges per part); use it or audacity
+  audacity: {}  # {part: Audacity label file}, one pause range per label; use it or file
+  match_iou: 0.5  # a gold span matches a clip when overlap / union of their times is at least this

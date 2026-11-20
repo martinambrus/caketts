@@ -718,6 +718,18 @@ def test_run_cut_removes_the_clip_file_of_a_vanished_unit(tmp_path):
     assert (tmp_path / "cut" / "clips" / f"{units[0]['id']}.wav").exists()
 
 
+def test_run_cut_needs_every_part_of_the_run_in_one_call(tmp_path):
+    write_work(tmp_path, {"pa": small_part("a", 1), "pb": small_part("b", 2)})
+    cut.run_cut(tmp_path, ["pa", "pb"], CutConfig())
+    out = tmp_path / "cut"
+    before = {p.name: p.read_bytes() for p in out.glob("*.json*")}
+    with pytest.raises(CutError, match="pb"):
+        cut.run_cut(tmp_path, ["pa"], CutConfig())
+    assert {p.name: p.read_bytes() for p in out.glob("*.json*")} == before
+    cut.run_cut(tmp_path, ["pb", "pa"], CutConfig())
+    assert sorted(json.loads((out / "report.json").read_text())["parts"]) == ["pa", "pb"]
+
+
 def test_run_cut_rejects_identical_audio_in_two_parts(tmp_path):
     pcm, units_a, spans_a = small_part("a", 1)
     _, units_b, spans_b = small_part("a", 1)
