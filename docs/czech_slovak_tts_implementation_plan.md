@@ -4023,7 +4023,8 @@ Not built: a repair of the text from the ASR words where the narrator departs fr
 
 ```text
 Claude Code Prompt 4.3: Create src/data/dataset.py exactly as the reference below.
- - filter_manifest DROPS over-length / too-short / impossible utterances and reports them;
+ - filter_manifest DROPS over-length / too-short / impossible utterances and reports them; a clip has
+   as many frames as its mel does (samples // hop), so "impossible" agrees with the dataset's own check;
    the dataset never truncates mel or tokens.
  - Strict symbol lookup (UnknownSymbolError names the utterance); language IDs per token.
  - Mel targets are normalised with corpus statistics (corpus_mel_stats: rows spread evenly over the
@@ -4103,7 +4104,7 @@ def filter_manifest(rows: Sequence[Dict], n_tokens: Dict[str, int], hop_s: float
     kept, too_long, too_short, impossible = [], [], [], []
     for r in rows:
         dur = float(r["duration_s"])
-        frames = int(dur / hop_s)
+        frames = int(dur / hop_s + 1e-6)  # n // hop of the mel; the epsilon covers the float error of dur / hop_s
         if dur > max_duration_s:
             too_long.append(r["id"])
         elif dur < min_duration_s:
@@ -4424,7 +4425,7 @@ import pytest
 import soundfile as sf
 import torch
 
-from src.data.audio import AudioProcessor
+from src.data.audio import AudioProcessor, MelConfig
 from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
@@ -4469,6 +4470,16 @@ def test_filter_drops_impossible_alignments(g2p):
     rows = [{"id": "x", "text": "Rozhlas vysílá zprávy.", "lang": "cs", "duration_s": 0.6}]
     n = token_counts(rows, g2p)
     kept, report = filter_manifest(rows, n, hop_s=0.1, min_duration_s=0.1)  # 6 frames < ~20 tokens
+    assert kept == [] and report.impossible_alignment == ["x"]
+
+
+@pytest.mark.parametrize("sr,n", [(24000, 10240), (22050, 3840), (22050, 7680), (16000, 11008)])
+def test_filter_counts_the_frames_the_mel_has(sr, n):
+    frames = AudioProcessor(MelConfig(sample_rate=sr)).compute_mel(torch.zeros(1, n)).shape[1]
+    rows = [{"id": "x", "duration_s": n / sr}]
+    kept, _ = filter_manifest(rows, {"x": frames}, hop_s=256 / sr, min_duration_s=0.0)
+    assert kept == rows
+    kept, report = filter_manifest(rows, {"x": frames + 1}, hop_s=256 / sr, min_duration_s=0.0)
     assert kept == [] and report.impossible_alignment == ["x"]
 
 

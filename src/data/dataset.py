@@ -65,7 +65,7 @@ def filter_manifest(rows: Sequence[Dict], n_tokens: Dict[str, int], hop_s: float
     kept, too_long, too_short, impossible = [], [], [], []
     for r in rows:
         dur = float(r["duration_s"])
-        frames = int(dur / hop_s)
+        frames = int(dur / hop_s + 1e-6)  # n // hop of the mel; the epsilon covers the float error of dur / hop_s
         if dur > max_duration_s:
             too_long.append(r["id"])
         elif dur < min_duration_s:

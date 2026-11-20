@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import torch
 
-from src.data.audio import AudioProcessor
+from src.data.audio import AudioProcessor, MelConfig
 from src.data.dataset import TTSCollator, TTSDataset, corpus_mel_stats, filter_manifest, load_manifest
 from src.text.phonemizer import CzechSlovakPhonemizer, UnknownSymbolError, build_vocabulary
 
@@ -51,6 +51,16 @@ def test_filter_drops_impossible_alignments(g2p):
     rows = [{"id": "x", "text": "Rozhlas vysílá zprávy.", "lang": "cs", "duration_s": 0.6}]
     n = token_counts(rows, g2p)
     kept, report = filter_manifest(rows, n, hop_s=0.1, min_duration_s=0.1)  # 6 frames < ~20 tokens
+    assert kept == [] and report.impossible_alignment == ["x"]
+
+
+@pytest.mark.parametrize("sr,n", [(24000, 10240), (22050, 3840), (22050, 7680), (16000, 11008)])
+def test_filter_counts_the_frames_the_mel_has(sr, n):
+    frames = AudioProcessor(MelConfig(sample_rate=sr)).compute_mel(torch.zeros(1, n)).shape[1]
+    rows = [{"id": "x", "duration_s": n / sr}]
+    kept, _ = filter_manifest(rows, {"x": frames}, hop_s=256 / sr, min_duration_s=0.0)
+    assert kept == rows
+    kept, report = filter_manifest(rows, {"x": frames + 1}, hop_s=256 / sr, min_duration_s=0.0)
     assert kept == [] and report.impossible_alignment == ["x"]
 
 
