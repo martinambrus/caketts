@@ -322,15 +322,15 @@ def test_waterfall_dropped_and_filter(base):
     total = rep["total"]
     assert total["clips"] == len(base.cuts) == 41 and total["audit_dropped"] == 3 and total["g2p_errors"] == 0
     assert total["filtered"] == {"too_long": 1, "too_short": 1, "impossible_alignment": 1}
-    assert total["clips"] == (total["audit_dropped"] + total["g2p_errors"] + sum(total["filtered"].values())
-                              + total["text_overlap"] + sum(total[s] for s in SPLITS))
+    assert total["clips"] == (total["audit_dropped"] + total["part_fragments"] + total["g2p_errors"]
+                              + sum(total["filtered"].values()) + total["text_overlap"] + sum(total[s] for s in SPLITS))
     assert total["units"] == len(base.units) and total["cut_rejected_units"] == {"low_conf": 2}
-    for key in ("units", "clips", "audit_dropped", "g2p_errors", "text_overlap", *SPLITS):
+    for key in ("units", "clips", "audit_dropped", "part_fragments", "g2p_errors", "text_overlap", *SPLITS):
         assert total[key] == sum(rep["parts"][p][key] for p in PARTS)
     for p in PARTS:
         part = rep["parts"][p]
-        assert part["clips"] == (part["audit_dropped"] + part["g2p_errors"] + sum(part["filtered"].values())
-                                 + part["text_overlap"] + sum(part[s] for s in SPLITS))
+        assert part["clips"] == (part["audit_dropped"] + part["part_fragments"] + part["g2p_errors"]
+                                 + sum(part["filtered"].values()) + part["text_overlap"] + sum(part[s] for s in SPLITS))
     assert all(total[s] > 0 for s in SPLITS)
     assert {s: len(rows) for s, rows in manifest_rows(base.work).items()} == {s: total[s] for s in SPLITS}
 
@@ -439,7 +439,7 @@ def test_report_blocks(base):
 
 def test_flagged_and_fragment_clips_never_enter_val_or_test(tmp_path):
     w = build_work(tmp_path, flagged=(10, 11, 12), fragments=(13, 14, 15))
-    rep = run_manifest(w.work, PARTS)
+    rep = run_manifest(w.work, PARTS, ManifestConfig(use_part_fragments=True))
     rows = manifest_rows(w.work)
     for r in rows["val"] + rows["test"]:
         assert not set(r["flags"]) & {"short_pause", "no_quiet_cut", "over_cap"}, r["id"]
@@ -447,6 +447,17 @@ def test_flagged_and_fragment_clips_never_enter_val_or_test(tmp_path):
     assert {w.cuts[k]["id"] for k in (10, 11, 12, 13, 14, 15)} <= {r["id"] for r in all_rows(w.work)}
     for split in ("val", "test"):
         assert {"flagged_rare", "part_fragment"} <= set(rep["unmet"][split])
+
+
+def test_part_fragments_stay_out_unless_the_option_keeps_them(base, tmp_path):
+    fragments = {c["id"] for c in base.cuts
+                 if any("part_fragment" in base.units[u.split(".")[0]]["tags"] for u in c["units"])}
+    assert fragments and not fragments & set(base.rows)
+    assert all(base.dropped[i] == {"id": i, "stage": "fragment", "reasons": ["part_fragment"]} for i in fragments)
+    assert base.report["total"]["part_fragments"] == len(fragments)
+    w = build_work(tmp_path)
+    assert run_manifest(w.work, PARTS, ManifestConfig(use_part_fragments=True))["total"]["part_fragments"] == 0
+    assert fragments <= {r["id"] for r in all_rows(w.work)}
 
 
 def test_text_overlap_exclusions_are_listed_and_left_out(tmp_path, monkeypatch):
@@ -469,8 +480,8 @@ def test_text_overlap_exclusions_are_listed_and_left_out(tmp_path, monkeypatch):
     assert dropped[seen["victim"]] == {"id": seen["victim"], "stage": "split", "reasons": ["text_overlap"]}
     total = rep["total"]
     assert total["text_overlap"] == 1
-    assert total["clips"] == (total["audit_dropped"] + total["g2p_errors"] + sum(total["filtered"].values())
-                              + total["text_overlap"] + sum(total[s] for s in SPLITS))
+    assert total["clips"] == (total["audit_dropped"] + total["part_fragments"] + total["g2p_errors"]
+                              + sum(total["filtered"].values()) + total["text_overlap"] + sum(total[s] for s in SPLITS))
 
 
 def test_a_leaking_split_stops_the_stage(tmp_path, monkeypatch):

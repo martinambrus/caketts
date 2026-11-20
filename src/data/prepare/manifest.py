@@ -37,6 +37,7 @@ class ManifestConfig:
     split: SplitConfig = field(default_factory=SplitConfig)
     exclude_flags: tuple = ("short_pause", "no_quiet_cut", "over_cap")
     exclude_tags: tuple = ("part_fragment", "over_cap")
+    use_part_fragments: bool = False
 
 
 def _word_spans(text: str) -> list:
@@ -86,7 +87,7 @@ def _median(values: list) -> Optional[float]:
 
 
 def _markdown(report: dict) -> str:
-    keys = ("units", "clips", "audit_dropped", "g2p_errors", "text_overlap", *SPLITS)
+    keys = ("units", "clips", "audit_dropped", "part_fragments", "g2p_errors", "text_overlap", *SPLITS)
     lines = ["# Manifest report", "", "## Waterfall", "", "| part | " + " | ".join(keys) + " | filtered |",
              "|---|" + "---|" * (len(keys) + 1)]
     for name, w in [*report["parts"].items(), ("total", report["total"])]:
@@ -137,6 +138,10 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
             if a["verdict"] == "drop":
                 dropped[c["id"]] = {"id": c["id"], "stage": "audit", "reasons": a["reasons"]}
                 continue
+            tags = clip_tags(c, units_by_id)
+            if ("part_fragment" in tags) and not cfg.use_part_fragments:
+                dropped[c["id"]] = {"id": c["id"], "stage": "fragment", "reasons": ["part_fragment"]}
+                continue
             wav = work_dir / "cut" / "clips" / f"{c['id']}.wav"
             pcm, rate = sf.read(str(wav), dtype="int16")
             if hashlib.sha256(pcm.tobytes()).hexdigest() != c["sha256"]:
@@ -149,7 +154,7 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
             row = {"id": c["id"], "audio": str(wav), "text": c["text"], "lang": cfg.language, "speaker": cfg.speaker,
                    "session": part, "boundary": c["boundary"], "duration_s": len(pcm) / rate,
                    "gap_before_s": c["gap_before_s"], "gap_after_s": c["gap_after_s"],
-                   "tags": clip_tags(c, units_by_id), "audit": a["verdict"], "audit_reasons": a["reasons"],
+                   "tags": tags, "audit": a["verdict"], "audit_reasons": a["reasons"],
                    "cer": a["metrics"].get("cer"), "units": c["units"], "flags": c["flags"],
                    "n_tokens": len(tokens), "sha256": c["sha256"]}
             first = units_by_id[c["units"][0].split(".")[0]]
@@ -202,6 +207,7 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
         return {**base, "cut_rejected_units": dict(sorted(rej.items())),
                 "audit_dropped": sum(n for (s, _), n in stage.items() if s == "audit"),
                 "g2p_errors": sum(n for (s, _), n in stage.items() if s == "g2p"),
+                "part_fragments": sum(n for (s, _), n in stage.items() if s == "fragment"),
                 "filtered": {k: stage[("filter", k)] for k in ("too_long", "too_short", "impossible_alignment")},
                 "text_overlap": stage[("split", "text_overlap")],
                 **{s: sum(1 for r in by_split[s] if r["id"] in ids) for s in SPLITS}}
