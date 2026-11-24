@@ -28,6 +28,7 @@ These parts are implemented and tested on CPU:
 
 - Environment setup: the model config and the environment test
 - G2P: espeak-ng with post-rules, a lexicon and a strict vocabulary
+- Pronunciation review and deterministic vocabulary scripts ([walkthrough](docs/training.md))
 - Slovak and Czech number-to-words, with case, gender and animacy
 - Text normalization: numbers, dates, times, currency, units, Roman numerals, abbreviations and English spans, with a Stanza tagger for case, gender and animacy
 - Sentence segmentation with paragraph and chapter boundary labels
@@ -35,16 +36,18 @@ These parts are implemented and tested on CPU:
 - Corpus preparation: recordings and book text to aligned, cut and audited clips and a split manifest, with book-language provenance and consistent narrated terminology, run on a 9-hour Czech audiobook ([walkthrough](docs/corpus-preparation.md)); its tests use stub models, the whole-book run used a GPU
 - The data pipeline
 - The Matcha-TTS components: text encoder, duration predictor, MAS, OT-CFM decoder
+- A bounded stage 2 acoustic trainer: single-device FP32, frame-budget batches, validation and checkpoint resume ([walkthrough](docs/training.md))
 - The SSL discriminator
 - Tempo labels and an offline word/MAS comparison tool (the trained-MAS comparison is pending)
 - Pace metrics and the ASR check
 
+The acoustic runner also passed a bounded real-data CUDA smoke run: three optimizer steps, then checkpoint resume to five total steps. This verifies the training path, not a trained voice or useful learned alignment.
+
 These are still prompts with acceptance criteria in the plan:
 
-- The G2P review and vocabulary scripts
 - The tempo-labelling script
 - The vocoder wrapper
-- The training loops and stages
+- Mixed precision, distributed training and the later training stages
 - Book-length inference
 - The production API
 - Evaluation and the QA report
@@ -56,7 +59,7 @@ uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv;
 # NVIDIA GPU instead: uv sync --group align --group cu130 --no-group cpu   (CUDA 13 build of torch; then run with uv run --no-sync)
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
 git -C "${BIGVGAN_DIR:-third_party/BigVGAN}" checkout 7d2b454     # the commit the tests ran with
-uv run pytest tests/ -q -m "not slow"   # 3731 tests
+uv run pytest tests/ -q -m "not slow"   # 3787 tests
 uv run pytest tests/ -q                 # adds the end-to-end synthetic training test
 ```
 

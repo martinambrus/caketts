@@ -3635,6 +3635,8 @@ def load_vocabulary(path: str) -> Dict[str, int]:
 
 ## 3.2 G2P review procedure (native speaker, one afternoon per language)
 
+Implemented by `scripts/g2p_review.py`, using the existing eSpeak NG backend and post-rules. It exports private source spellings, counts, phones and context without applying corrections. See [the tool walkthrough](training.md). The prompt below retains the planned review procedure.
+
 ```text
 Claude Code Prompt 3.2: Create scripts/g2p_review.py. From the narrator transcripts, list:
  (a) the 3,000 most frequent words; (b) every word containing ia/ie/iu/ô/ä/zh/sh, foreign letters
@@ -3646,6 +3648,8 @@ Re-run the review after the first listening test (Step 14) and after adding new 
 ```
 
 ## 3.3 Build the vocabulary from the corpus
+
+Implemented by `scripts/build_vocab.py`: strict token/count validation, deterministic IDs, optional phonetic lexicon and coverage text, and an input/G2P provenance sidecar. See [the tool walkthrough](training.md). Freeze the reviewed vocabulary before longer training.
 
 ```text
 Claude Code Prompt 3.3: Create scripts/build_vocab.py: tokenize every training transcript in
@@ -5898,6 +5902,8 @@ universal test set. Verify that its mel settings match before comparing; decide 
 
 # Step 11: Training Pipeline
 
+The bounded stage 2 acoustic runner is implemented in `src/training/trainer.py`, with `scripts/train.py` and editable smoke/narrator configurations. It supports one CPU/CUDA device in FP32, frame-budget batches, validation, constant tempo bootstrap and compatible checkpoint resume. Mixed precision, distributed training, EMA and the later stages remain outside this implementation. See [the executable workflow](training.md); the broader prompt below describes the remaining full training design.
+
 | Stage | What | Data | Exit criterion |
 |---|---|---|---|
 | 0 | Data preparation and audit (Step 4.2, `docs/corpus-preparation.md`), G2P review (Step 3.2), vocabulary (Step 3.3) | The narrator's books (first book candidate: 6.63 h kept) | Manifest filtered; narrator CER baseline known; 0 unknown symbols |
@@ -6351,7 +6357,7 @@ Claude Code Prompt 15.1: Run stage 1 of Step 11, then compare it with v1.
 # Appendix: Test Suite
 
 ```bash
-uv run pytest tests/ -q -m "not slow"   # 3731 tests
+uv run pytest tests/ -q -m "not slow"   # 3787 tests
 uv run pytest tests/ -q                 # adds the end-to-end synthetic training test
 ```
 
@@ -6386,6 +6392,8 @@ uv run pytest tests/ -q                 # adds the end-to-end synthetic training
 | test_prepare_terms.py | 6 | Exact book terminology, explicit context languages, inflections, source protection, diagnostic aliases and preserved skips/repeats |
 | test_prepare_repair.py | 43 | Reviewed consensus word substitutions, judge/part/audio provenance, stale inputs, metadata preservation and isolated pipeline gates |
 | test_prepare_all.py | 10 | `prepare_corpus.py all` end to end on a tiny synthetic book with a stub aligner and stub judges, with negative controls |
+| test_training.py | 36 | Stage2 acoustic CLI, padded frame budgets, train-only statistics, constant tempo, split/audio identity, finite updates, atomic checkpoint and deterministic resume |
+| test_corpus_text_tools.py | 20 | eSpeak review TSV, exact source variants and language spans, lexicon/coverage inventory, strict count parity, deterministic vocabulary and private provenance |
 
 ### End-to-end test (tested)
 
