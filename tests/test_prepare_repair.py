@@ -191,7 +191,7 @@ def test_protected_spoken_form_routes_consensus_out_of_edits_and_cannot_be_forge
         apply_repairs(cfg, proposal, tmp_path / "candidate", lambda *_: None)
 
 
-def test_competing_replacements_across_book_occurrences_are_grouped_once(scene):
+def test_competing_replacements_across_book_occurrences_are_grouped_once(scene, tmp_path):
     import shutil
 
     cfg, work, unit = scene
@@ -211,6 +211,40 @@ def test_competing_replacements_across_book_occurrences_are_grouped_once(scene):
     term = proposal["term_review"][0]
     assert term["candidates"] == ["prší", "září"]
     assert term["reasons"] == ["competing_replacements"] and len(term["occurrences"]) == 2
+    # Review metadata cannot promote one occurrence past the book-level hold,
+    # even if the editable terminology group itself is removed.
+    edit = copy.deepcopy(term["occurrences"][0])
+    edit.update(reviewed=True, reviewer="listener")
+    proposal.update(edits=[edit], term_review=[])
+    output = tmp_path / "candidate"
+    with pytest.raises(ValueError, match="eligible"):
+        apply_repairs(cfg, proposal, output, lambda *_: None)
+    assert not output.exists()
+
+
+def test_disagreement_alone_creates_neither_edits_nor_terminology_decisions(scene):
+    cfg, work, unit = scene
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    audit["hyps"][JUDGES[1]] = unit["text"]
+    put(work / "audit/p.audit.jsonl", audit)
+    before = {p.relative_to(work): p.read_bytes() for p in work.rglob("*") if p.is_file()}
+    proposal = propose_repairs(cfg)
+    assert proposal["edits"] == [] and proposal["term_review"] == []
+    assert {p.relative_to(work): p.read_bytes() for p in work.rglob("*") if p.is_file()} == before
+
+
+def test_apply_rechecks_unanimity_in_bound_audit_instead_of_submitted_judges(scene, tmp_path):
+    cfg, work, unit = scene
+    edit = reviewed(cfg)["edits"][0]
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    audit["hyps"][JUDGES[1]] = unit["text"]
+    put(work / "audit/p.audit.jsonl", audit)
+    proposal = propose_repairs(cfg)
+    proposal["edits"] = [edit]  # still claims both judges, despite current audit
+    output = tmp_path / "candidate"
+    with pytest.raises(ValueError, match="eligible"):
+        apply_repairs(cfg, proposal, output, lambda *_: None)
+    assert not output.exists()
 
 
 def test_audit_failure_stops_before_manifest_and_records_incomplete_candidate(scene, tmp_path):

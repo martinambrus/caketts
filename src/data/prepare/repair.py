@@ -105,7 +105,14 @@ def propose_repairs(cfg):
     _validate_producer(cfg)
     terms = BookTerms(cfg.language, cfg.text.terms).read_book(work)
     result = {"version": 1, "source_work_dir": str(work), "config_sha256": _json_hash(dataclasses.asdict(cfg)),
-              "inputs": _inputs(cfg), "terminology": terms.identity(), "edits": [], "term_review": []}
+              "inputs": _inputs(cfg), "terminology": terms.identity()}
+    return {**result, **_proposal_choices(cfg, terms)}
+
+
+def _proposal_choices(cfg, terms):
+    """Derive unanimous choices from source evidence for both propose and apply."""
+    work = Path(cfg.work_dir).resolve()
+    result = {"edits": [], "term_review": []}
     groups = {}
     for part in cfg.part_names():
         units = {u["id"]: u for u in _rows(work / "text" / f"{part}.units.jsonl")}
@@ -145,12 +152,12 @@ def propose_repairs(cfg):
                             candidate["judges"].append(judge)
             for (index, _), candidate in sorted(candidates.items()):
                 judges, replacement = candidate["judges"], candidate["replacement"]
+                if len(judges) != len(cfg.audit.judges):
+                    continue
                 if words[index].islower():
                     replacement = replacement.lower()
                 language = contexts[index][2]
                 reasons = terms.reasons(words[index], replacement, language)
-                if len(judges) != len(cfg.audit.judges):
-                    reasons.append("judge_disagreement")
                 edit = {"part": part, "unit_id": unit["id"], "word_index": index,
                                         "original": words[index], "replacement": replacement,
                                         "clip_id": cut["id"], "clip_file_sha256": _sha(work / "cut" / "clips" / f"{cut['id']}.wav"),
@@ -273,6 +280,15 @@ def apply_repairs(cfg, proposal, output_dir, run_stage):
             candidate_rows[part].append(_replace_unit(unit, changes, normalizer, cfg.text.estimate) if changes else unit)
     if by_unit:
         raise ValueError("proposal references an unknown part or unit")
+    # The submitted JSON may change review fields only. In particular, moving a
+    # grouped occurrence into edits cannot bypass protection, competition or
+    # unanimity established by the bound current audit/source evidence.
+    def choice_identity(edit):
+        return _json_hash({k: v for k, v in edit.items() if k not in ("reviewed", "reviewer")})
+
+    eligible = {choice_identity(edit) for edit in _proposal_choices(cfg, terms)["edits"]}
+    if any(choice_identity(edit) not in eligible for edit in edits):
+        raise ValueError("reviewed edit is not eligible under the current book/audit evidence; regenerate proposal")
     # All proposal checks finish before creating the candidate.
     (output / "text").mkdir(parents=True)
     (output / "repair").mkdir()
