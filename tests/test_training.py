@@ -62,26 +62,43 @@ def checkpoint(path):
 
 def test_cli_update_checkpoint_and_deterministic_resume(stage):
     path, cfg = stage
-    result = subprocess.run([sys.executable, str(ROOT / "scripts/train.py"), "--config", str(path),
-                             "--max-steps", "2"], cwd=path.parent.parent,
-                            capture_output=True, text=True, env={**os.environ, "OMP_NUM_THREADS": "1"})
-    assert result.returncode == 0, result.stderr
+    # Compare trajectories under the same runtime even if pytest uses more threads.
+    cli_env = {**os.environ, "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+
+    def run_cli(*args):
+        result = subprocess.run([sys.executable, str(ROOT / "scripts/train.py"), "--config", str(path),
+                                 *args], cwd=path.parent.parent,
+                                capture_output=True, text=True, env=cli_env)
+        assert result.returncode == 0, result.stderr
+        runtime = json.loads((path.parent / cfg["output_dir"] / "runtime.json").read_text())
+        assert runtime["threads"] == 1
+
+    run_cli("--max-steps", "2")
     partial = checkpoint(path.parent / "run/latest.pt")
     assert partial["step"] == 2
     assert all(torch.isfinite(v).all() for v in partial["model"].values())
     assert any("exp_avg" in s for s in partial["optimizer"]["state"].values())
     # Zero-initialized decoder output has received a real optimizer update.
     assert partial["model"]["decoder.estimator.out.2.weight"].abs().sum() > 0
-    from src.training.trainer import run_training
-    run_training(path, resume=path.parent / "run/latest.pt", max_steps=4)
+    run_cli("--resume", str(path.parent / "run/latest.pt"), "--max-steps", "4")
     resumed = checkpoint(path.parent / "run/latest.pt")
     cfg["output_dir"] = "whole"
     rewrite(path, cfg)
-    run_training(path)
+    run_cli()
     whole = checkpoint(path.parent / "whole/latest.pt")
     assert resumed["step"] == whole["step"] == 4
     for k in whole["model"]:
         torch.testing.assert_close(resumed["model"][k], whole["model"][k], rtol=0, atol=0)
+    assert resumed["optimizer"]["param_groups"] == whole["optimizer"]["param_groups"]
+    assert resumed["optimizer"]["state"].keys() == whole["optimizer"]["state"].keys()
+    for param_id, values in whole["optimizer"]["state"].items():
+        assert resumed["optimizer"]["state"][param_id].keys() == values.keys()
+        for key, value in values.items():
+            torch.testing.assert_close(resumed["optimizer"]["state"][param_id][key], value, rtol=0, atol=0)
+    assert resumed["rng"]["python"] == whole["rng"]["python"]
+    assert torch.equal(resumed["rng"]["torch"], whole["rng"]["torch"])
+    assert not torch.equal(partial["rng"]["torch"], resumed["rng"]["torch"])
+    assert resumed["rng"]["cuda"] is whole["rng"]["cuda"] is None
     assert resumed["sampler"] == whole["sampler"]
     assert resumed["mel_stats"] == whole["mel_stats"]
     log = [json.loads(x) for x in (path.parent / "run/metrics.jsonl").read_text().splitlines()]
