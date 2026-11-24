@@ -1,11 +1,16 @@
 import copy
+import dataclasses
+import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
+import soundfile as sf
 import yaml
 
 from src.data.prepare.config import load_config
+from src.data.prepare.asr import ASR_BACKENDS
 from src.data.prepare.repair import apply_repairs, propose_repairs
 from src.data.prepare.text import _words
 
@@ -17,6 +22,12 @@ def put(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def producer_report(work, cfg):
+    models = {j: ASR_BACKENDS[j].model_id for j in cfg.audit.judges}
+    put(work / "audit/report.json", {"config": dataclasses.asdict(cfg.audit), "judges": models,
+                                      "asr_model": " + ".join(models.values())})
+
+
 @pytest.fixture
 def scene(tmp_path):
     work = tmp_path / "work"
@@ -26,16 +37,21 @@ def scene(tmp_path):
             "sentences": [{"text": text, "boundary": "sentence"}], "boundary": "sentence",
             "source": {"line_start": 1, "line_end": 1}, "tags": ["quote_then_narration"], "est_s": 3}
     put(work / "text/p.units.jsonl", unit)
-    put(work / "cut/p.cuts.jsonl", {"id": unit["id"], "units": [unit["id"]], "text": text, "sha256": "clip"})
-    put(work / "audit/p.audit.jsonl", {"id": unit["id"], "sha256": "clip", "verdict": "drop", "hyp": "Na louce září řekl",
+    pcm = np.arange(1200, dtype=np.int16) * 10
+    (work / "audio").mkdir()
+    (work / "cut/clips").mkdir(parents=True)
+    sf.write(work / "audio/p.24k.wav", pcm, 24000, subtype="PCM_16")
+    sf.write(work / "audio/p.16k.wav", pcm[:800], 16000, subtype="PCM_16")
+    sf.write(work / "cut/clips/p-00000.wav", pcm[200:1000], 24000, subtype="PCM_16")
+    sha = hashlib.sha256(pcm[200:1000].tobytes()).hexdigest()
+    put(work / "cut/p.cuts.jsonl", {"id": unit["id"], "units": [unit["id"]], "text": text, "sha256": sha,
+                                    "start_sample": 200, "end_sample": 1000})
+    put(work / "audit/p.audit.jsonl", {"id": unit["id"], "sha256": sha, "verdict": "drop", "hyp": "Na louce září řekl",
                                       "hyps": {JUDGES[0]: "Na louce září řekl", JUDGES[1]: "Na louce září řekl"}})
-    put(work / "cut/clips/p-00000.wav", "synthetic clip audio")
-    put(work / "audit/report.json", {"asr_model": "synthetic"})
-    put(work / "audio/p.16k.wav", "synthetic16")
-    put(work / "audio/p.24k.wav", "synthetic24")
     cfg_path = tmp_path / "cfg.yaml"
     cfg_path.write_text(yaml.safe_dump({"work_dir": str(work), "parts": ["p"]}))
     cfg = load_config(cfg_path)
+    producer_report(work, cfg)
     return cfg, work, unit
 
 
@@ -78,7 +94,7 @@ def test_repair_rejects_stale_or_unsafe_proposals_before_writing(scene, tmp_path
     edit = proposal["edits"][0]
     if change in ("units", "audio", "audit"):
         path = {"units": "text/p.units.jsonl", "audio": "audio/p.16k.wav", "audit": "audit/p.audit.jsonl"}[change]
-        (work / path).write_text((work / path).read_text() + "\n")
+        (work / path).write_bytes((work / path).read_bytes() + b"\n")
     elif change == "clip_audio":
         (work / "cut/clips/p-00000.wav").write_text("changed")
     elif change == "clip_id":
@@ -184,6 +200,7 @@ def test_proposals_require_every_configured_judge_and_support_single_judge_audit
     put(work / "audit/p.audit.jsonl", audit)
     assert propose_repairs(cfg)["edits"] == []
     cfg.audit.judges = (JUDGES[0],)
+    producer_report(work, cfg)
     audit.pop("hyps")
     put(work / "audit/p.audit.jsonl", audit)
     assert propose_repairs(cfg)["edits"][0]["judges"] == [JUDGES[0]]
@@ -195,3 +212,71 @@ def test_missing_configured_judge_does_not_turn_partial_evidence_into_consensus(
     audit["hyps"].pop(JUDGES[1])
     put(work / "audit/p.audit.jsonl", audit)
     assert propose_repairs(cfg)["edits"] == []
+
+
+@pytest.mark.parametrize("change", ["model", "missing_producer", "audit_config", "single_judge_relabel"])
+def test_propose_rejects_stale_producer_identity(scene, change):
+    cfg, work, _ = scene
+    report = json.loads((work / "audit/report.json").read_text())
+    if change == "model":
+        report["judges"][JUDGES[0]] = ASR_BACKENDS[JUDGES[1]].model_id
+    elif change == "missing_producer":
+        report.pop("judges")
+    elif change == "audit_config":
+        cfg.audit.cer_margin += .01
+    else:
+        cfg.audit.judges = (JUDGES[1],)
+        producer_report(work, cfg)
+        report = json.loads((work / "audit/report.json").read_text())
+        cfg.audit.judges = (JUDGES[0],)
+        audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+        audit.pop("hyps")
+        put(work / "audit/p.audit.jsonl", audit)
+    put(work / "audit/report.json", report)
+    with pytest.raises(ValueError, match="producer"):
+        propose_repairs(cfg)
+
+
+@pytest.mark.parametrize("change", ["clip", "source", "range", "rate", "channels"])
+def test_propose_rejects_preexisting_audio_identity_mismatch(scene, change):
+    cfg, work, _ = scene
+    if change in ("clip", "source"):
+        path = work / ("cut/clips/p-00000.wav" if change == "clip" else "audio/p.24k.wav")
+        pcm, rate = sf.read(path, dtype="int16")
+        pcm[300] += 1
+        sf.write(path, pcm, rate, subtype="PCM_16")
+    elif change == "range":
+        cut = json.loads((work / "cut/p.cuts.jsonl").read_text())
+        cut["end_sample"] = 1400
+        put(work / "cut/p.cuts.jsonl", cut)
+    else:
+        pcm = np.zeros((800, 2) if change == "channels" else 800, dtype=np.int16)
+        sf.write(work / "cut/clips/p-00000.wav", pcm, 16000 if change == "rate" else 24000, subtype="PCM_16")
+    with pytest.raises(ValueError, match="audio|range|PCM"):
+        propose_repairs(cfg)
+
+
+def test_apply_rechecks_source_consistency_despite_manually_rebound_input_hash(scene, tmp_path):
+    cfg, work, _ = scene
+    proposal = reviewed(cfg)
+    path = work / "audio/p.24k.wav"
+    pcm, rate = sf.read(path, dtype="int16")
+    pcm[300] += 1
+    sf.write(path, pcm, rate, subtype="PCM_16")
+    proposal["inputs"]["audio/p.24k.wav"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    output = tmp_path / "candidate"
+    with pytest.raises(ValueError, match="audio|PCM"):
+        apply_repairs(cfg, proposal, output, lambda *_: None)
+    assert not output.exists()
+
+
+def test_apply_rechecks_producer_consistency_despite_manually_rebound_config_hash(scene, tmp_path):
+    cfg, work, _ = scene
+    proposal = reviewed(cfg)
+    cfg.audit.cer_margin += .01
+    proposal["config_sha256"] = hashlib.sha256(
+        json.dumps(dataclasses.asdict(cfg), sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    output = tmp_path / "candidate"
+    with pytest.raises(ValueError, match="producer"):
+        apply_repairs(cfg, proposal, output, lambda *_: None)
+    assert not output.exists()

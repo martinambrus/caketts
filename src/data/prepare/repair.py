@@ -14,8 +14,11 @@ import shutil
 import unicodedata
 from pathlib import Path
 
+import soundfile as sf
+
 from src.data.prepare.text import _words
 from src.data.prepare.audit import spell_digits
+from src.data.prepare.asr import ASR_BACKENDS
 from src.text.normalizer import TextNormalizer
 from src.text.units import estimate_s
 
@@ -50,9 +53,50 @@ def _inputs(cfg):
     return {p: _sha(work / p) for p in paths}
 
 
+
+def _validate_producer(cfg):
+    """Bind the saved hypotheses to the actual configured audit producer."""
+    try:
+        report = json.loads((Path(cfg.work_dir) / "audit" / "report.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise ValueError("audit producer metadata is missing or malformed") from None
+    models = {judge: ASR_BACKENDS[judge].model_id for judge in cfg.audit.judges}
+    if (report.get("judges") != models
+            or report.get("asr_model") != " + ".join(models.values())
+            or _json_hash(report.get("config")) != _json_hash(dataclasses.asdict(cfg.audit))):
+        raise ValueError("audit producer judges, model identities or configuration differ; rerun audit")
+
+
+def _verify_cut_audio(work, part, cut):
+    """Check a bounded source range and its saved clip against the declared PCM hash."""
+    start, end = cut.get("start_sample"), cut.get("end_sample")
+    if type(start) is not int or type(end) is not int or not 0 <= start < end:
+        raise ValueError("cut audio range must contain ordered nonnegative integer samples")
+    try:
+        with sf.SoundFile(work / "audio" / f"{part}.24k.wav") as source:
+            if (source.samplerate != 24000 or source.channels != 1 or source.subtype != "PCM_16"
+                    or source.format not in ("WAV", "WAVEX")):
+                raise ValueError("source audio must be mono 24k PCM16 WAV")
+            if end > source.frames:
+                raise ValueError("cut audio range exceeds source audio")
+            source.seek(start)
+            pcm = source.read(end - start, dtype="int16")
+            if hashlib.sha256(pcm.tobytes()).hexdigest() != cut["sha256"]:
+                raise ValueError("source range audio differs from the declared cut PCM hash; rerun cut/audit")
+        with sf.SoundFile(work / "cut" / "clips" / f"{cut['id']}.wav") as clip:
+            if (clip.samplerate != 24000 or clip.channels != 1 or clip.subtype != "PCM_16"
+                    or clip.format not in ("WAV", "WAVEX") or clip.frames != end - start):
+                raise ValueError("clip audio format or length differs from its source range")
+            if hashlib.sha256(clip.read(dtype="int16").tobytes()).hexdigest() != cut["sha256"]:
+                raise ValueError("clip audio differs from the declared cut PCM hash; rerun cut/audit")
+    except sf.LibsndfileError:
+        raise ValueError("source or clip audio is missing or is not a readable WAV") from None
+
+
 def propose_repairs(cfg):
     """Suggest unanimous, case-insensitive word changes in dropped single-unit clips."""
     work = Path(cfg.work_dir).resolve()
+    _validate_producer(cfg)
     result = {"version": 1, "source_work_dir": str(work), "config_sha256": _json_hash(dataclasses.asdict(cfg)),
               "inputs": _inputs(cfg), "edits": []}
     for part in cfg.part_names():
@@ -66,6 +110,7 @@ def propose_repairs(cfg):
                 continue
             if audit["sha256"] != cut["sha256"] or cut["text"] != unit["text"]:
                 raise ValueError("stale cut/audit text or audio; regenerate before proposing repairs")
+            _verify_cut_audio(work, part, cut)
             words, _ = _words(unit["text"])
             hypotheses = audit.get("hyps")
             if hypotheses is None:
@@ -152,6 +197,7 @@ def apply_repairs(cfg, proposal, output_dir, run_stage):
     source, output = Path(cfg.work_dir).resolve(), Path(output_dir).resolve()
     if output.exists() or output == source or source in output.parents:
         raise ValueError("repair output must be a new directory outside the source work directory")
+    _validate_producer(cfg)
     if (proposal.get("version") != 1 or proposal.get("source_work_dir") != str(source)
             or proposal.get("config_sha256") != _json_hash(dataclasses.asdict(cfg))
             or proposal.get("inputs") != _inputs(cfg)):
@@ -161,12 +207,21 @@ def apply_repairs(cfg, proposal, output_dir, run_stage):
         raise ValueError("each applied edit requires explicit review and a reviewer")
     cuts = {(part, c["id"]): c for part in cfg.part_names()
             for c in _rows(source / "cut" / f"{part}.cuts.jsonl")}
-    by_unit = {}
+    audits = {(part, a["id"]): a for part in cfg.part_names()
+              for a in _rows(source / "audit" / f"{part}.audit.jsonl")}
+    by_unit, verified = {}, set()
     for edit in edits:
         cut = cuts.get((edit["part"], edit["clip_id"]))
         if (cut is None or cut["units"] != [edit["unit_id"]]
                 or edit.get("clip_file_sha256") != _sha(source / "cut" / "clips" / f"{cut['id']}.wav")):
             raise ValueError("proposal clip is mismatched or its audio changed")
+        audit = audits.get((edit["part"], cut["id"]))
+        if audit is None or audit["sha256"] != cut["sha256"] or audit["verdict"] != "drop":
+            raise ValueError("proposal cut audio identity or verdict differs from its saved audit")
+        identity = (edit["part"], cut["id"])
+        if identity not in verified:
+            _verify_cut_audio(source, edit["part"], cut)
+            verified.add(identity)
         by_unit.setdefault((edit["part"], edit["unit_id"]), []).append(edit)
     normalizer = TextNormalizer(cfg.language, cfg.text.book_config)
     candidate_rows = {}
