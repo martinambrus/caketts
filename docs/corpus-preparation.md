@@ -126,6 +126,8 @@ Each unit gets a status from the part's own score distribution: `ok`, `low_conf`
 
 Check: the `ok` count against the total in `align/report.md` (4,721 of 4,952, 95.3%, on the first book with `xls-r-cs`). A low share means the text differs from the narration or the aligner does not fit the language: read the text at the gaps (`align/<part>.meta.json`), and try another `align.backend`.
 
+With `align.edge_repair_max_s: 0.6`, an optional correction recovers short first words that CTC placed entirely after their ASR interval. It requires a unique run of three matching words, agreement of the next two word intervals, audible source audio and room after the previous unit. It changes only already-`ok` units and never promotes rejected units. The default is `0.0` (disabled); validate the enabled setting on the book with gold scoring and the clip audit. It does not repair arbitrary alignment errors.
+
 ### cut
 
 Per part, in integer samples, with every number in `cut:` of `example.yaml`:
@@ -141,7 +143,7 @@ Per part, in integer samples, with every number in `cut:` of `example.yaml`:
 
 Two independent judges transcribe every clip (`audit.judges`: Parakeet-TDT-0.6B-v3 and Canary-1B-v2; neither may be the aligner: the config load checks that the names are valid and distinct and that the aligner differs from the ASR anchor model, and the audit stage checks every judge against the aligner model recorded in `align/<part>.meta.json`). A judge's CER (digits spelled out) is compared with its own corpus median plus `cer_margin` (0.05), and a clip of at most 30 characters needs at least 3 character edits. **A clip is dropped only when every judge exceeds its threshold** (`cer`); when only some do, it is kept and listed (`cer_disputed`). With one judge the rule is the single-judge rule; on two parts of the first book it dropped 22.2% against 12.9% for two judges, and about half of the single-judge drops were false (numbers, short interjections, recognition errors).
 
-Other findings go to `audit/review.csv` (clip, metric, value, threshold, reason) without dropping: speaking rate outside 3 robust sigmas, noise at a clip edge (an edge frame louder than the cut's quiet level `cut.quiet_db`, unless `audit.edge_db` is set; the cut already moves a noisy pad edge to a quiet frame, so this is left for the few clips where that was not possible), clipping, loudness, and the cut flags `no_quiet_cut` and `over_cap`. `audit/listening.csv` ranks the 50 riskiest clips for a listening pass; listen to it before training. The transcripts are cached by clip hash, so after a re-cut only the changed clips are transcribed again.
+Other findings go to `audit/review.csv` (clip, metric, value, threshold, reason) without dropping: speaking rate outside 3 robust sigmas, noise at a clip edge (an edge frame louder than the cut's quiet level `cut.quiet_db`, unless `audit.edge_db` is set; the cut already moves a noisy pad edge to a quiet frame, so this is left for the few clips where that was not possible), clipping, loudness, and the cut flags `no_quiet_cut` and `over_cap`. `audit/listening.csv` ranks the 50 riskiest clips for a listening pass; listen to it before training. The transcripts are cached by clip hash, model and requested book-language/control identity, so after a re-cut only changed or incompatible clips are transcribed again. Known legacy caches require matching producer, part and audio evidence; a missing language is never assumed to mean the current book language.
 
 ### manifest
 
@@ -154,9 +156,56 @@ Clips the audit dropped, over-long (> 20 s), too short (< 0.5 s) and impossible 
 
 Each manifest row has `id`, `audio` (the absolute path of the clip), `text`, `lang`, `speaker`, `session` (the part), `boundary`, `duration_s` (from the written WAV), `articulation_rate`, `pause_ratio` (from the aligner's word times, first to last word, pads excluded), `gap_before_s`, `gap_after_s`, `tags`, `split`, the audit verdict and CER, `units`, `paragraph`, `chapter`, `flags`, `n_tokens` and `sha256`. The rows load through `load_manifest`, `filter_manifest`, `TTSDataset` and `TTSCollator` (Step 4.3). `coverage.md` counts clips and hours per tag and split and lists thin tags; read it to see which kinds of sentence the model will never see.
 
+Quote continuation is explicit: `quote_before` and `quote_after` carry quote-only context, independently of the combined quote/bracket depths. The shared phonemizer accepts these fields and emits continuation context tokens without adding quote marks to the text. Re-run text, cut and manifest and rebuild the vocabulary to add this context to an older corpus. The dataset checks stored token counts against its actual phonemizer and uses mel settings as part of the cache key. A phonetic lexicon must be supplied through the same G2P used by manifest generation and training; `text.lexicon` is a separate orthographic-replacement TSV.
+
+Cut and gold scoring verify a long-form ASR cache against its 16 kHz source audio. An existing cache with a missing or mismatched audio hash stops the stage; re-run alignment to regenerate it. A missing cache remains optional.
+
+### Book language and terminology
+
+Set `language: cs` for a Czech book or `sk` for Slovak. Shared and ambiguous words inherit that book language; an existing explicit `<en>...</en>` span declares an exception. Canary receives the book language as both source and target. Parakeet remains automatic, which its recorded provenance states; a book setting does not create an unsupported forcing mechanism. Neither backend's recognition errors are authority to standardize the narrator's grammar.
+
+Set `text.terms: terms.tsv` for persistent book choices. The audit inherits this file. Its tab-separated columns are `canonical`, `alias`, `language`, and optional `kind`:
+
+- `name` (default) protects a narrated name form. List ASR spelling aliases on additional rows with the same canonical form.
+- `protected` preserves a source form, including spoken colloquialisms that ASR changes into standard grammar.
+- `word` admits a reviewed ordinary vocabulary item.
+
+An alias may be blank. Entries are exact word forms; enumerate genuine inflections separately. Language declares the source context and does not change G2P: pronunciation still uses the existing inline spans, `book_config.english` and phonetic lexicon. Deliberate book-wide source respellings use the existing orthographic `text.lexicon`.
+
+The corrected source vocabulary, capitalized forms and explicit spans provide conservative protection across every text part, even for a command selecting fewer parts. This is neither a dictionary nor a foreign-word detector. Unfamiliar or competing forms are grouped for a book-level decision instead of being guessed into another language. The aim is fidelity to the recording, including slang and colloquial grammar.
+
+Declared aliases produce a separate diagnostic comparison only when a one-word substitution aligns with that exact canonical source form. Raw judge transcripts and the original CER quality gates remain unchanged; insertions, deletions and repeats are not excused. The policy file and every consulted source part are bound into proposal provenance. After changing a choice, re-run the audit and regenerate proposals; compatible raw transcripts can be reused. Write regenerated proposals to a new filename so prior review notes are retained.
+
+### Reviewed transcript repairs
+
+When narration differs from the transcript, generate suggestions from the saved judge transcripts:
+
+```bash
+uv run --no-sync scripts/repair_corpus.py propose --config corpus.yaml --proposal repairs.json
+```
+
+The proposal contains ordinary word substitutions in audit-dropped clips, supported by every configured judge and the trusted book vocabulary; casing-only differences are ignored. Names, protected spoken forms, new vocabulary and competing choices are grouped in `term_review`. Weak single-judge guesses remain in the audit evidence and are not promoted into either decision queue. Listen before setting an edit's `reviewed` to `true` and filling its `reviewer`. Unreviewed suggestions are not applied. The tool handles equal-word-count substitutions in unsplit single-unit clips; insertions, deletions and merged clips still need transcript editing. It preserves punctuation, dialogue marks and language spans.
+
+```bash
+uv run --no-sync scripts/repair_corpus.py apply --config corpus.yaml --proposal repairs.json --output repaired-work
+```
+
+The source configuration, book policy and input hashes must still match. Apply recomputes eligibility from the current evidence; a grouped item cannot be promoted by editing its JSON review fields. Update the book policy or orthographic lexicon and regenerate instead. Apply creates a separate candidate with an original-text snapshot and receipt, then runs alignment, cut, audit, manifest and configured gold scoring. A completed receipt means those stages ran; inspect their reports before accepting the candidate. Source recordings and the previous corpus remain available.
+
 ### gold (optional): checking the cut against speech you verified
 
 The scorer takes a gold file (`gold.file`, JSON: verified speech spans and pause ranges per part, see `src/data/prepare/gold.py`) or one Audacity label file per part (`gold.audacity: {a1: labels-a1.txt}`): in Audacity, label each pause between two sentences, from the end of the last word to the start of the next, and export the labels (TAB separated: start, end, label; seconds). Labels give the pause-centre error only; verified speech spans also give the speech-edge error and the main criterion, **no speech cut off**: a matched span that loses an ASR-confirmed word (an ASR word within 50 ms of speech-level audio that no clip holds). Words of rejected units are never cut, by design, so they do not count: a lost word that lies between two `ok` units with a rejected unit between them, less 80 ms (the cut's search window) at each `ok` edge, is reported apart as a rejected-unit word (`rejected words` in `gold/report.md`). On the first book (248 verified spans) it is 1 of 153 matched spans (0.7%): a first word the aligner placed late, which no clip holds; 16 words of rejected units in 4 spans are listed apart (counted as lost, it was 2 of 153). The unsafe-cut rate (a clip edge strictly inside a gold span) is reported for information only, since a gold span can hold pauses of its own.
+
+## Comparing tempo labels before choosing a policy
+
+The word-alignment labels in the manifest exclude clip pads. A MAS export must come from a meaningful trained checkpoint and use the same tokenization, quote context and audio hashes. Export JSONL rows with `id`, `sha256`, `kinds` and `durations_frames`, excluding collator padding. The helper checks exact clip IDs, token counts and mel-frame totals, removes clip padding even when it spans multiple tokens, and compares both quote-duration policies without changing the labels:
+
+```bash
+uv run --no-sync scripts/compare_tempo.py --manifest manifest/train.jsonl --mas trained-mas.jsonl \
+  --cuts cut/a1.cuts.jsonl cut/a2.cuts.jsonl --hop-s 0.010666666666666666 --output tempo-comparison.json
+```
+
+Supply all cut files used by that manifest. The report contains numeric deltas and per-session and per-chapter medians; it does not contain transcript text. One policy counts quote-token durations as speech, the other counts durations of at least 120 ms as pauses. Inspect the comparison before selecting a policy or replacing labels. No trained-MAS comparison has been run yet.
 
 ## Choosing the aligner and the judges
 
@@ -203,7 +252,7 @@ After changing the cut settings, re-run `cut`, `audit`, `manifest` and `gold` on
 
 ## Results on the first book
 
-Czech, 10 parts, 9.091 hours, text = the narrator's rewrite with the EPUB's chapters, `xls-r-cs`, two judges:
+Baseline before the optional first-word correction: Czech, 10 parts, 9.091 hours, text = the narrator's rewrite with the EPUB's chapters, `xls-r-cs`, two judges:
 
 | step | units or clips | hours |
 |---|---|---|
@@ -221,9 +270,25 @@ The cut defaults were tuned on the gold of 8 parts and checked on 2 held-out par
 
 The unit-length estimate (`estimate` in the text stage, which decides the 17 s cap and the merges) was re-fitted on the measured clips of the whole book: error on the spoken seconds of 4,574 single-unit clips went from bias -1.33 s and RMSE 1.68 s to bias 0 and RMSE 0.89 s; fitted on parts a1 to a5, the RMSE on a6 to a10 is 0.90 s.
 
+### Candidate with anchored first-word correction
+
+With `align.edge_repair_max_s: 0.6`, replaying the correction over the saved CTC outputs and hash-verified source audio changes 354 first-word spans. A real-model GPU excerpt reproduced the original failing boundary. This is a reuse of existing CTC outputs, not a new whole-book CTC run. Text-stage output is unchanged apart from the new context fields.
+
+The candidate has 4,582 cut clips (four additional merges), of which 298 have changed audio hashes and 4,284 are unchanged. The longest remains 19.39 s. The normal two-judge audit transcribed the changed clips again (596 new transcripts): drops fell from 501 to 497; six changed clips went from drop to review and two from review to drop. Gold lost words fell from one to zero; the matched-span count changed from 153 to 152 after merging, with 245 covered gold spans unchanged. This does not establish that every possible word error is eliminated.
+
+The candidate keeps 4,084 clips, 6.634 h: train/val/test/held-out remain 3,819/42/49/174 clips, with 6.127/0.095/0.111/0.300 h. All rows load through the dataset and collator with matching counts, a 64-symbol vocabulary, and 225 quote continuation tokens. Split checks pass. Six pad edges remain flagged, down from seven in the baseline. The optional correction stays disabled by default outside this validated candidate.
+
+The reviewed-repair proposer finds 318 unanimous word substitutions in 185 dropped clips. No replacements have been applied; those suggestions still require listening verification. The original corpus and rollback backup are preserved.
+
+### Narration-fidelity terminology pass
+
+A subsequent metadata-only pass fixed book language/cache provenance and added the reviewed term policy. All 9,164 raw judge transcripts were reused with validated producer/part/audio evidence; no speech was re-decoded. The 4,084 manifest rows retain the same audio, text, labels and split assignments. The explicit policy supplied 18 contextual alias diagnostics without changing the raw CER gates.
+
+The previous 318 unanimous suggestions became 42 ordinary edit suggestions and 276 occurrences grouped into 177 terminology items. Reported grammar/colloquial source forms were protected. The four suspected alignment examples showed no demonstrated cutting defect, so no audio boundaries were shifted for them. These queues are still unapproved; no transcript replacement has been applied.
+
 ## What it does not do
 
-- It does not repair the text from the audio: where the narrator deviates, the clip is dropped (about 41% of the drops here). A repair from the ASR words is a design item, not built.
+- It does not automatically accept ASR text. Reviewed word substitutions are supported; insertions, deletions and merged-clip repairs still need transcript editing. A completed candidate must pass its normal audit before training.
 - It does not read what the normalizer cannot read: `|`, `•` and a `/` it cannot place (such as `139/VII`) stop the text stage; list them in a lexicon. The normalizer reads `/` between words ("or"), between numbers and in a ratio such as `Kč/kg`.
 - Only Czech has run on a real book, and the aligner comparison exists for Czech only. The config accepts `language` `cs` and `sk` only (the normalizer's languages): English appears only as `<en>` spans inside a Czech or Slovak text.
 - The manifest's rates and the pauses in `pauses.json` describe this narrator in these recordings; recompute them for another book.

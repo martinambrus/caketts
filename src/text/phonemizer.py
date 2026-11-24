@@ -90,8 +90,10 @@ _PUNCT_MAP = {
 _QUOTES = set("\"'„“”‚‘’«»‹›`´")
 OPEN_QUOTE, CLOSE_QUOTE = "❝", "❞"
 QUOTE_TOKENS = (OPEN_QUOTE, CLOSE_QUOTE)
+# Context at clip boundaries, distinct from quote marks actually present in text.
+QUOTE_CONTEXT_TOKENS = ("<quote_before>", "<quote_after>")
 
-SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS, *QUOTE_TOKENS]
+SPECIAL_TOKENS = ["<pad>", "<unk>", "<bos>", "<eos>", WORD_BOUNDARY, *PUNCT_TOKENS, *QUOTE_TOKENS, *QUOTE_CONTEXT_TOKENS]
 
 _WORD_RE = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.UNICODE)
 _SPAN_RE = re.compile(r"<(cs|sk|en)>(.*?)</\1>", re.DOTALL)
@@ -404,7 +406,15 @@ class CzechSlovakPhonemizer:
         return out
 
     # ---- public API ----------------------------------------------------------------------
-    def tokenize(self, text: str) -> List[Token]:
+    def tokenize(self, text: str, *, quote_before: int = 0, quote_after: int = 0) -> List[Token]:
+        """Tokenize normalized text, optionally with Unit/manifest quote-only boundary depths.
+
+        Continuation tokens carry known context without inventing marks. Zero defaults keep
+        legacy text-only callers unchanged; generic bracket/enclosure depths must not be used.
+        """
+        for name, depth in (("quote_before", quote_before), ("quote_after", quote_after)):
+            if type(depth) is not int or depth < 0:
+                raise ValueError(f"{name} must be a nonnegative integer")
         text = _nfc(text).replace("...", "…")
         marked = _mark_quotes(text)
         tokens: List[Token] = []
@@ -452,6 +462,10 @@ class CzechSlovakPhonemizer:
 
         if self.config.apply_voicing_rules:
             tokens = apply_voicing_rules(tokens)
+        if quote_before:
+            tokens.insert(0, Token(QUOTE_CONTEXT_TOKENS[0], self.language, "quote"))
+        if quote_after:
+            tokens.append(Token(QUOTE_CONTEXT_TOKENS[1], self.language, "quote"))
         return tokens
 
     # characters that may be dropped silently (they carry no sound)

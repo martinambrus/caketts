@@ -79,14 +79,19 @@ def _sha256(path):
     return digest.hexdigest()
 
 
-def _read_cache(path, sha, config, model_id):
+def _read_cache(path, sha, config, model_id, legacy=False):
     try:
         with open(path, encoding="utf-8") as f:
             cache = json.load(f)
     except (OSError, ValueError):
         return None
-    if (cache.get("audio_sha256") == sha) and (cache.get("config") == config) and (cache.get("model_id") == model_id):
-        return cache["words"]
+    if cache.get("audio_sha256") != sha or cache.get("model_id") != model_id:
+        return None
+    if cache.get("config") == config:
+        return cache
+    old_config = {k: v for k, v in config.items() if k != "provenance"}
+    if legacy and cache.get("config") == old_config:
+        return cache
     return None
 
 
@@ -133,27 +138,50 @@ def stage_align(cfg, hooks):
 
     from src.data.prepare.align import align
     from src.data.prepare.align.ctc import BACKENDS, CtcAligner
-    from src.data.prepare.asr import ASR_BACKENDS, SAMPLE_RATE, AsrRunner, AsrWord
+    from src.data.prepare.asr import (ASR_BACKENDS, SAMPLE_RATE, AsrRunner, AsrWord,
+                                     transcription_identity, validate_runner_language)
 
     parts = cfg.part_names()
     _require(cfg, parts, ("text/{part}.units.jsonl", "text"), ("audio/{part}.16k.wav", "audio"))
-    acfg, asr_hook = cfg.align, hooks.get("align_asr")
+    acfg = dataclasses.replace(cfg.align, asr=dataclasses.replace(cfg.align.asr, language=cfg.language))
+    asr_hook = hooks.get("align_asr")
+    validate_runner_language(asr_hook, acfg.asr.backend, cfg.language)
     work = Path(cfg.work_dir)
     (work / "align").mkdir(parents=True, exist_ok=True)
     wav = {p: str(work / "audio" / f"{p}.16k.wav") for p in parts}
     need = {p: (acfg.longform == "always") or (sf.info(wav[p]).frames / SAMPLE_RATE > acfg.block_max_s) for p in parts}
     model_id = asr_hook.model_id if asr_hook is not None else ASR_BACKENDS[acfg.asr.backend].model_id
     asr_config = {"window_s": acfg.asr.window_s, "overlap_s": acfg.asr.overlap_s,
-                  "cut_search_s": acfg.asr.cut_search_s}
+                  "cut_search_s": acfg.asr.cut_search_s,
+                  "provenance": transcription_identity(acfg.asr.backend, cfg.language)}
+    try:
+        old_report = json.loads((work / "align" / "report.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        old_report = {}
+    old_asr = old_report.get("config", {}).get("asr", {})
+    # Legacy anchor provenance comes from the producer config, not the new
+    # config or the ASR majority spelling. Non-recognition settings may change.
+    legacy_producer = ("asr_provenance" not in old_report
+                       and old_report.get("config", {}).get("language") == cfg.language
+                       and all(old_asr.get(k) == dataclasses.asdict(acfg.asr)[k]
+                               for k in ("backend", "language", "window_s", "overlap_s", "cut_search_s"))
+                       and model_id == ASR_BACKENDS[acfg.asr.backend].model_id)
     words, cache_state, seconds = {}, {}, {}
     runner = None
     try:
         for p in (p for p in parts if need[p]):
             started = time.perf_counter()
             path, sha = work / "align" / f"{p}.asr.json", _sha256(wav[p])
-            cached = _read_cache(path, sha, asr_config, model_id)
+            cached = _read_cache(path, sha, asr_config, model_id,
+                                 legacy=legacy_producer and p in old_report.get("parts", {}))
             if cached is not None:
-                words[p], cache_state[p] = [AsrWord(*w) for w in cached], "hit"
+                words[p], cache_state[p] = [AsrWord(*w) for w in cached["words"]], "hit"
+                if cached["config"] != asr_config:
+                    cached["config"] = asr_config
+                    cached["migrated_from"] = transcription_identity(acfg.asr.backend, cfg.language, legacy=True)
+                    path.write_text(json.dumps(cached, sort_keys=True, indent=1, ensure_ascii=False) + "\n",
+                                    encoding="utf-8")
+                    cache_state[p] = "migrated"
             else:
                 if asr_hook is not None:
                     source = asr_hook
@@ -175,7 +203,8 @@ def stage_align(cfg, hooks):
     created = backend is None
     if created:
         backend = CtcAligner(BACKENDS[acfg.backend], acfg.language, acfg.device, acfg.window_s, acfg.context_s)
-    report = {"config": dataclasses.asdict(acfg), "parts": {}}
+    report = {"config": dataclasses.asdict(acfg),
+              "asr_provenance": transcription_identity(acfg.asr.backend, cfg.language), "parts": {}}
     try:
         for p in parts:
             started = time.perf_counter()
@@ -193,6 +222,7 @@ def stage_align(cfg, hooks):
                 "duration_s": res["meta"]["duration_s"], "asr_words": len(words[p]) if p in words else None,
                 "asr_cache": cache_state.get(p), "n_blocks": res["meta"]["n_blocks"],
                 "n_suspect_blocks": res["meta"]["n_suspect_blocks"],
+                "first_words_repaired": res["meta"]["first_words_repaired"],
                 "seconds": round(seconds.get(p, 0.0) + time.perf_counter() - started, 3)}
     finally:
         if created:
@@ -204,6 +234,7 @@ def stage_align(cfg, hooks):
         "flags": _merge(x["flags"] for x in ps), "duration_s": sum(x["duration_s"] for x in ps),
         "asr_words": sum(x["asr_words"] for x in ps if x["asr_words"] is not None),
         "n_blocks": sum(x["n_blocks"] for x in ps), "n_suspect_blocks": sum(x["n_suspect_blocks"] for x in ps),
+        "first_words_repaired": sum(x["first_words_repaired"] for x in ps),
         "seconds": round(sum(x["seconds"] for x in ps), 3)}
     (work / "align" / "report.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
     (work / "align" / "report.md").write_text(_align_markdown(report))

@@ -30,6 +30,7 @@ judged spans is the stricter figure. The unsafe-cut rates stay as information.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from dataclasses import dataclass, field
@@ -241,11 +242,13 @@ def _lost_speech(spans: Sequence, clips: Sequence, level_db: np.ndarray, frame: 
     return out
 
 
-def _load_word_mids(path: Path) -> Optional[np.ndarray]:
+def _load_word_mids(path: Path, audio: Path) -> Optional[np.ndarray]:
+    """Missing cache is optional; an existing cache must match its 16 kHz ASR source."""
     if not path.exists():
         return None
     try:
-        words = json.loads(path.read_text(encoding="utf-8"))["words"]
+        cache = json.loads(path.read_text(encoding="utf-8"))
+        words = cache["words"]
         if not isinstance(words, list):
             raise TypeError("words is not a list")
         mids = []
@@ -258,6 +261,13 @@ def _load_word_mids(path: Path) -> Optional[np.ndarray]:
             mids.append((a + b) / 2)
     except (ValueError, TypeError, KeyError) as e:
         raise ValueError(f"{path}: not a long-form ASR cache ({e.__class__.__name__}: {e})") from None
+    try:
+        with audio.open("rb") as source:
+            identity = hashlib.file_digest(source, "sha256").hexdigest()
+    except OSError as e:
+        raise ValueError(f"{path}: cannot verify ASR audio identity from {audio} ({e})") from None
+    if cache.get("audio_sha256") != identity:
+        raise ValueError(f"{path}: stale ASR cache: audio_sha256 does not match {audio}; rerun align")
     return np.sort(np.asarray(mids, dtype=float))
 
 
@@ -273,7 +283,8 @@ def _load_levels(work_dir: Path, part: str, speech_db: Optional[float]):
     frame_s = json.loads(pauses.read_text(encoding="utf-8")).get("frame_s", 0.01) if pauses.exists() else 0.01
     frame = round(frame_s * CUT_SR)
     pcm, _ = sf.read(str(wav), dtype="int16")
-    return _frame_db(pcm, frame), frame, floor, thr, _load_word_mids(work_dir / "align" / f"{part}.asr.json")
+    return _frame_db(pcm, frame), frame, floor, thr, _load_word_mids(
+        work_dir / "align" / f"{part}.asr.json", work_dir / "audio" / f"{part}.16k.wav")
 
 
 def _part_lost(g_spans: list, clips: list, pairs: list, levels, rejected=()) -> tuple:

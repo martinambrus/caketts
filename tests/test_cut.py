@@ -770,7 +770,7 @@ def test_run_cut_is_byte_identical_on_rerun(tmp_path):
 
 
 CUT_KEYS = {"id", "units", "text", "boundary", "part", "start_sample", "end_sample", "pad_start_s", "pad_end_s",
-            "gap_before_s", "gap_after_s", "flags", "sha256"}
+            "gap_before_s", "gap_after_s", "flags", "sha256", "open_before", "open_after", "quote_before", "quote_after"}
 
 
 def test_run_cut_round_trip(tmp_path):
@@ -1160,6 +1160,37 @@ def test_split_leaves_its_inputs_untouched():
     assert all(u.get("split_of") == units[1]["id"] for u in out_units[1:3])
 
 
+def test_split_recomputes_quote_and_bracket_context_for_each_piece():
+    items, (pcm, truth, units, spans, group) = two_halves(0.6, 90)
+    unit = units[1]
+    unit["text"] = "(„" + unit["text"] + "“)"
+    unit.update(open_before=0, open_after=0, quote_before=0, quote_after=0)
+    out, _ = cut.split_over_cap(units, spans, CutConfig(), SR)
+    pieces = [u for u in out if u.get("split_of") == unit["id"]]
+    assert [(u["open_before"], u["open_after"], u["quote_before"], u["quote_after"]) for u in pieces] == [
+        (0, 2, 0, 1), (2, 0, 1, 0)]
+    plan = cut.plan_part("p", pcm, SR, units, spans)
+    assert [(c.record()["open_before"], c.record()["open_after"], c.record()["quote_before"], c.record()["quote_after"])
+            for c in plan.clips if c.id.startswith(unit["id"] + ".")] == [(0, 2, 0, 1), (2, 0, 1, 0)]
+
+
+def test_merged_clip_carries_context_from_its_first_and_last_units(tmp_path):
+    d = copy.deepcopy(std())
+    units = d["units"]
+    spans = stub_spans(units, d["truth"], 0.02, 3)
+    group = next(c.units for c in cut.plan_part("p", d["pcm"], SR, units, spans).clips if len(c.units) > 1)
+    by_id = {u["id"]: u for u in units}
+    by_id[group[0]].update(open_before=2, open_after=2, quote_before=1, quote_after=1)
+    by_id[group[-1]].update(open_before=2, open_after=0, quote_before=1, quote_after=0)
+    write_work(tmp_path, {"p": (d["pcm"], units, spans)})
+    cut.run_cut(tmp_path, ["p"])
+    records = [json.loads(line) for line in (tmp_path / "cut" / "p.cuts.jsonl").read_text().splitlines()]
+    merged = next(r for r in records if r["units"] == group)
+    assert (merged["open_before"], merged["open_after"], merged["quote_before"], merged["quote_after"]) == (2, 0, 1, 0)
+    legacy = next(r for r in records if not set(r["units"]) & set(group))
+    assert (legacy["open_before"], legacy["open_after"], legacy["quote_before"], legacy["quote_after"]) == (0, 0, 0, 0)
+
+
 def test_run_cut_cuts_the_pieces_of_a_split_unit(tmp_path):
     items, (pcm, truth, units, spans, group) = two_halves(0.6, 77)
     write_work(tmp_path, {"pa": (pcm, units, spans)})
@@ -1219,6 +1250,24 @@ def test_quiet_edges_stay():
     pcm = edge_pcm(40, [])
     assert edge_start(pcm, 20 * F, 0) == 20 * F
     assert edge_end(pcm, 20 * F, 40 * F) == 20 * F
+
+
+def test_only_a_noisy_off_grid_quiet_cut_moves_to_the_frame_grid():
+    pcm = edge_pcm(8, [0, 6, 7])
+    cfg = CutConfig()
+    expected = 3 * F + F // 2
+    db = cut.frame_db(pcm, F)
+    assert cut.choose_cut(db, EDGE_FLOOR, F, 6 * F, cfg, SR, pcm) == expected
+    # Each grid frame remains quiet, while the two loud half-frames straddling
+    # the off-grid edge make its actual 10 ms window noisy.
+    pcm[expected:expected + F] = 200
+    db = cut.frame_db(pcm, F)
+    assert (db[1:6] <= EDGE_FLOOR + cfg.quiet_db).all()
+    assert cut._loud_window(pcm, expected, F, EDGE_FLOOR, cfg.quiet_db)
+    chosen = cut.choose_cut(db, EDGE_FLOOR, F, 6 * F, cfg, SR, pcm)
+    assert chosen == 3 * F
+    assert not cut._loud_window(pcm, chosen, F, EDGE_FLOOR, cfg.quiet_db)
+    assert not cut._loud_window(pcm, chosen - F, F, EDGE_FLOOR, cfg.quiet_db)
 
 
 @pytest.mark.parametrize("k", [1, 3])
@@ -1295,6 +1344,33 @@ def test_cut_point_beyond_the_room_is_not_taken():
     pcm = edge_pcm(40, range(8, 22))
     assert edge_start(pcm, 20 * F, 10 * F, room=5 * F) == 15 * F
     assert edge_start(pcm, 20 * F, 10 * F, room=10 * F) == 10 * F
+
+
+def test_last_extension_step_at_cap_keeps_the_progress_before_the_cut_point():
+    pcm = edge_pcm(40, range(8, 32))
+    assert edge_start(pcm, 20 * F, 10 * F, room=9 * F) == 11 * F
+    assert edge_end(pcm, 20 * F, 30 * F, room=9 * F) == 29 * F
+
+
+@pytest.mark.parametrize("identity", ["valid", "stale", "missing", "source_missing"])
+def test_run_cut_validates_the_asr_source_audio(tmp_path, identity):
+    pcm, units, spans = small_part("p", 91)
+    write_work(tmp_path, {"p": (pcm, units, spans)})
+    source = tmp_path / "audio" / "p.16k.wav"
+    sf.write(str(source), pcm[::3], 16000, subtype="PCM_16")
+    cache = {"words": [["synthetic", 0.8, 1.0]], "audio_sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
+    if identity == "missing":
+        del cache["audio_sha256"]
+    elif identity == "stale":
+        cache["audio_sha256"] = "0" * 64
+    elif identity == "source_missing":
+        source.unlink()
+    (tmp_path / "align" / "p.asr.json").write_text(json.dumps(cache))
+    if identity == "valid":
+        assert cut.run_cut(tmp_path, ["p"])["parts"]["p"]["clips"] > 0
+    else:
+        with pytest.raises(ValueError, match="p.asr.json.*audio"):
+            cut.run_cut(tmp_path, ["p"])
 
 
 def test_both_edges_of_one_gap_loud_stop_at_the_cut_point():

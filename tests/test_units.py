@@ -405,7 +405,7 @@ def test_unit_is_a_frozen_dataclass_with_defaults():
     assert (u.heading, u.open_before, u.open_after, u.over_cap) == (False, 0, 0, False)
     assert [f.name for f in dataclasses.fields(Unit)] == [
         "text", "boundary", "pause", "chapter", "paragraph", "first", "last", "kind",
-        "heading", "open_before", "open_after", "over_cap"]
+        "heading", "open_before", "open_after", "over_cap", "quote_before", "quote_after"]
     with pytest.raises(dataclasses.FrozenInstanceError):
         u.text = "Ne."
 
@@ -587,3 +587,16 @@ def test_quote_depth_agrees_with_quote_tokens(key):
         elif t.symbol == "❞":
             depth = max(0, depth - 1)
     assert depth == expected
+
+
+@pytest.mark.parametrize("opening,closing,quote", [("„", "“", True), ("(", ")", False), ("[", "]", False)])
+def test_quote_state_is_distinct_from_brackets_at_capped_boundaries(opening, closing, quote):
+    units = build_units(segment(f"{opening}Ano. Ne.{closing}"), max_s=1, estimate=lambda text: len(text))
+    assert [(u.open_before, u.open_after) for u in units] == [(0, 1), (1, 0)]
+    assert [(u.quote_before, u.quote_after) for u in units] == ([(0, 1), (1, 0)] if quote else [(0, 0), (0, 0)])
+
+
+def test_quote_state_handles_nested_brackets_and_paragraph_reset():
+    units = build_units(segment("„(Ano. Ne.)\n\nPotom."), max_s=1, estimate=lambda text: len(text))
+    assert [(u.open_before, u.open_after) for u in units] == [(0, 2), (2, 1), (0, 0)]
+    assert [(u.quote_before, u.quote_after) for u in units] == [(0, 1), (1, 1), (0, 0)]

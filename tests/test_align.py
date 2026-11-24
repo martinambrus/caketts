@@ -595,6 +595,27 @@ def test_pipeline_long_audio_runs_asr_and_blocks():
     _be_invariants(result, units)
 
 
+def test_direct_align_api_passes_book_language_to_automatic_asr(monkeypatch):
+    import src.data.prepare.align.interface as interface
+
+    units, truth, words, audio = _be_scene()
+    made = []
+
+    class Runner(_BeAsr):
+        def __init__(self, cfg):
+            made.append(cfg)
+            super().__init__(words)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(interface, "AsrRunner", Runner)
+    result = align(audio, units, _be_cfg(language="sk"), backend=_BeStub(truth))
+    assert made[0].language == "sk"
+    assert result.meta["asr_provenance"]["book_language"] == "sk"
+    assert result.meta["asr_provenance"]["language_control"] == "automatic"
+
+
 def test_pipeline_rejects_the_same_model_as_aligner_and_judge():
     units, truth, asr, audio = _be_scene()
     stub, runner = _BeStub(truth), _BeAsr(asr)
@@ -762,3 +783,51 @@ def test_align_package_import_is_light():
             "bad = [m for m in ('torch', 'transformers', 'uroman') if m in sys.modules]; "
             "sys.exit(1 if bad else 0)")
     assert subprocess.run([sys.executable, "-c", code]).returncode == 0
+
+
+def test_pipeline_recovers_displaced_short_first_word_from_anchored_asr():
+    units = [{"id": "u", "words": ["Na", "louce", "svítí"]}]
+    truth = {"u": [WordSpan("Na", 1.56, 1.60, .9), WordSpan("louce", 1.66, 1.90, .9),
+                   WordSpan("svítí", 2.0, 2.4, .9)]}
+    words = [AsrWord("Na", 1.20, 1.36), AsrWord("louce", 1.50, 1.92), AsrWord("svítí", 1.94, 2.42)]
+    result = align(np.arange(4 * SR, dtype=np.float32), units, AlignConfig(edge_repair_max_s=.6),
+                   backend=_BeStub(truth), asr_words=words)
+    assert result.units[0].start_s == pytest.approx(1.20)
+    assert result.units[0].words[0] == WordSpan("Na", 1.20, 1.36, .9)
+    assert result.units[0].score_mean == pytest.approx(.9)
+    assert result.units[0].status == "ok"
+    assert "asr_first_word_repaired" in result.units[0].flags
+    assert result.meta["first_words_repaired"] == 1
+
+
+@pytest.mark.parametrize("case", ["disabled", "unanchored", "neighbor", "long_word", "large_shift", "overlap", "repeated", "silence", "low_conf"])
+def test_pipeline_first_word_repair_requires_bounded_evidence(case):
+    units = [{"id": "p", "words": ["dřív"]}, {"id": "u", "words": ["Na", "louce", "svítí"]}]
+    truth = {"p": [WordSpan("dřív", .1, .9, .9)],
+             "u": [WordSpan("Na", 1.56, 1.60, .9), WordSpan("louce", 1.66, 1.90, .9),
+                   WordSpan("svítí", 2.0, 2.4, .9)]}
+    words = [AsrWord("dřív", .1, .9), AsrWord("Na", 1.20, 1.36),
+             AsrWord("louce", 1.50, 1.92), AsrWord("svítí", 1.94, 2.42)]
+    cfg = AlignConfig(edge_repair_max_s=.6)
+    if case == "disabled":
+        cfg.edge_repair_max_s = 0
+    elif case == "unanchored":
+        words[2] = AsrWord("jinak", 1.50, 1.92)
+    elif case == "neighbor":
+        truth["p"] = [WordSpan("dřív", .1, 1.3, .9)]
+    elif case == "long_word":
+        units[1]["words"][0] = "Podél"
+        truth["u"][0] = WordSpan("Podél", 1.56, 1.60, .9)
+        words[1] = AsrWord("Podél", 1.20, 1.36)
+    elif case == "large_shift":
+        words[1] = AsrWord("Na", .91, 1.05)
+    elif case == "overlap":
+        words[1] = AsrWord("Na", 1.40, 1.58)
+    elif case == "repeated":
+        words.extend([AsrWord("Na", 2.6, 2.7), AsrWord("louce", 2.8, 3.0), AsrWord("svítí", 3.1, 3.5)])
+    elif case == "low_conf":
+        truth["u"][0] = WordSpan("Na", 1.56, 1.60, .01)
+    audio = np.zeros(4 * SR, dtype=np.float32) if case == "silence" else np.arange(4 * SR, dtype=np.float32)
+    result = align(audio, units, cfg, backend=_BeStub(truth), asr_words=words)
+    assert result.units[1].start_s == pytest.approx(1.56)
+    assert result.meta["first_words_repaired"] == 0

@@ -72,7 +72,8 @@ _SECTIONS = {"source": SourceConfig, "lexicon": LexiconConfig, "text": TextConfi
              "gold": GoldConfig}
 _OPTIONAL = ("source", "lexicon", "gold")
 _PATHS = {"raw_dir", "work_dir", "source.orig_dir", "source.epub.path", "lexicon.path", "lexicon.rewrite_dir",
-          "lexicon.book_dir", "text.text_dir", "text.placement", "text.lexicon", "text.compare_dir", "gold.file"}
+          "lexicon.book_dir", "text.text_dir", "text.placement", "text.lexicon", "text.terms", "audit.terms",
+          "text.compare_dir", "gold.file"}
 _FED_SECTIONS = {"language": ("text", "align", "align.asr", "audit", "manifest"), "speaker": ("manifest",),
                  "use_part_fragments": ("text", "manifest")}
 
@@ -235,12 +236,16 @@ def from_mapping(mapping: Optional[dict], base_dir: str) -> PipelineConfig:
             sections[name] = _build(cls, present[name] or {}, name, ctx)
         if name == "cut":
             derived["audit.edge_db"] = sections["cut"].quiet_db
+        if name == "text":
+            derived["audit.terms"] = sections["text"].terms
     return PipelineConfig(**top, **sections)
 
 
 def validate(cfg: PipelineConfig) -> None:
     if cfg.language not in STANZA_PACKAGES:
         raise ConfigError(f"language: must be one of {', '.join(sorted(STANZA_PACKAGES))}, got {cfg.language!r}")
+    if cfg.audit.terms != cfg.text.terms:
+        raise ConfigError("audit.terms must inherit the book policy from text.terms")
     try:
         validate_align(cfg.align)
     except ValueError as e:

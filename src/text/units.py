@@ -42,7 +42,7 @@ class Unit:
     """`first` and `last` index the input sentences (equal for kind "sentence" and "split"); `kind` is "sentence",
     "joined" (two or more sentences) or "split" (a clause piece of one sentence). `open_before` and `open_after` are
     the quote or bracket depth entering and leaving the unit; `over_cap` marks a unit above the cap that has no
-    clause cut."""
+    clause cut. `quote_before` and `quote_after` track quote-only depth, excluding brackets."""
     text: str
     boundary: str
     pause: str
@@ -55,6 +55,8 @@ class Unit:
     open_before: int = 0
     open_after: int = 0
     over_cap: bool = False
+    quote_before: int = 0
+    quote_after: int = 0
 
 
 def estimate_s(text: str, a: float = -0.70, b: float = 0.0765, c: float = 0.297, e: float = 0.788) -> float:
@@ -67,12 +69,12 @@ def estimate_s(text: str, a: float = -0.70, b: float = 0.0765, c: float = 0.297,
             + e * sum(ch in ".!?…" for ch in text))
 
 
-def _depths(text: str, depth: int) -> List[int]:
+def _depths(text: str, depth: int, quotes_only: bool = False) -> List[int]:
     """The quote and bracket depth after each character of text, entering with `depth`."""
     text = _SPAN.sub(lambda m: "x" * len(m.group()), text)  # a span counts as a word, its marks are left alone
     depths = []
     for i in range(len(text)):
-        role = mark_role(text, i)
+        role = None if quotes_only and text[i] in "()[]" else mark_role(text, i)
         if role == "open":
             depth += 1
         elif role == "close":
@@ -84,6 +86,11 @@ def _depths(text: str, depth: int) -> List[int]:
 def quote_depth(text: str, depth: int = 0) -> int:
     """How many quotes or brackets are open at the end of text, scanning from `depth` open at its start."""
     return (_depths(text, depth) or [depth])[-1]
+
+
+def speech_quote_depth(text: str, depth: int = 0) -> int:
+    """Quote-only depth; brackets never imply direct speech. Inline language spans stay opaque."""
+    return (_depths(text, depth, quotes_only=True) or [depth])[-1]
 
 
 def quote_spans(text: str, depth: int = 0) -> List[Tuple[int, int]]:
@@ -131,7 +138,7 @@ def build_units(sentences: Sequence[Sentence], max_s: float = 17.0,
     """The units of the sentences of segment(), in order; `estimate` gives the spoken seconds of a text, `max_s` the
     cap."""
     units: List[Unit] = []
-    i, carry = 0, 0
+    i, carry, quote_carry = 0, 0, 0
     while i < len(sentences):
         start = sentences[i]
         j, text = i, start.text
@@ -148,8 +155,12 @@ def build_units(sentences: Sequence[Sentence], max_s: float = 17.0,
             final = k + 1 == len(pieces)
             boundary = last.boundary if final else "mid"
             kind = "split" if len(pieces) > 1 else ("joined" if j > i else "sentence")
+            quote_after = speech_quote_depth(piece, quote_carry)
             units.append(Unit(piece, boundary, _PAUSE[boundary] if final else "clause", start.chapter, start.paragraph,
-                              i, j, kind, start.heading, opened, left, over))
+                              i, j, kind, start.heading, opened, left, over, quote_carry, quote_after))
+            quote_carry = quote_after
         carry = depth if _continues(sentences, j, start) else 0
+        if not _continues(sentences, j, start):
+            quote_carry = 0
         i = j + 1
     return units

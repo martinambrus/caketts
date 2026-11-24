@@ -64,4 +64,5 @@ class AlignConfig:
     edge_ratio: float = 0.25
     unmatched_ratio: float = 0.5
     sigma_floor: float = 0.02
+    edge_repair_max_s: float = 0.0
     asr: AsrConfig = field(default_factory=AsrConfig)

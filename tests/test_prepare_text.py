@@ -16,7 +16,7 @@ from src.text.normalizer import TextNormalizer
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-KEYS = ["id", "part", "index", "text", "sentences", "boundary", "chapter", "paragraph", "heading", "est_s",
+KEYS = ["id", "part", "index", "text", "sentences", "boundary", "chapter", "paragraph", "heading", "open_before", "open_after", "quote_before", "quote_after", "est_s",
         "words", "word_spans", "tags", "source"]
 
 
@@ -699,3 +699,11 @@ def test_comparison_agrees_when_the_normalizer_reads_as_the_rewrite(tmp_path):
     assert report["parts"]["p1"]["comparison"]["share_after"] == 1.0
     rows = list(csv.reader((out / "review_disagreements.csv").read_text(encoding="utf-8").splitlines()))
     assert len(rows) == 1
+
+
+@pytest.mark.parametrize("opening,closing,quoted", [("„", "“", True), ("(", ")", False)])
+def test_unit_records_preserve_enclosure_and_quote_context(tmp_path, opening, closing, quoted):
+    _, out = run(tmp_path, {"p1": book(f"{opening}Ano. Ne.{closing}")}, max_est_s=0.1)
+    units = units_of(out)
+    assert [(u["open_before"], u["open_after"]) for u in units] == [(0, 1), (1, 0)]
+    assert [(u["quote_before"], u["quote_after"]) for u in units] == ([(0, 1), (1, 0)] if quoted else [(0, 0), (0, 0)])

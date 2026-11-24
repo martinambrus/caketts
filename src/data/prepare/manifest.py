@@ -107,6 +107,8 @@ def _markdown(report: dict) -> str:
 
 
 def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = ManifestConfig(), g2p=None) -> dict:
+    # Pass the same phonetic lexicon/configured phonemizer to vocabulary building and
+    # TTSDataset. text.lexicon is a separate orthographic TSV, already applied to text.
     from src.data.dataset import filter_manifest
 
     t0 = time.perf_counter()
@@ -147,7 +149,8 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
             if hashlib.sha256(pcm.tobytes()).hexdigest() != c["sha256"]:
                 raise ValueError(f"{c['id']}: clip file differs from the cut record sha256")
             try:
-                tokens = g2p.tokenize(c["text"])
+                tokens = g2p.tokenize(c["text"], quote_before=c.get("quote_before", 0),
+                                      quote_after=c.get("quote_after", 0))
             except ValueError:
                 dropped[c["id"]] = {"id": c["id"], "stage": "g2p", "reasons": ["g2p_error"]}
                 continue
@@ -156,7 +159,8 @@ def run_manifest(work_dir: Path, parts: Sequence[str], cfg: ManifestConfig = Man
                    "gap_before_s": c["gap_before_s"], "gap_after_s": c["gap_after_s"],
                    "tags": tags, "audit": a["verdict"], "audit_reasons": a["reasons"],
                    "cer": a["metrics"].get("cer"), "units": c["units"], "flags": c["flags"],
-                   "n_tokens": len(tokens), "sha256": c["sha256"]}
+                   "n_tokens": len(tokens), "sha256": c["sha256"],
+                   **{key: c.get(key, 0) for key in ("open_before", "open_after", "quote_before", "quote_after")}}
             first = units_by_id[c["units"][0].split(".")[0]]
             row["paragraph"], row["chapter"] = first["paragraph"], first["chapter"]
             n_phones = sum(t.kind == "phone" for t in tokens)

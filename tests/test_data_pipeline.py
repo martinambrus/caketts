@@ -188,3 +188,46 @@ def test_mel_stats_use_every_row_when_the_limit_allows(tmp_path, g2p):
     ds = _stats_dataset(tmp_path, g2p, [0.01, 0.05, 0.1, 0.3, 0.02])
     assert corpus_mel_stats(ds, max_items=50)[0] == pytest.approx(_mean_of(ds, range(5)))
     assert corpus_mel_stats(ds, max_items=5)[0] == pytest.approx(_mean_of(ds, range(5)))
+
+
+@pytest.mark.parametrize("changes", [dict(n_mels=80), dict(hop_length=512), dict(sample_rate=22050),
+                                         dict(n_fft=2048), dict(win_length=768), dict(fmin=40.0), dict(fmax=9000.0)])
+def test_mel_cache_separates_audio_feature_settings(tmp_path, g2p, changes):
+    ds, row = _cached_dataset(tmp_path, g2p, AudioProcessor(), tmp_path / "u.wav", 1.0)
+    ds._mel(row)
+    changed = AudioProcessor(MelConfig(**changes))
+    other = TTSDataset([row], changed, {}, g2p, {"narrator": 0}, mel_cache_dir=str(tmp_path / "mels"))
+    expected = changed.compute_mel(changed.load_audio(row["audio"]))
+    assert torch.equal(other._mel(row), expected)
+    assert len(list((tmp_path / "mels").glob("*.pt"))) == 2
+
+
+def test_dataset_uses_quote_context_and_rejects_stale_manifest_count(corpus, g2p):
+    row = {**load_manifest(str(corpus))[0], "quote_before": 1, "quote_after": 1}
+    vocab = build_vocabulary({"cs": [row["text"]]})
+    expected = g2p["cs"].tokenize(row["text"])
+    row["n_tokens"] = len(expected) + 2
+    ds = TTSDataset([row], AudioProcessor(), vocab, g2p, {"narrator": 0})
+    item = ds[0]
+    assert item["phoneme_ids"].numel() == row["n_tokens"]
+    assert item["phoneme_ids"][[0, -1]].tolist() == [vocab["<quote_before>"], vocab["<quote_after>"]]
+    row["n_tokens"] -= 2
+    ds = TTSDataset([row], AudioProcessor(), vocab, g2p, {"narrator": 0})
+    with pytest.raises(ValueError, match="n_tokens.*phonemizer"):
+        ds[0]
+
+
+def test_legacy_manifest_without_count_or_context_keeps_original_tokens(corpus, g2p):
+    row = {**load_manifest(str(corpus))[0], "open_before": 1, "open_after": 1}
+    vocab = build_vocabulary({"cs": [row["text"]]})
+    ds = TTSDataset([row], AudioProcessor(), vocab, g2p, {"narrator": 0})
+    assert ds[0]["phoneme_ids"].numel() == len(g2p["cs"].tokenize(row["text"]))
+
+
+def test_dataset_rejects_stale_count_without_quote_context(corpus, g2p):
+    row = load_manifest(str(corpus))[0]
+    row["n_tokens"] = len(g2p["cs"].tokenize(row["text"])) + 1
+    vocab = build_vocabulary({"cs": [row["text"]]})
+    dataset = TTSDataset([row], AudioProcessor(), vocab, g2p, {"narrator": 0})
+    with pytest.raises(ValueError, match="n_tokens.*phonemizer"):
+        dataset[0]

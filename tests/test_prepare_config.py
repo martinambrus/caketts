@@ -15,7 +15,7 @@ SECTIONS = ("source", "lexicon", "text", "audio", "align", "cut", "audit", "mani
 FED = {"language", "speaker", "use_part_fragments", "work_dir"}
 DERIVED = {
     "text.parts", "text.text_dir", "text.suffix", "text.placement", "text.lexicon", "text.compare_dir",
-    "text.compare_suffix", "lexicon.path", "lexicon.book_dir", "audit.edge_db",
+    "text.compare_suffix", "lexicon.path", "lexicon.book_dir", "audit.edge_db", "audit.terms",
 }
 NO_DEFAULT = {"source.orig_dir", "source.epub.path", "lexicon.rewrite_dir"}
 
@@ -90,6 +90,14 @@ def test_example_loads_and_is_complete():
         cls = type(getattr(cfg, name))
         walk(cls, raw[name], name, problems)
     assert problems == []
+
+
+def test_one_book_terminology_policy_is_resolved_and_inherited(tmp_path):
+    cfg = from_mapping({"text": {"terms": "terms.tsv"}}, str(tmp_path))
+    assert cfg.text.terms == cfg.audit.terms == str(tmp_path / "terms.tsv")
+    bad = from_mapping({"text": {"terms": "terms.tsv"}, "audit": {"terms": "other.tsv"}}, str(tmp_path))
+    with pytest.raises(ConfigError, match="inherit"):
+        validate(bad)
 
 
 def test_unknown_keys_name_the_dotted_path(tmp_path):

@@ -79,6 +79,7 @@ class TextConfig:
     heading_short_chars: int = 40
     use_part_fragments: bool = False
     lexicon: Optional[str] = None
+    terms: Optional[str] = None
     compare_dir: Optional[str] = None
     compare_suffix: str = ".txt.orig"
     skip_unreadable: bool = False
@@ -511,6 +512,8 @@ def _process_part(cfg, normalizer, placement, name: str, estimate, entries=None)
         rows.append({
             "id": f"{name}-{k:05d}", "part": name, "index": k, "text": u.text, "sentences": _sentence_entries(u, sentences),
             "boundary": u.boundary, "chapter": u.chapter, "paragraph": u.paragraph, "heading": u.heading,
+            "open_before": u.open_before, "open_after": u.open_after,
+            "quote_before": u.quote_before, "quote_after": u.quote_after,
             "est_s": round(estimate(u.text), 3), "words": words, "word_spans": spans, "tags": tags,
             "source": {"line_start": first_line + 1, "line_end": block_end[first_line] + 1}})
     abbreviations = Counter(m.group(1).lower() for m in _abbreviation_matches(normalised, normalizer.abbreviations))

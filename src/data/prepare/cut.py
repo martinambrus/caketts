@@ -23,6 +23,7 @@ import soundfile as sf
 
 from src.data.prepare.gold import _load_word_mids
 from src.text.phonemizer import _SPAN_RE, _WORD_RE
+from src.text.units import quote_depth, speech_quote_depth
 
 GAP_TYPES = {"mid": "sentence", "para_end": "paragraph", "chapter_end": "chapter"}
 
@@ -78,6 +79,10 @@ class Clip:
     gap_after_s: Optional[float]
     flags: list[str]
     sha256: str
+    open_before: int = 0
+    open_after: int = 0
+    quote_before: int = 0
+    quote_after: int = 0
 
     def record(self) -> dict:
         r = lambda x: None if x is None else round(x, 6)
@@ -85,7 +90,9 @@ class Clip:
                 "start_sample": self.start_sample, "end_sample": self.end_sample,
                 "pad_start_s": r(self.pad_start_s), "pad_end_s": r(self.pad_end_s),
                 "gap_before_s": r(self.gap_before_s), "gap_after_s": r(self.gap_after_s),
-                "flags": self.flags, "sha256": self.sha256}
+                "flags": self.flags, "sha256": self.sha256,
+                "open_before": self.open_before, "open_after": self.open_after,
+                "quote_before": self.quote_before, "quote_after": self.quote_after}
 
 
 @dataclass
@@ -120,7 +127,7 @@ def quiet_start(pcm: np.ndarray, a: int, c_prev: int, prev_quiet: bool, floor_db
             return x
     if x - frame > c_prev:
         return x
-    return c_prev if (prev_quiet and (a - c_prev <= room)) else a
+    return c_prev if (prev_quiet and (a - c_prev <= room)) else (x if prev_quiet else a)
 
 
 def quiet_end(pcm: np.ndarray, b: int, c_next: int, next_quiet: bool, floor_db: float, quiet_db: float, frame: int,
@@ -134,7 +141,7 @@ def quiet_end(pcm: np.ndarray, b: int, c_next: int, next_quiet: bool, floor_db: 
             return x
     if x + frame < c_next:
         return x
-    return c_next if (next_quiet and (c_next - b <= room)) else b
+    return c_next if (next_quiet and (c_next - b <= room)) else (x if next_quiet else b)
 
 
 def frame_db(pcm: np.ndarray, frame: int) -> np.ndarray:
@@ -274,7 +281,8 @@ def can_merge(a: SeqItem, b: SeqItem, gap: int, group_est_s: float, cfg: CutConf
                 and not ua.get("heading") and not ub.get("heading") and group_est_s <= cfg.max_est_s)
 
 
-def choose_cut(db: np.ndarray, floor_db: float, lo: int, hi: int, cfg: CutConfig, sr: int) -> Optional[int]:
+def choose_cut(db: np.ndarray, floor_db: float, lo: int, hi: int, cfg: CutConfig, sr: int,
+               pcm: Optional[np.ndarray] = None) -> Optional[int]:
     F = round(cfg.frame_s * sr)
     fa, fb = max(_ceil_div(lo, F), 0), min(hi // F, len(db))
     if fa >= fb:
@@ -287,7 +295,14 @@ def choose_cut(db: np.ndarray, floor_db: float, lo: int, hi: int, cfg: CutConfig
     if not ok.any():
         return None
     k = int(np.argmax(np.where(ok, lengths, -1)))
-    return ((fa + int(starts[k])) * F + (fa + int(ends[k])) * F) // 2
+    centre = ((fa + int(starts[k])) * F + (fa + int(ends[k])) * F) // 2
+    # An off-grid window can concentrate the loud halves of two quiet frames.
+    # Keep all other centres stable; the preceding grid point stays in this run.
+    if pcm is not None and lengths[k] >= 3 and centre % F and (
+            _loud_window(pcm, centre, F, floor_db, cfg.quiet_db)
+            or _loud_window(pcm, centre - F, F, floor_db, cfg.quiet_db)):
+        centre = centre // F * F
+    return centre
 
 
 def check_clips(clips: Sequence[Clip], n_samples: int, tol: int) -> None:
@@ -362,14 +377,20 @@ def split_over_cap(units: Sequence[dict], spans: Sequence[dict], cfg: CutConfig,
             new_units.append(u)
             continue
         whole = words[-1]["end"] - words[0]["start"]
+        open_depth, quote_carry = u.get("open_before", 0), u.get("quote_before", 0)
         for j, (lo, hi) in enumerate(ranges):
             last = j == len(ranges) - 1
             ptext = text[0 if j == 0 else pos[lo][0]:len(text) if last else pos[hi][0]].strip()
             pid = f"{u['id']}.{j + 1}"
             piece = words[lo:hi]
+            open_after = quote_depth(ptext, open_depth)
+            quote_after = speech_quote_depth(ptext, quote_carry)
             new_units.append({**u, "id": pid, "text": ptext, "words": [ptext[x:y] for x, y in _word_spans(ptext)],
                               "boundary": u.get("boundary") if last else "mid", "split_of": u["id"],
+                              "open_before": open_depth, "open_after": open_after,
+                              "quote_before": quote_carry, "quote_after": quote_after,
                               "est_s": u.get("est_s", 0.0) * (piece[-1]["end"] - piece[0]["start"]) / whole if whole > 0 else u.get("est_s", 0.0)})
+            open_depth, quote_carry = open_after, quote_after
             new_spans.setdefault(u["id"], []).append({"id": pid, "start_s": piece[0]["start"], "end_s": piece[-1]["end"], "words": piece, "status": "ok",
                               **{k: span[k] for k in ("score_mean", "score_min") if k in span}})
     return new_units, [x for s in spans for x in new_spans.get(s.get("id"), [s])]
@@ -448,7 +469,7 @@ def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans:
     cuts, quiet = [0], [True]
     for g, h in zip(groups, groups[1:]):
         lo, hi = g[-1].e_ref, h[0].s_ref
-        c = choose_cut(db, floor, lo, hi, cfg, sr)
+        c = choose_cut(db, floor, lo, hi, cfg, sr, pcm)
         cuts.append((lo + hi) // 2 if c is None else c)
         quiet.append(c is not None)
     cuts.append(len(pcm))
@@ -497,7 +518,9 @@ def plan_part(part: str, pcm: np.ndarray, sr: int, units: Sequence[dict], spans:
             boundary=last.unit.get("boundary"), part=part, start_sample=a, end_sample=b,
             speech_start=first.s_ref, speech_end=last.e_ref, al_start=first.s, al_end=last.e,
             pad_start_s=(first.s_ref - a) / sr, pad_end_s=(b - last.e_ref) / sr, gap_before_s=gb, gap_after_s=ga,
-            flags=sorted(flags), sha256=hashlib.sha256(pcm[a:b].tobytes()).hexdigest()))
+            flags=sorted(flags), sha256=hashlib.sha256(pcm[a:b].tobytes()).hexdigest(),
+            open_before=first.unit.get("open_before", 0), open_after=last.unit.get("open_after", 0),
+            quote_before=first.unit.get("quote_before", 0), quote_after=last.unit.get("quote_after", 0)))
 
     gaps: list[tuple[str, float]] = []
     group_of = {id(it): k for k, g in enumerate(groups) for it in g}
@@ -546,7 +569,8 @@ def run_cut(work_dir: Path, parts: Sequence[str], cfg: CutConfig = CutConfig()) 
         pcm, sr = sf.read(str(wav), dtype="int16")
         units = _read_jsonl(work_dir / "text" / f"{part}.units.jsonl")
         spans = _read_jsonl(work_dir / "align" / f"{part}.align.jsonl")
-        plan = plan_part(part, pcm, sr, units, spans, cfg, _load_word_mids(work_dir / "align" / f"{part}.asr.json"))
+        plan = plan_part(part, pcm, sr, units, spans, cfg, _load_word_mids(
+            work_dir / "align" / f"{part}.asr.json", work_dir / "audio" / f"{part}.16k.wav"))
         cuts_path = out / f"{part}.cuts.jsonl"
         if cuts_path.exists():
             for r in _read_jsonl(cuts_path):
