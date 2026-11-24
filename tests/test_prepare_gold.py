@@ -1,4 +1,5 @@
 """Gold-set scorer tests (src/data/prepare/gold.py). Synthetic data only; times in the unit tests use sample_rate 1000 so samples are ms."""
+import hashlib
 import json
 import math
 
@@ -618,8 +619,29 @@ def test_core_without_word_mids_words_is_none():
 
 def write_asr(root, part, words, **extra):
     (root / "align").mkdir(parents=True, exist_ok=True)
-    (root / "align" / f"{part}.asr.json").write_text(json.dumps({"audio_sha256": "0", "config": {}, "model_id": "stub",
+    source = root / "audio" / f"{part}.16k.wav"
+    source.write_bytes((root / "audio" / f"{part}.24k.wav").read_bytes())
+    (root / "align" / f"{part}.asr.json").write_text(json.dumps({"audio_sha256": hashlib.sha256(source.read_bytes()).hexdigest(), "config": {}, "model_id": "stub",
                                                                  "words": [[w, a, b] for w, a, b in words], **extra}))
+
+
+@pytest.mark.parametrize("identity", ["stale", "missing", "source_missing"])
+def test_existing_asr_cache_requires_matching_audio_identity(tmp_path, identity):
+    g = mk_gold([(1, 2)])
+    audio(tmp_path, "a", [(1, 2, -30)])
+    write_cuts(tmp_path, "a", [(1, 2)])
+    write_asr(tmp_path, "a", [word_at(1.5)])
+    path = tmp_path / "align" / "a.asr.json"
+    cache = json.loads(path.read_text())
+    if identity == "missing":
+        del cache["audio_sha256"]
+    elif identity == "stale":
+        cache["audio_sha256"] = "0" * 64
+    else:
+        (tmp_path / "audio" / "a.16k.wav").unlink()
+    path.write_text(json.dumps(cache))
+    with pytest.raises(ValueError, match="a.asr.json.*audio"):
+        score(tmp_path, g)
 
 
 def word_at(t, w=0.2):

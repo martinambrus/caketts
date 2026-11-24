@@ -1297,6 +1297,33 @@ def test_cut_point_beyond_the_room_is_not_taken():
     assert edge_start(pcm, 20 * F, 10 * F, room=10 * F) == 10 * F
 
 
+def test_last_extension_step_at_cap_keeps_the_progress_before_the_cut_point():
+    pcm = edge_pcm(40, range(8, 32))
+    assert edge_start(pcm, 20 * F, 10 * F, room=9 * F) == 11 * F
+    assert edge_end(pcm, 20 * F, 30 * F, room=9 * F) == 29 * F
+
+
+@pytest.mark.parametrize("identity", ["valid", "stale", "missing", "source_missing"])
+def test_run_cut_validates_the_asr_source_audio(tmp_path, identity):
+    pcm, units, spans = small_part("p", 91)
+    write_work(tmp_path, {"p": (pcm, units, spans)})
+    source = tmp_path / "audio" / "p.16k.wav"
+    sf.write(str(source), pcm[::3], 16000, subtype="PCM_16")
+    cache = {"words": [["synthetic", 0.8, 1.0]], "audio_sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
+    if identity == "missing":
+        del cache["audio_sha256"]
+    elif identity == "stale":
+        cache["audio_sha256"] = "0" * 64
+    elif identity == "source_missing":
+        source.unlink()
+    (tmp_path / "align" / "p.asr.json").write_text(json.dumps(cache))
+    if identity == "valid":
+        assert cut.run_cut(tmp_path, ["p"])["parts"]["p"]["clips"] > 0
+    else:
+        with pytest.raises(ValueError, match="p.asr.json.*audio"):
+            cut.run_cut(tmp_path, ["p"])
+
+
 def test_both_edges_of_one_gap_loud_stop_at_the_cut_point():
     pcm = edge_pcm(40, range(8, 32))
     end_k, start_k1 = edge_end(pcm, 12 * F, 20 * F), edge_start(pcm, 28 * F, 20 * F)

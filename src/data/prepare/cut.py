@@ -120,7 +120,7 @@ def quiet_start(pcm: np.ndarray, a: int, c_prev: int, prev_quiet: bool, floor_db
             return x
     if x - frame > c_prev:
         return x
-    return c_prev if (prev_quiet and (a - c_prev <= room)) else a
+    return c_prev if (prev_quiet and (a - c_prev <= room)) else (x if prev_quiet else a)
 
 
 def quiet_end(pcm: np.ndarray, b: int, c_next: int, next_quiet: bool, floor_db: float, quiet_db: float, frame: int,
@@ -134,7 +134,7 @@ def quiet_end(pcm: np.ndarray, b: int, c_next: int, next_quiet: bool, floor_db: 
             return x
     if x + frame < c_next:
         return x
-    return c_next if (next_quiet and (c_next - b <= room)) else b
+    return c_next if (next_quiet and (c_next - b <= room)) else (x if next_quiet else b)
 
 
 def frame_db(pcm: np.ndarray, frame: int) -> np.ndarray:
@@ -546,7 +546,8 @@ def run_cut(work_dir: Path, parts: Sequence[str], cfg: CutConfig = CutConfig()) 
         pcm, sr = sf.read(str(wav), dtype="int16")
         units = _read_jsonl(work_dir / "text" / f"{part}.units.jsonl")
         spans = _read_jsonl(work_dir / "align" / f"{part}.align.jsonl")
-        plan = plan_part(part, pcm, sr, units, spans, cfg, _load_word_mids(work_dir / "align" / f"{part}.asr.json"))
+        plan = plan_part(part, pcm, sr, units, spans, cfg, _load_word_mids(
+            work_dir / "align" / f"{part}.asr.json", work_dir / "audio" / f"{part}.16k.wav"))
         cuts_path = out / f"{part}.cuts.jsonl"
         if cuts_path.exists():
             for r in _read_jsonl(cuts_path):
