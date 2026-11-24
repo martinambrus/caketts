@@ -9,6 +9,8 @@ from src.data.prepare.config import load_config
 from src.data.prepare.repair import apply_repairs, propose_repairs
 from src.data.prepare.text import _words
 
+JUDGES = ("parakeet-tdt-0.6b-v3", "canary-1b-v2")
+
 
 def put(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -25,8 +27,8 @@ def scene(tmp_path):
             "source": {"line_start": 1, "line_end": 1}, "tags": ["quote_then_narration"], "est_s": 3}
     put(work / "text/p.units.jsonl", unit)
     put(work / "cut/p.cuts.jsonl", {"id": unit["id"], "units": [unit["id"]], "text": text, "sha256": "clip"})
-    put(work / "audit/p.audit.jsonl", {"id": unit["id"], "sha256": "clip", "hyp": "Na louce září řekl",
-                                      "hyps": {"one": "Na louce září řekl", "two": "Na louce svítí řekl"}})
+    put(work / "audit/p.audit.jsonl", {"id": unit["id"], "sha256": "clip", "verdict": "drop", "hyp": "Na louce září řekl",
+                                      "hyps": {JUDGES[0]: "Na louce září řekl", JUDGES[1]: "Na louce září řekl"}})
     put(work / "cut/clips/p-00000.wav", "synthetic clip audio")
     put(work / "audit/report.json", {"asr_model": "synthetic"})
     put(work / "audio/p.16k.wav", "synthetic16")
@@ -41,7 +43,7 @@ def reviewed(cfg):
     proposal = propose_repairs(cfg)
     assert len(proposal["edits"]) == 1
     assert proposal["edits"][0]["reviewed"] is False
-    assert proposal["edits"][0]["judges"] == ["one"]
+    assert proposal["edits"][0]["judges"] == sorted(JUDGES)
     proposal["edits"][0].update(reviewed=True, reviewer="listener")
     return proposal
 
@@ -147,3 +149,49 @@ def test_repair_cli_dispatches_existing_stages_after_explicit_review(scene, tmp_
     assert repair_corpus.main(["apply", "--config", str(config_path), "--proposal", str(proposal_path),
                                "--output", str(output)]) == 0
     assert calls == [(stage, str(output)) for stage in ("align", "cut", "audit", "manifest")]
+
+
+@pytest.mark.parametrize("case", ["ok", "case_only"])
+def test_proposals_exclude_accepted_clips_and_casing_only_disagreements(scene, case):
+    cfg, work, unit = scene
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    if case == "ok":
+        audit["verdict"] = "ok"
+    else:
+        audit["hyp"] = unit["text"].lower()
+        audit["hyps"] = {JUDGES[0]: unit["text"].lower(), JUDGES[1]: unit["text"]}
+    put(work / "audit/p.audit.jsonl", audit)
+    assert propose_repairs(cfg)["edits"] == []
+
+
+def test_proposal_word_comparison_accepts_raw_asr_symbols_without_full_text_normalization(scene):
+    cfg, work, _ = scene
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    audit["hyp"] = "Na louce září @ řekl"
+    audit["hyps"] = {JUDGES[0]: audit["hyp"], JUDGES[1]: "na louce ZÁŘÍ řekl"}
+    put(work / "audit/p.audit.jsonl", audit)
+    edits = propose_repairs(cfg)["edits"]
+    assert len(edits) == 1
+    assert edits[0]["judges"] == sorted(JUDGES)
+    assert edits[0]["replacement"].casefold() == "září"
+    assert edits[0]["reviewed"] is False
+
+
+def test_proposals_require_every_configured_judge_and_support_single_judge_audit(scene):
+    cfg, work, unit = scene
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    audit["hyps"][JUDGES[1]] = unit["text"]
+    put(work / "audit/p.audit.jsonl", audit)
+    assert propose_repairs(cfg)["edits"] == []
+    cfg.audit.judges = (JUDGES[0],)
+    audit.pop("hyps")
+    put(work / "audit/p.audit.jsonl", audit)
+    assert propose_repairs(cfg)["edits"][0]["judges"] == [JUDGES[0]]
+
+
+def test_missing_configured_judge_does_not_turn_partial_evidence_into_consensus(scene):
+    cfg, work, _ = scene
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    audit["hyps"].pop(JUDGES[1])
+    put(work / "audit/p.audit.jsonl", audit)
+    assert propose_repairs(cfg)["edits"] == []

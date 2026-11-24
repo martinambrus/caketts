@@ -4,6 +4,8 @@
 propose --config corpus.yaml --proposal repairs.json
 apply --config corpus.yaml --proposal reviewed.json --output new-work-dir
 
+Propose includes only dropped, unsplit single-unit clips and word changes agreed
+by every configured judge; case-only differences are ignored.
 Review individual edits by setting reviewed=true and reviewer to an accountable
 name after listening. Apply reruns align, cut, audit, manifest and configured gold.
 """

@@ -11,9 +11,11 @@ import difflib
 import hashlib
 import json
 import shutil
+import unicodedata
 from pathlib import Path
 
 from src.data.prepare.text import _words
+from src.data.prepare.audit import spell_digits
 from src.text.normalizer import TextNormalizer
 from src.text.units import estimate_s
 
@@ -49,9 +51,8 @@ def _inputs(cfg):
 
 
 def propose_repairs(cfg):
-    """Suggest equal-length word substitutions from audited, unsplit single-unit clips."""
+    """Suggest unanimous, case-insensitive word changes in dropped single-unit clips."""
     work = Path(cfg.work_dir).resolve()
-    normalizer = TextNormalizer(cfg.language, cfg.text.book_config)
     result = {"version": 1, "source_work_dir": str(work), "config_sha256": _json_hash(dataclasses.asdict(cfg)),
               "inputs": _inputs(cfg), "edits": []}
     for part in cfg.part_names():
@@ -61,24 +62,42 @@ def propose_repairs(cfg):
             if len(cut["units"]) != 1 or cut["units"][0] not in units:
                 continue
             unit, audit = units[cut["units"][0]], audits[cut["id"]]
+            if audit["verdict"] != "drop":
+                continue
             if audit["sha256"] != cut["sha256"] or cut["text"] != unit["text"]:
                 raise ValueError("stale cut/audit text or audio; regenerate before proposing repairs")
             words, _ = _words(unit["text"])
-            hypotheses = audit.get("hyps", {"judge": audit["hyp"]})
+            hypotheses = audit.get("hyps")
+            if hypotheses is None:
+                if len(cfg.audit.judges) != 1:
+                    continue
+                hypotheses = {cfg.audit.judges[0]: audit["hyp"]}
+            if any(judge not in hypotheses for judge in cfg.audit.judges):
+                continue
+            hypotheses = {judge: hypotheses[judge] for judge in cfg.audit.judges}
+            key = lambda word: unicodedata.normalize("NFC", word).casefold()
             candidates = {}
             for judge, hyp in hypotheses.items():
-                hyp_words, _ = _words(normalizer.normalize(hyp))
-                for op, a, b, c, d in difflib.SequenceMatcher(a=words, b=hyp_words, autojunk=False).get_opcodes():
+                # Audit already defines digit spelling; raw ASR is not book prose
+                # and may contain symbols with no TextNormalizer reading.
+                hyp_words, _ = _words(unicodedata.normalize("NFC", spell_digits(hyp, cfg.language)))
+                for op, a, b, c, d in difflib.SequenceMatcher(
+                        a=[key(w) for w in words], b=[key(w) for w in hyp_words], autojunk=False).get_opcodes():
                     if op != "replace" or b - a != d - c:
                         continue
                     for index, replacement in zip(range(a, b), hyp_words[c:d]):
-                        if replacement != words[index]:
-                            candidates.setdefault((index, replacement), []).append(judge)
-            for (index, replacement), judges in sorted(candidates.items()):
+                        if key(replacement) != key(words[index]):
+                            candidate = candidates.setdefault((index, key(replacement)),
+                                                              {"replacement": replacement, "judges": []})
+                            candidate["judges"].append(judge)
+            for (index, _), candidate in sorted(candidates.items()):
+                judges, replacement = candidate["judges"], candidate["replacement"]
+                if len(judges) != len(cfg.audit.judges):
+                    continue
                 result["edits"].append({"part": part, "unit_id": unit["id"], "word_index": index,
                                         "original": words[index], "replacement": replacement,
                                         "clip_id": cut["id"], "clip_file_sha256": _sha(work / "cut" / "clips" / f"{cut['id']}.wav"),
-                                        "judges": judges,
+                                        "judges": sorted(judges),
                                         "reviewed": False, "reviewer": ""})
     return result
 
