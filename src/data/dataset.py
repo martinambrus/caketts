@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -45,8 +45,8 @@ class FilterReport:
 
 
 def load_manifest(path: str) -> List[Dict]:
-    """JSONL, one utterance per line. Required: id, audio, text, lang. The sha256 of a row's audio, when it has one, names
-    its mel cache file. See the plan, Step 4."""
+    """JSONL, one utterance per line. Required: id, audio, text, lang. Audio digest and feature settings
+    name each mel cache file. See the plan, Step 4."""
     rows = []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -86,7 +86,11 @@ class TTSDataset(Dataset):
                  mel_mean: float = 0.0, mel_std: float = 1.0, mel_cache_dir: Optional[str] = None,
                  default_rates: Tuple[float, float] = (12.0, 0.1)):
         """default_rates: used until the Step 4.4 labels exist; pass (config rate_mean, mean pause
-        ratio) so the tempo input is constant and carries no information during bootstrapping."""
+        ratio) so the tempo input is constant and carries no information during bootstrapping.
+        Supply the same phonemizers (including phonetic lexicons) used by run_manifest and
+        build_vocabulary. A stored n_tokens mismatch fails before loading audio. Legacy rows
+        without counts or quote-specific context remain supported; open_* includes brackets.
+        """
         self.rows = list(rows)
         self.default_rates = default_rates
         self.audio = audio
@@ -104,7 +108,9 @@ class TTSDataset(Dataset):
     def _mel(self, row: Dict) -> torch.Tensor:
         if self.cache:
             digest = row.get("sha256") or hashlib.blake2b(Path(row["audio"]).read_bytes(), digest_size=8).hexdigest()
-            p = self.cache / f"{row['id']}.{digest}.pt"  # a re-cut under the same id must not load the old mel
+            settings = {"algorithm": "bigvgan-v2-logmel-v1", "mel": asdict(self.audio.cfg)}
+            feature_digest = hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest()[:16]
+            p = self.cache / f"{row['id']}.{digest}.{feature_digest}.pt"
             if p.exists():
                 return torch.load(p)
         mel = self.audio.compute_mel(self.audio.load_audio(row["audio"]))
@@ -114,7 +120,11 @@ class TTSDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict:
         row = self.rows[idx]
-        tokens = self.g2p[row["lang"]].tokenize(row["text"])  # text is ALREADY normalised
+        tokens = self.g2p[row["lang"]].tokenize(row["text"], quote_before=row.get("quote_before", 0),
+                                               quote_after=row.get("quote_after", 0))
+        if "n_tokens" in row and row["n_tokens"] != len(tokens):
+            raise ValueError(f"{row['id']}: n_tokens={row['n_tokens']} differs from phonemizer count {len(tokens)}; "
+                             "regenerate the manifest with the same phonemizer and lexicon")
         ids, lang_ids = tokens_to_ids(tokens, self.vocab, strict=True, context=f"utterance {row['id']}")
         mel = (self._mel(row) - self.mel_mean) / self.mel_std
         if mel.shape[1] < len(ids):

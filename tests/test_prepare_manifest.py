@@ -269,7 +269,8 @@ def test_rows_keys_types_and_values(base):
     types = {"id": str, "audio": str, "text": str, "lang": str, "speaker": str, "session": str, "boundary": str,
              "duration_s": float, "gap_before_s": (float, type(None)), "gap_after_s": (float, type(None)),
              "tags": list, "split": str, "audit": str, "audit_reasons": list, "cer": (float, type(None)),
-             "units": list, "paragraph": int_like, "chapter": int_like, "flags": list, "n_tokens": int, "sha256": str}
+             "units": list, "paragraph": int_like, "chapter": int_like, "flags": list, "n_tokens": int, "sha256": str,
+             "open_before": int, "open_after": int, "quote_before": int, "quote_after": int}
     cuts = {c["id"]: c for c in base.cuts}
     audit = {a["id"]: a for a in base.audit}
     assert len(base.rows) > 20
@@ -534,3 +535,38 @@ def test_heldout_avoids_the_chapter_with_a_rejected_unit_inside(tmp_path):
     rep = run_manifest(w.work, PARTS, HELD_CFG)
     assert (rep["heldout"]["part"], rep["heldout"]["chapter"]) != ("pa", 1)
     assert rep["heldout_holes"]["cut_rejected_units"] == 0
+
+
+@pytest.mark.parametrize("quoted", [False, True])
+def test_manifest_preserves_distinct_enclosure_and_quote_context(tmp_path, quoted):
+    w = build_work(tmp_path)
+    cid = w.cuts[0]["id"]
+    path = w.work / "cut" / "pa.cuts.jsonl"
+    cuts = read_jsonl(path)
+    context = {"open_before": 2, "open_after": 2, "quote_before": int(quoted), "quote_after": int(quoted)}
+    cuts[0].update(context)
+    path.write_text(jsonl(cuts), encoding="utf-8")
+    run_manifest(w.work, PARTS)
+    row = next(r for r in all_rows(w.work) if r["id"] == cid)
+    assert {key: row[key] for key in context} == context
+    assert row["n_tokens"] == len(G2P.tokenize(row["text"])) + 2 * int(quoted)
+
+
+def test_injected_phonetic_lexicon_count_vocabulary_and_dataset_agree(tmp_path):
+    from src.data.audio import AudioProcessor
+    from src.data.dataset import TTSDataset
+    from src.text.phonemizer import build_vocabulary
+
+    w = build_work(tmp_path)
+    custom = CzechSlovakPhonemizer("cs", lexicon={"cs": {"starý": "a"}})
+    run_manifest(w.work, PARTS, g2p=custom)
+    rows = all_rows(w.work)
+    row = next(r for r in rows if r["text"].startswith("Starý "))
+    assert row["n_tokens"] == len(custom.tokenize(row["text"]))
+    assert row["n_tokens"] != len(G2P.tokenize(row["text"]))
+    vocab = build_vocabulary({"cs": [r["text"] for r in rows]}, phonemizers={"cs": custom})
+    dataset = TTSDataset([row], AudioProcessor(), vocab, {"cs": custom}, {"narrator": 0})
+    assert dataset[0]["phoneme_ids"].numel() == row["n_tokens"]
+    stale = TTSDataset([row], AudioProcessor(), vocab, {"cs": G2P}, {"narrator": 0})
+    with pytest.raises(ValueError, match="n_tokens.*phonemizer"):
+        stale[0]

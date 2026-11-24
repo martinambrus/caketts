@@ -305,3 +305,20 @@ class TestQuotes:
         assert (v["❝"], v["❞"]) == (len(PUNCT_TOKENS) + 5, len(PUNCT_TOKENS) + 6)
         ids, _ = tokens_to_ids(CS.tokenize("„Ahoj.“"), v)
         assert v["❝"] in ids and v["❞"] in ids
+
+
+@pytest.mark.parametrize("before,after", [(1, 0), (0, 1), (2, 2)])
+def test_quote_continuation_context_is_explicit_and_preserves_text_tokens(before, after):
+    base = CS.tokenize("Rok a den.")
+    got = CS.tokenize("Rok a den.", quote_before=before, quote_after=after)
+    expected = (["<quote_before>"] if before else []) + symbols(base) + (["<quote_after>"] if after else [])
+    assert symbols(got) == expected
+    assert [(t.symbol, t.lang, t.kind) for t in got if t.symbol not in ("<quote_before>", "<quote_after>")] == plain(base)
+    vocab = build_vocabulary({"cs": ["Rok a den."]})
+    assert len(tokens_to_ids(got, vocab)[0]) == len(got)
+
+
+@pytest.mark.parametrize("field,value", [("quote_before", -1), ("quote_after", 0.5), ("quote_before", True)])
+def test_quote_continuation_requires_nonnegative_integer_depth(field, value):
+    with pytest.raises(ValueError, match="quote_"):
+        CS.tokenize("Ano.", **{field: value})
