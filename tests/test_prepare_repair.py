@@ -25,7 +25,8 @@ def put(path, value):
 def producer_report(work, cfg):
     models = {j: ASR_BACKENDS[j].model_id for j in cfg.audit.judges}
     put(work / "audit/report.json", {"config": dataclasses.asdict(cfg.audit), "judges": models,
-                                      "asr_model": " + ".join(models.values())})
+                                      "asr_model": " + ".join(models.values()),
+                                      "parts": {part: {} for part in cfg.part_names()}})
 
 
 @pytest.fixture
@@ -280,3 +281,21 @@ def test_apply_rechecks_producer_consistency_despite_manually_rebound_config_has
     with pytest.raises(ValueError, match="producer"):
         apply_repairs(cfg, proposal, output, lambda *_: None)
     assert not output.exists()
+
+
+@pytest.mark.parametrize("parts", [None, {"other": {}}])
+def test_propose_rejects_audit_report_that_does_not_cover_requested_parts(scene, parts):
+    cfg, work, _ = scene
+    report = json.loads((work / "audit/report.json").read_text())
+    report["parts"] = parts
+    put(work / "audit/report.json", report)
+    with pytest.raises(ValueError, match="producer.*parts"):
+        propose_repairs(cfg)
+
+
+def test_propose_accepts_requested_subset_of_audit_report(scene):
+    cfg, work, _ = scene
+    report = json.loads((work / "audit/report.json").read_text())
+    report["parts"]["other"] = {}
+    put(work / "audit/report.json", report)
+    assert len(propose_repairs(cfg)["edits"]) == 1

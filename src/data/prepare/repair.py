@@ -60,6 +60,9 @@ def _validate_producer(cfg):
         report = json.loads((Path(cfg.work_dir) / "audit" / "report.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         raise ValueError("audit producer metadata is missing or malformed") from None
+    parts = report.get("parts")
+    if not isinstance(parts, dict) or not set(cfg.part_names()) <= parts.keys():
+        raise ValueError("audit producer report does not cover requested parts; rerun audit")
     models = {judge: ASR_BACKENDS[judge].model_id for judge in cfg.audit.judges}
     if (report.get("judges") != models
             or report.get("asr_model") != " + ".join(models.values())
