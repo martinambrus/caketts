@@ -36,7 +36,7 @@ These parts are implemented and tested on CPU:
 - The data pipeline
 - The Matcha-TTS components: text encoder, duration predictor, MAS, OT-CFM decoder
 - The SSL discriminator
-- Tempo labels
+- Tempo labels and an offline word/MAS comparison tool (the trained-MAS comparison is pending)
 - Pace metrics and the ASR check
 
 These are still prompts with acceptance criteria in the plan:
@@ -56,8 +56,8 @@ uv sync   # Python 3.13 and the locked packages (CPU build of torch) into .venv;
 # NVIDIA GPU instead: uv sync --group align --group cu130 --no-group cpu   (CUDA 13 build of torch; then run with uv run --no-sync)
 git clone https://github.com/NVIDIA/BigVGAN third_party/BigVGAN   # or: export BIGVGAN_DIR=/path/to/BigVGAN
 git -C "${BIGVGAN_DIR:-third_party/BigVGAN}" checkout 7d2b454     # the commit the tests ran with
-uv run pytest tests/ -q -m "not slow"   # 3584 tests, about 100 s on one CPU thread
-uv run pytest tests/ -q                 # adds the end-to-end synthetic training test, about 25 s more
+uv run pytest tests/ -q -m "not slow"   # 3702 tests
+uv run pytest tests/ -q                 # adds the end-to-end synthetic training test
 ```
 
 The first test run downloads the text normalizer's Stanza models for Czech and Slovak (250 MB) into `~/.cache/stanza`. Stanza fetches them through huggingface_hub, which keeps a second copy in `~/.cache/huggingface/hub`; delete its `models--stanfordnlp--stanza-*` folders to free that space.

@@ -66,6 +66,7 @@ align:
   edge_ratio: 0.25  # a unit is ok only when its weaker edge word scores at least this share of the median edge score
   unmatched_ratio: 0.5  # a unit scoring below this share of the median score has no span (unmatched)
   sigma_floor: 0.02  # lower bound of the robust sigma of the unit scores
+  edge_repair_max_s: 0.0  # 0 disables anchored first-word repair; validate an enabled limit on the book
   asr:
     backend: parakeet-tdt-0.6b-v3  # ASR model that anchors the long-form alignment (needs word times)
     device: auto  # device of the ASR model: auto, cpu or cuda
