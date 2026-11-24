@@ -1,0 +1,61 @@
+# Stage2 acoustic narrator template: review bounds and budgets before a run.
+# Flat supported MatchaConfig overrides only. No inheritance from matcha_base.
+# Paths resolve relative to this YAML. Build vocabulary outside the trainer.
+# Checkpoints are trusted local files; resume requires identical inputs/settings
+# except output_dir and max_steps (the checkpoint must be within output_dir).
+stage: 2
+output_dir: ../../outputs/narrator-stage2
+data:
+  train_manifest: ../../data/manifests/train.jsonl
+  val_manifest: ../../data/manifests/val.jsonl
+  vocab: ../../data/vocab.json
+  lexicon: null
+  speaker_ids: {narrator: 0}
+  min_duration_s: 0.5
+  max_duration_s: 20.0
+  max_train_items: null
+  max_val_items: null
+  stats_max_items: 2000
+  g2p: {}
+audio:
+  sample_rate: 24000
+  n_fft: 1024
+  hop_length: 256
+  win_length: 1024
+  n_mels: 100
+  fmin: 0.0
+  fmax: null
+model:
+  n_langs: 3
+  n_speakers: 1
+  n_boundaries: 3
+  n_mels: 100
+  enc_dim: 192
+  enc_layers: 6
+  enc_heads: 2
+  enc_ff: 768
+  spk_dim: 64
+  cond_dim: 64
+  dur_hidden: 256
+  dec_dim: 256
+  dec_levels: 2
+  sigma_min: 0.0001
+  p_uncond: 0.0
+  dropout: 0.1
+  rate_mean: 12.0
+  rate_std: 2.0
+training:
+  device: cuda                 # explicit error if unavailable; set cpu for CPU
+  precision: fp32               # bf16, DDP and EMA are not implemented
+  seed: 2026
+  max_steps: 10000
+  batch_frames: 4000            # max mel frames in padded batch * batch size
+  bucket_size: 64
+  learning_rate: 0.0001
+  weight_decay: 0.0
+  grad_clip: 1.0
+  validate_every: 100
+  checkpoint_every: 100
+# Deliberate constant bootstrap; existing row labels are ignored in a copy.
+# This is not a final tempo-label policy or a claim about random-MAS quality.
+tempo: {articulation_rate: 12.0, pause_ratio: 0.1}
