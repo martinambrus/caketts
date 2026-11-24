@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import bisect
+from collections import Counter
 import unicodedata
 from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Sequence, Set, Tuple
@@ -19,7 +20,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 
 from src.data.prepare.align.types import AlignConfig, Gap, UnitSpan
-from src.data.prepare.asr import AsrWord
+from src.data.prepare.asr import AsrWord, SAMPLE_RATE
 
 SUSPECT_MARGIN_S = 0.2
 OVERLAP_MAX_S = 0.3
@@ -276,3 +277,46 @@ def skipped_gaps(units: List[UnitSpan], duration_s: float) -> List[Gap]:
             nxt = next((v.start_s for v in units[k + 1:] if v.start_s is not None), duration_s)
             gaps.append(Gap(last_end, nxt, "skipped_text"))
     return gaps
+
+
+def repair_first_words(units: List[UnitSpan], counts: Sequence[int], pairs: Sequence[Tuple[int, int]],
+                       asr: Sequence[AsrWord], max_shift_s: float, audio: Optional[np.ndarray] = None) -> int:
+    """Recover a short first word wholly displaced after its independently timed ASR span.
+
+    Require a unique run of three lexical matches and overlapping CTC/ASR spans for
+    both following words. Never change confidence or promote a rejected unit. This
+    intentionally leaves ambiguous, overlapping, long or unanchored words alone.
+    """
+    if max_shift_s == 0:
+        return 0
+    matched = dict(pairs)
+    keys = [fold(w.text) for w in asr]
+    triples = Counter(tuple(keys[j:j + 3]) for j in range(len(keys) - 2))
+    repaired, offset, previous_end = 0, 0, 0.0
+    for unit, count in zip(units, counts):
+        j = matched.get(offset)
+        offset += count
+        if (unit.status == "ok" and len(unit.words) >= 3 and j is not None
+                and matched.get(offset - count + 1) == j + 1
+                and matched.get(offset - count + 2) == j + 2
+                and triples[tuple(keys[j:j + 3])] == 1):
+            first, a = unit.words[0], asr[j]
+            anchors = zip(unit.words[1:3], asr[j + 1:j + 3])
+            valid_times = all(np.isfinite(w.start) and np.isfinite(w.end) and 0 <= w.start < w.end
+                              for w in asr[j:j + 3])
+            samples = None if audio is None or not valid_times else audio[round(a.start * SAMPLE_RATE):round(a.end * SAMPLE_RATE)]
+            audible = audio is None or (valid_times and a.end * SAMPLE_RATE <= len(audio)
+                                          and len(samples) > 0 and np.isfinite(samples).all()
+                                          and np.sqrt(np.mean(samples.astype(float) ** 2)) > 1e-4)
+            if (valid_times and audible and 1 <= len(fold(first.text)) <= 3
+                    and 0.15 <= first.start - a.start <= max_shift_s
+                    and previous_end <= a.start < a.end < first.start
+                    and a.end <= asr[j + 1].start
+                    and all(max(w.start, b.start) < min(w.end, b.end) for w, b in anchors)):
+                unit.words[0] = replace(first, start=a.start, end=a.end)
+                unit.start_s = a.start
+                _add_flag(unit, "asr_first_word_repaired")
+                repaired += 1
+        if unit.end_s is not None:
+            previous_end = unit.end_s
+    return repaired

@@ -193,6 +193,7 @@ def stage_align(cfg, hooks):
                 "duration_s": res["meta"]["duration_s"], "asr_words": len(words[p]) if p in words else None,
                 "asr_cache": cache_state.get(p), "n_blocks": res["meta"]["n_blocks"],
                 "n_suspect_blocks": res["meta"]["n_suspect_blocks"],
+                "first_words_repaired": res["meta"]["first_words_repaired"],
                 "seconds": round(seconds.get(p, 0.0) + time.perf_counter() - started, 3)}
     finally:
         if created:
@@ -204,6 +205,7 @@ def stage_align(cfg, hooks):
         "flags": _merge(x["flags"] for x in ps), "duration_s": sum(x["duration_s"] for x in ps),
         "asr_words": sum(x["asr_words"] for x in ps if x["asr_words"] is not None),
         "n_blocks": sum(x["n_blocks"] for x in ps), "n_suspect_blocks": sum(x["n_suspect_blocks"] for x in ps),
+        "first_words_repaired": sum(x["first_words_repaired"] for x in ps),
         "seconds": round(sum(x["seconds"] for x in ps), 3)}
     (work / "align" / "report.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
     (work / "align" / "report.md").write_text(_align_markdown(report))

@@ -12,7 +12,7 @@ import numpy as np
 
 from src.data.prepare.align.ctc import BACKENDS, CtcAligner
 from src.data.prepare.align.longform import (Block, assign_status, fold, match_words, plan_blocks,
-                                             resolve_monotonic, skipped_gaps, word_times)
+                                             repair_first_words, resolve_monotonic, skipped_gaps, word_times)
 from src.data.prepare.align.types import AlignConfig, AlignResult, UnitSpan, WordSpan
 from src.data.prepare.asr import ASR_BACKENDS, SAMPLE_RATE, AsrRunner, AsrWord
 
@@ -25,6 +25,8 @@ def check_distinct_models(aligner_model_id: str, judge_model_id: str) -> None:
 
 
 def validate_config(cfg: AlignConfig) -> None:
+    if not np.isfinite(cfg.edge_repair_max_s) or cfg.edge_repair_max_s < 0:
+        raise ValueError("edge_repair_max_s must be finite and nonnegative")
     if cfg.backend not in BACKENDS:
         raise ValueError(f"unknown aligner backend {cfg.backend!r}; valid: {sorted(BACKENDS)}")
     if cfg.longform not in LONGFORM_MODES:
@@ -73,6 +75,7 @@ def align(audio, units: Sequence[Mapping[str, Any]], cfg: AlignConfig = AlignCon
                     runner.close()
 
     rate = None
+    pairs = []
     if asr_words is not None:
         keys = [fold(w) for words in unit_words for w in words]
         pairs = match_words(keys, [fold(w.text) for w in asr_words])
@@ -104,9 +107,10 @@ def align(audio, units: Sequence[Mapping[str, Any]], cfg: AlignConfig = AlignCon
 
     resolve_monotonic(result, suspect_ids)
     thresholds = assign_status(result, cfg)
+    repaired = repair_first_words(result, counts, pairs, asr_words or [], cfg.edge_repair_max_s, audio)
     gaps = sorted(gaps + skipped_gaps(result, duration), key=lambda g: g.start)
     meta = {"backend": cfg.backend, "model_id": backend.model_id, "stride_ms": backend.stride_s * 1000.0,
-            "confidence_kind": "mean_token_posterior", "asr_model_id": asr_model_id, "n_blocks": len(blocks),
+            "first_words_repaired": repaired, "confidence_kind": "mean_token_posterior", "asr_model_id": asr_model_id, "n_blocks": len(blocks),
             "n_suspect_blocks": sum(1 for b in blocks if b.suspect), "thresholds": thresholds,
             "device": getattr(backend, "device", cfg.device), "duration_s": duration, "rate_s_per_word": rate}
     return AlignResult(result, gaps, meta)
