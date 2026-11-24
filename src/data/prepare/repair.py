@@ -18,7 +18,8 @@ import soundfile as sf
 
 from src.data.prepare.text import _words
 from src.data.prepare.audit import spell_digits
-from src.data.prepare.asr import ASR_BACKENDS
+from src.data.prepare.asr import ASR_BACKENDS, transcription_identity
+from src.data.prepare.terms import BookTerms, contextual_words, key
 from src.text.normalizer import TextNormalizer
 from src.text.units import estimate_s
 
@@ -66,7 +67,9 @@ def _validate_producer(cfg):
     models = {judge: ASR_BACKENDS[judge].model_id for judge in cfg.audit.judges}
     if (report.get("judges") != models
             or report.get("asr_model") != " + ".join(models.values())
-            or _json_hash(report.get("config")) != _json_hash(dataclasses.asdict(cfg.audit))):
+            or _json_hash(report.get("config")) != _json_hash(dataclasses.asdict(cfg.audit))
+            or report.get("asr_provenance") != {j: transcription_identity(j, cfg.language) for j in models}
+            or report.get("terminology", {}).get("policy_sha256") != BookTerms(cfg.language, cfg.text.terms).policy_sha256):
         raise ValueError("audit producer judges, model identities or configuration differ; rerun audit")
 
 
@@ -97,11 +100,13 @@ def _verify_cut_audio(work, part, cut):
 
 
 def propose_repairs(cfg):
-    """Suggest unanimous, case-insensitive word changes in dropped single-unit clips."""
+    """Suggest known ordinary words; group new/protected/competing terms once per book."""
     work = Path(cfg.work_dir).resolve()
     _validate_producer(cfg)
+    terms = BookTerms(cfg.language, cfg.text.terms).read_book(work)
     result = {"version": 1, "source_work_dir": str(work), "config_sha256": _json_hash(dataclasses.asdict(cfg)),
-              "inputs": _inputs(cfg), "edits": []}
+              "inputs": _inputs(cfg), "terminology": terms.identity(), "edits": [], "term_review": []}
+    groups = {}
     for part in cfg.part_names():
         units = {u["id"]: u for u in _rows(work / "text" / f"{part}.units.jsonl")}
         audits = {a["id"]: a for a in _rows(work / "audit" / f"{part}.audit.jsonl")}
@@ -123,7 +128,7 @@ def propose_repairs(cfg):
             if any(judge not in hypotheses for judge in cfg.audit.judges):
                 continue
             hypotheses = {judge: hypotheses[judge] for judge in cfg.audit.judges}
-            key = lambda word: unicodedata.normalize("NFC", word).casefold()
+            contexts = list(contextual_words(unit["text"], cfg.language))
             candidates = {}
             for judge, hyp in hypotheses.items():
                 # Audit already defines digit spelling; raw ASR is not book prose
@@ -140,13 +145,31 @@ def propose_repairs(cfg):
                             candidate["judges"].append(judge)
             for (index, _), candidate in sorted(candidates.items()):
                 judges, replacement = candidate["judges"], candidate["replacement"]
+                if words[index].islower():
+                    replacement = replacement.lower()
+                language = contexts[index][2]
+                reasons = terms.reasons(words[index], replacement, language)
                 if len(judges) != len(cfg.audit.judges):
-                    continue
-                result["edits"].append({"part": part, "unit_id": unit["id"], "word_index": index,
+                    reasons.append("judge_disagreement")
+                edit = {"part": part, "unit_id": unit["id"], "word_index": index,
                                         "original": words[index], "replacement": replacement,
                                         "clip_id": cut["id"], "clip_file_sha256": _sha(work / "cut" / "clips" / f"{cut['id']}.wav"),
                                         "judges": sorted(judges),
-                                        "reviewed": False, "reviewer": ""})
+                                        "reviewed": False, "reviewer": ""}
+                identity = (language, key(words[index]))
+                group = groups.setdefault(identity, {"original": words[index], "language": language,
+                                                      "candidates": set(), "reasons": set(), "occurrences": []})
+                group["candidates"].add(replacement)
+                group["reasons"].update(reasons)
+                group["occurrences"].append(edit)
+    for _, group in sorted(groups.items()):
+        if len({key(w) for w in group["candidates"]}) > 1:
+            group["reasons"].add("competing_replacements")
+        if group["reasons"]:
+            result["term_review"].append({**group, "candidates": sorted(group["candidates"]),
+                                           "reasons": sorted(group["reasons"])})
+        else:
+            result["edits"].extend(group["occurrences"])
     return result
 
 
@@ -201,9 +224,11 @@ def apply_repairs(cfg, proposal, output_dir, run_stage):
     if output.exists() or output == source or source in output.parents:
         raise ValueError("repair output must be a new directory outside the source work directory")
     _validate_producer(cfg)
+    terms = BookTerms(cfg.language, cfg.text.terms).read_book(source)
     if (proposal.get("version") != 1 or proposal.get("source_work_dir") != str(source)
             or proposal.get("config_sha256") != _json_hash(dataclasses.asdict(cfg))
-            or proposal.get("inputs") != _inputs(cfg)):
+            or proposal.get("inputs") != _inputs(cfg)
+            or proposal.get("terminology") != terms.identity()):
         raise ValueError("stale or mismatched repair proposal")
     edits = [e for e in proposal["edits"] if e.get("reviewed") is True]
     if not edits or any(not isinstance(e.get("reviewer"), str) or not e["reviewer"].strip() for e in edits):
@@ -213,6 +238,7 @@ def apply_repairs(cfg, proposal, output_dir, run_stage):
     audits = {(part, a["id"]): a for part in cfg.part_names()
               for a in _rows(source / "audit" / f"{part}.audit.jsonl")}
     by_unit, verified = {}, set()
+    canonical_choices = {}
     for edit in edits:
         cut = cuts.get((edit["part"], edit["clip_id"]))
         if (cut is None or cut["units"] != [edit["unit_id"]]
@@ -232,6 +258,18 @@ def apply_repairs(cfg, proposal, output_dir, run_stage):
         candidate_rows[part] = []
         for unit in _rows(source / "text" / f"{part}.units.jsonl"):
             changes = by_unit.pop((part, unit["id"]), [])
+            contexts = list(contextual_words(unit["text"], cfg.language))
+            for change in changes:
+                index = change["word_index"]
+                if type(index) is not int or not 0 <= index < len(contexts):
+                    raise ValueError("invalid word index")
+                word, _, language, _ = contexts[index]
+                identity = (language, key(word))
+                if identity in canonical_choices and canonical_choices[identity] != key(change["replacement"]):
+                    raise ValueError("reviewed edits contain competing book terminology choices")
+                canonical_choices[identity] = key(change["replacement"])
+                if terms.reasons(word, change["replacement"], language):
+                    raise ValueError("repair requires a reviewed book terminology policy and unprotected source word")
             candidate_rows[part].append(_replace_unit(unit, changes, normalizer, cfg.text.estimate) if changes else unit)
     if by_unit:
         raise ValueError("proposal references an unknown part or unit")

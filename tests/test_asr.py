@@ -161,6 +161,23 @@ class TestTranscribeWordsStub:
 
 
 class TestBackends:
+    def test_canary_explicitly_transcribes_in_book_language(self):
+        import torch
+
+        class Processor:
+            def apply_transcription_request(self, clips, **kwargs):
+                self.request = kwargs
+                return {"input_features": torch.zeros(1, 2)}
+
+        class Model(StubModel):
+            def generate(self, **kwargs):
+                return torch.zeros(1, 1)
+
+        processor = Processor()
+        runner = AsrRunner(AsrConfig(backend="canary-1b-v2", language="cs"), model=Model(), processor=processor)
+        runner._generate([tone(1)])
+        assert processor.request == {"source_language": "cs", "target_language": "cs"}
+
     def test_unknown_backend(self):
         with pytest.raises(ValueError, match="parakeet-tdt-0.6b-v3"):
             AsrRunner(AsrConfig(backend="nope"))

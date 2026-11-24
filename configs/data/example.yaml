@@ -40,6 +40,7 @@ text:
   estimate: {}  # coefficients a, b, c, e of the duration estimate, see estimate_s in src/text/units.py
   heading_short_chars: 40  # a line shorter than this without a closing sentence mark is reported as a heading candidate
   lexicon: null  # lexicon file whose applied book forms are replaced before normalising; null = the lexicon section's path
+  terms: null  # reviewed terminology TSV: canonical, alias, language, optional kind (name/protected/word); diagnostic aliases, no G2P override
   compare_dir: null  # rewrite to compare the normalised words with (review_disagreements.csv); null = lexicon.rewrite_dir
   compare_suffix: null  # suffix of the texts in compare_dir; null = lexicon.rewrite_suffix
   skip_unreadable: false  # blank a paragraph the normalizer cannot read and list it instead of stopping the stage
@@ -90,6 +91,7 @@ cut:
   bridge_s: 0.35  # the longest dip of the level bridged to a burst of speech-level audio beyond it when a speech edge is refined (a breath, or a word the aligner started late); used only while a quiet stretch remains between two units; 0 = off, seconds
 
 audit:
+  terms: null  # inherits text.terms; raw CER remains the quality gate
   asr_chunk: 32  # clips given to a judge at once
   cer_margin: 0.05  # a judge flags a clip whose CER exceeds the corpus median CER by more than this
   short_chars: 30  # a clip with up to this many characters is short and needs min_edits edits to be flagged

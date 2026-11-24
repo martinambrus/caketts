@@ -25,7 +25,9 @@ from scipy.signal import resample_poly
 
 import jiwer
 
-from src.data.prepare.asr import ASR_BACKENDS, AsrConfig, AsrRunner
+from src.data.prepare.asr import (ASR_BACKENDS, AsrConfig, AsrRunner, compatible_legacy_report,
+                                 transcription_identity, validate_runner_language)
+from src.data.prepare.terms import BookTerms
 from src.data.prepare.cut import CutConfig
 from src.eval.asr_check import normalize_for_asr
 
@@ -40,6 +42,7 @@ QUANTILES = (("p10", 10), ("p25", 25), ("p50", 50), ("p75", 75), ("p90", 90), ("
 @dataclass
 class AuditConfig:
     language: str = "cs"
+    terms: Optional[str] = None
     asr_chunk: int = 32
     cer_margin: float = 0.05
     short_chars: int = 30
@@ -364,16 +367,30 @@ def _read_clip(work_dir: Path, cid: str) -> np.ndarray:
 
 
 def _transcribe_judge(work_dir: Path, out: Path, parts: Sequence[str], cuts_by_part: dict, name: str, model_id: str,
-                      runner, suffix: str, cfg: AuditConfig) -> tuple:
+                      runner, suffix: str, cfg: AuditConfig, legacy_report=None) -> tuple:
     texts, counts, owned = {}, {}, None
+    identity = transcription_identity(name, cfg.language)
     try:
         for part in parts:
             cuts = cuts_by_part[part]
             cache_path = out / f"{part}.asr{suffix}.jsonl"
             cache = {r["id"]: r for r in _read_jsonl(cache_path)} if cache_path.exists() else {}
+            migrated = 0
+            # A producer report vouches for language; each row must still bind to
+            # the current part's PCM identity and this judge's model.
+            legacy_ok = (legacy_report is not None
+                         and legacy_report["parts"][part].get("clips") == len(cuts))
+            for cut in cuts:
+                row = cache.get(cut["id"], {})
+                if (legacy_ok and "provenance" not in row and row.get("sha256") == cut["sha256"]
+                        and row.get("model_id") == model_id):
+                    row["provenance"] = identity
+                    row["migrated_from"] = transcription_identity(name, cfg.language, legacy=True)
+                    migrated += 1
             missing = [c["id"] for c in cuts
                        if (cache.get(c["id"]) is None) or (cache[c["id"]]["sha256"] != c["sha256"])
-                       or (cache[c["id"]]["model_id"] != model_id)]
+                       or (cache[c["id"]]["model_id"] != model_id)
+                       or cache[c["id"]].get("provenance") != identity]
             if missing and runner is None:
                 runner = owned = AsrRunner(AsrConfig(backend=name, language=cfg.language))
             sha = {c["id"]: c["sha256"] for c in cuts}
@@ -383,10 +400,13 @@ def _transcribe_judge(work_dir: Path, out: Path, parts: Sequence[str], cuts_by_p
                 if len(got) != len(chunk):
                     raise ValueError(f"{part}: ASR returned {len(got)} texts for {len(chunk)} clips")
                 for cid, text in zip(chunk, got):
-                    cache[cid] = {"id": cid, "sha256": sha[cid], "model_id": model_id, "text": text}
+                    cache[cid] = {"id": cid, "sha256": sha[cid], "model_id": model_id, "text": text,
+                                  "provenance": identity}
             cache_path.write_text(_dump_jsonl(cache[c["id"]] for c in cuts))
             texts[part] = {c["id"]: cache[c["id"]]["text"] for c in cuts}
             counts[part] = {"new": len(missing), "cached": len(cuts) - len(missing)}
+            if migrated:
+                counts[part]["migrated"] = migrated
     finally:
         if owned is not None:
             owned.close()
@@ -407,6 +427,8 @@ def run_audit(work_dir: Path, parts: Sequence[str], cfg: AuditConfig = AuditConf
     else:
         runners = {cfg.judges[0]: runner}
     model_ids = {n: runners[n].model_id if n in runners else ASR_BACKENDS[n].model_id for n in cfg.judges}
+    for n, injected in runners.items():
+        validate_runner_language(injected, n, cfg.language)
     if aligner_model_id is not None:
         for n in cfg.judges:
             if model_ids[n] == aligner_model_id:
@@ -416,10 +438,17 @@ def run_audit(work_dir: Path, parts: Sequence[str], cfg: AuditConfig = AuditConf
     out.mkdir(parents=True, exist_ok=True)
     floors = _floors(work_dir, parts)
     cuts_by_part = {part: _read_jsonl(work_dir / "cut" / f"{part}.cuts.jsonl") for part in parts}
+    try:
+        old_report = json.loads((out / "report.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        old_report = None
+    legacy_report = old_report if compatible_legacy_report(
+        old_report, dataclasses.asdict(cfg), model_ids, parts) else None
+    terms = BookTerms(cfg.language, cfg.terms)
     texts, jcounts = {}, {}
     for n in cfg.judges:
         texts[n], jcounts[n] = _transcribe_judge(work_dir, out, parts, cuts_by_part, n, model_ids[n], runners.get(n),
-                                                 f".{n}" if several else "", cfg)
+                                                 f".{n}" if several else "", cfg, legacy_report)
     rows, sha_by_id, hyps, hyps_by_judge, counts = [], {}, {}, {}, {}
     for part in parts:
         cuts = cuts_by_part[part]
@@ -440,6 +469,12 @@ def run_audit(work_dir: Path, parts: Sequence[str], cfg: AuditConfig = AuditConf
             if several:
                 metrics["judges"] = {n: {k: _num(stats[n][k]) for k in ("cer", "cer_raw", "edits")} for n in cfg.judges}
                 hyps_by_judge[c["id"]] = {n: texts[n][part][c["id"]] for n in cfg.judges}
+            if cfg.terms:
+                metrics["term_comparison"] = {}
+                for name in cfg.judges:
+                    mapped, applied = terms.compare(c["text"], texts[name][part][c["id"]])
+                    metrics["term_comparison"][name] = {**cer_stats(c["text"], mapped, cfg.language),
+                                                        "aliases": applied}
             rows.append({"id": c["id"], "part": part, "metrics": metrics, "flags": c["flags"]})
             hyps[c["id"]] = texts[best][part][c["id"]]
             sha_by_id[c["id"]] = c["sha256"]
@@ -481,6 +516,9 @@ def run_audit(work_dir: Path, parts: Sequence[str], cfg: AuditConfig = AuditConf
         cer_distribution = distribution([r["metrics"] for r in rows], nar["cer_threshold"])
         guard_saved = nar["guard_saved"]
     report = {"config": dataclasses.asdict(cfg), "asr_model": " + ".join(model_ids[n] for n in cfg.judges),
+              "asr_provenance": {n: transcription_identity(n, cfg.language) for n in cfg.judges},
+              "terminology": {"policy_sha256": terms.policy_sha256, "diagnostic_only": True},
+              "transcripts_migrated": sum(jcounts[n][p].get("migrated", 0) for n in cfg.judges for p in parts),
               "judges": dict(model_ids), "parts": per_part, "total": total, "cer_distribution": cer_distribution,
               "guard_saved": guard_saved, "narrator": nar, "seconds": round(time.perf_counter() - t0, 3)}
     (out / "report.json").write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")

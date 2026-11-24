@@ -10,7 +10,8 @@ import soundfile as sf
 import yaml
 
 from src.data.prepare.config import load_config
-from src.data.prepare.asr import ASR_BACKENDS
+from src.data.prepare.asr import ASR_BACKENDS, transcription_identity
+from src.data.prepare.terms import BookTerms
 from src.data.prepare.repair import apply_repairs, propose_repairs
 from src.data.prepare.text import _words
 
@@ -25,6 +26,8 @@ def put(path, value):
 def producer_report(work, cfg):
     models = {j: ASR_BACKENDS[j].model_id for j in cfg.audit.judges}
     put(work / "audit/report.json", {"config": dataclasses.asdict(cfg.audit), "judges": models,
+                                      "asr_provenance": {j: transcription_identity(j, cfg.language) for j in models},
+                                      "terminology": {"policy_sha256": BookTerms(cfg.language, cfg.text.terms).policy_sha256},
                                       "asr_model": " + ".join(models.values()),
                                       "parts": {part: {} for part in cfg.part_names()}})
 
@@ -52,6 +55,9 @@ def scene(tmp_path):
     cfg_path = tmp_path / "cfg.yaml"
     cfg_path.write_text(yaml.safe_dump({"work_dir": str(work), "parts": ["p"]}))
     cfg = load_config(cfg_path)
+    # Trusted vocabulary can come from another book part even when only p is
+    # selected. This is source evidence, not a claimed Czech dictionary.
+    put(work / "text/q.units.jsonl", {"text": "září"})
     producer_report(work, cfg)
     return cfg, work, unit
 
@@ -124,6 +130,89 @@ def test_unreviewed_proposal_does_not_apply(scene, tmp_path):
         apply_repairs(cfg, propose_repairs(cfg), tmp_path / "candidate", lambda *_: None)
 
 
+def test_unknown_word_is_grouped_for_book_review_without_language_guess(scene):
+    cfg, work, _ = scene
+    (work / "text/q.units.jsonl").unlink()
+    proposal = propose_repairs(cfg)
+    assert proposal["edits"] == []
+    assert len(proposal["term_review"]) == 1
+    term = proposal["term_review"][0]
+    assert term["original"] == "svítí" and term["candidates"] == ["září"]
+    assert term["language"] == "cs" and term["reasons"] == ["new_vocabulary"]
+
+
+def test_reviewed_glossary_can_admit_a_new_ordinary_word(scene, tmp_path):
+    cfg, work, _ = scene
+    (work / "text/q.units.jsonl").unlink()
+    path = tmp_path / "terms.tsv"
+    path.write_text("canonical\talias\tlanguage\tkind\nzáří\t\tcs\tword\n")
+    cfg.text.terms = cfg.audit.terms = str(path)
+    producer_report(work, cfg)
+    proposal = reviewed(cfg)
+    assert proposal["term_review"] == []
+    path.write_text(path.read_text() + "jinak\t\tcs\tword\n")
+    with pytest.raises(ValueError, match="producer"):
+        propose_repairs(cfg)
+    with pytest.raises(ValueError, match="producer"):
+        apply_repairs(cfg, proposal, tmp_path / "candidate", lambda *_: None)
+
+
+def test_unselected_book_vocabulary_changes_invalidate_a_reviewed_proposal(scene, tmp_path):
+    cfg, work, _ = scene
+    proposal = reviewed(cfg)
+    put(work / "text/q.units.jsonl", {"text": "jinak"})
+    with pytest.raises(ValueError, match="stale"):
+        apply_repairs(cfg, proposal, tmp_path / "candidate", lambda *_: None)
+
+
+def test_protected_spoken_form_routes_consensus_out_of_edits_and_cannot_be_forged(scene, tmp_path):
+    cfg, work, unit = scene
+    text = "Ten mladej host čeká."
+    unit.update(text=text, words=_words(text)[0], word_spans=_words(text)[1], sentences=[{"text": text}])
+    put(work / "text/p.units.jsonl", unit)
+    cut = json.loads((work / "cut/p.cuts.jsonl").read_text())
+    cut["text"] = text
+    put(work / "cut/p.cuts.jsonl", cut)
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    audit["hyps"] = dict.fromkeys(JUDGES, "Ten mladý host čeká.")
+    put(work / "audit/p.audit.jsonl", audit)
+    put(work / "text/q.units.jsonl", {"text": "mladý"})
+    path = tmp_path / "terms.tsv"
+    path.write_text("canonical\talias\tlanguage\tkind\nmladej\tmladý\tcs\tprotected\n")
+    cfg.text.terms = cfg.audit.terms = str(path)
+    producer_report(work, cfg)
+    proposal = propose_repairs(cfg)
+    assert proposal["edits"] == []
+    assert proposal["term_review"][0]["reasons"] == ["protected_source"]
+    edit = proposal["term_review"][0]["occurrences"][0]
+    edit.update(reviewed=True, reviewer="listener")
+    proposal["edits"] = [edit]
+    with pytest.raises(ValueError, match="unprotected"):
+        apply_repairs(cfg, proposal, tmp_path / "candidate", lambda *_: None)
+
+
+def test_competing_replacements_across_book_occurrences_are_grouped_once(scene):
+    import shutil
+
+    cfg, work, unit = scene
+    put(work / "text/q.units.jsonl", {"text": "září prší"})
+    second = {**unit, "id": "p-00001"}
+    with (work / "text/p.units.jsonl").open("a") as stream:
+        stream.write(json.dumps(second) + "\n")
+    cut = json.loads((work / "cut/p.cuts.jsonl").read_text())
+    with (work / "cut/p.cuts.jsonl").open("a") as stream:
+        stream.write(json.dumps({**cut, "id": second["id"], "units": [second["id"]]}) + "\n")
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    with (work / "audit/p.audit.jsonl").open("a") as stream:
+        stream.write(json.dumps({**audit, "id": second["id"], "hyps": dict.fromkeys(JUDGES, "Na louce prší řekl")}) + "\n")
+    shutil.copyfile(work / "cut/clips/p-00000.wav", work / "cut/clips/p-00001.wav")
+    proposal = propose_repairs(cfg)
+    assert proposal["edits"] == [] and len(proposal["term_review"]) == 1
+    term = proposal["term_review"][0]
+    assert term["candidates"] == ["prší", "září"]
+    assert term["reasons"] == ["competing_replacements"] and len(term["occurrences"]) == 2
+
+
 def test_audit_failure_stops_before_manifest_and_records_incomplete_candidate(scene, tmp_path):
     cfg, _, _ = scene
     output, calls = tmp_path / "candidate", []
@@ -192,6 +281,14 @@ def test_proposal_word_comparison_accepts_raw_asr_symbols_without_full_text_norm
     assert edits[0]["judges"] == sorted(JUDGES)
     assert edits[0]["replacement"].casefold() == "září"
     assert edits[0]["reviewed"] is False
+
+
+def test_ordinary_word_repair_preserves_source_case(scene):
+    cfg, work, _ = scene
+    audit = json.loads((work / "audit/p.audit.jsonl").read_text())
+    audit["hyps"] = dict.fromkeys(JUDGES, "NA LOUCE ZÁŘÍ ŘEKL")
+    put(work / "audit/p.audit.jsonl", audit)
+    assert propose_repairs(cfg)["edits"][0]["replacement"] == "září"
 
 
 def test_proposals_require_every_configured_judge_and_support_single_judge_audit(scene):

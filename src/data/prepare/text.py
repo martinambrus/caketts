@@ -79,6 +79,7 @@ class TextConfig:
     heading_short_chars: int = 40
     use_part_fragments: bool = False
     lexicon: Optional[str] = None
+    terms: Optional[str] = None
     compare_dir: Optional[str] = None
     compare_suffix: str = ".txt.orig"
     skip_unreadable: bool = False

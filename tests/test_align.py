@@ -595,6 +595,27 @@ def test_pipeline_long_audio_runs_asr_and_blocks():
     _be_invariants(result, units)
 
 
+def test_direct_align_api_passes_book_language_to_automatic_asr(monkeypatch):
+    import src.data.prepare.align.interface as interface
+
+    units, truth, words, audio = _be_scene()
+    made = []
+
+    class Runner(_BeAsr):
+        def __init__(self, cfg):
+            made.append(cfg)
+            super().__init__(words)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(interface, "AsrRunner", Runner)
+    result = align(audio, units, _be_cfg(language="sk"), backend=_BeStub(truth))
+    assert made[0].language == "sk"
+    assert result.meta["asr_provenance"]["book_language"] == "sk"
+    assert result.meta["asr_provenance"]["language_control"] == "automatic"
+
+
 def test_pipeline_rejects_the_same_model_as_aligner_and_judge():
     units, truth, asr, audio = _be_scene()
     stub, runner = _BeStub(truth), _BeAsr(asr)

@@ -439,6 +439,72 @@ class TestRunAudit:
         after = {p.name: p.read_bytes() for p in (work / "audit").glob("*") if p.name not in ("report.json", "report.md")}
         assert before == after
 
+    def test_cache_cannot_cross_book_languages(self, work):
+        import dataclasses
+
+        run_audit(work, ["a1", "a2"], self.CFG, runner=Stub())
+        report = run_audit(work, ["a1", "a2"], dataclasses.replace(self.CFG, language="sk"), runner=Stub())
+        assert report["total"]["transcripts_new"] == 12
+        assert report["total"]["transcripts_cached"] == 0
+
+    @pytest.mark.parametrize("evidence", ["valid", "wrong_language", "missing_part", "changed_audio", "no_report"])
+    def test_legacy_cache_requires_matching_producer_part_and_audio(self, work, evidence):
+        import dataclasses
+
+        run_audit(work, ["a1", "a2"], self.CFG, runner=Stub())
+        for path in (work / "audit").glob("*.asr.jsonl"):
+            rows = [json.loads(line) for line in path.read_text().splitlines()]
+            for row in rows:
+                row.pop("provenance")
+                if evidence == "changed_audio":
+                    row["sha256"] = "old-pcm"
+            path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+        path = work / "audit/report.json"
+        old = json.loads(path.read_text())
+        old.pop("asr_provenance")
+        old["config"].pop("terms")
+        if evidence == "wrong_language":
+            old["config"]["language"] = "sk"
+        elif evidence == "missing_part":
+            old["parts"].pop("a2")
+        path.write_text(json.dumps(old))
+        if evidence == "no_report":
+            path.unlink()
+        # CER thresholds do not affect recognition or valid legacy reuse.
+        cfg = dataclasses.replace(self.CFG, cer_margin=.19)
+        runner = Boom() if evidence == "valid" else Stub()
+        report = run_audit(work, ["a1", "a2"], cfg, runner=runner)
+        assert report["transcripts_migrated"] == (12 if evidence == "valid" else 0)
+        assert report["total"]["transcripts_new"] == (0 if evidence == "valid" else 12)
+        row = json.loads((work / "audit/a1.asr.jsonl").read_text().splitlines()[0])
+        assert row["provenance"]["book_language"] == "cs"
+        if evidence == "valid":
+            assert row["migrated_from"]["language_control"] == "automatic"
+
+    def test_term_alias_comparison_is_diagnostic_and_does_not_change_raw_cache_or_gate(self, work, tmp_path):
+        import dataclasses
+
+        path = work / "cut/a1.cuts.jsonl"
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        rows[0]["text"] = "Zorim"
+        path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+        stub = Stub()
+        stub.texts[0] = "Sorim"
+        run_audit(work, ["a1", "a2"], self.CFG, runner=stub)
+        before = read_rows(work, "a1")[0]
+        cache_before = (work / "audit/a1.asr.jsonl").read_bytes()
+        policy = tmp_path / "terms.tsv"
+        policy.write_text("canonical\talias\tlanguage\tkind\nZorim\tSorim\tcs\tname\n")
+        cfg = dataclasses.replace(self.CFG, terms=str(policy))
+        report = run_audit(work, ["a1", "a2"], cfg, runner=Boom())
+        after = read_rows(work, "a1")[0]
+        assert before["hyp"] == after["hyp"] == "Sorim"
+        assert before["verdict"] == after["verdict"] and before["reasons"] == after["reasons"]
+        assert before["metrics"]["cer"] == after["metrics"]["cer"] == 0.2
+        assert after["metrics"]["term_comparison"][PARAKEET]["cer"] == 0
+        assert report["terminology"]["diagnostic_only"] is True
+        assert (work / "audit/a1.asr.jsonl").read_bytes() == cache_before
+
     def test_changed_sha256_is_transcribed_again(self, work):
         run_audit(work, ["a1", "a2"], self.CFG, runner=Stub())
         pcm = clip_pcm(voiced_s=1.7, seed=99)

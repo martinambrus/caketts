@@ -48,6 +48,41 @@ class AsrConfig:
     cut_search_s: float = 3.0
 
 
+def transcription_identity(backend: str, language: str, *, legacy: bool = False) -> dict:
+    """Book language is authoritative; TDT cannot be prompted to enforce it.
+
+    Legacy Canary requests supplied source only; the installed processor defaulted
+    target to source. Keep that history distinct when validated caches are reused.
+    """
+    canary = ASR_BACKENDS[backend].kind == "canary"
+    return {"version": 1, "book_language": language,
+            "language_control": ("source_default_target" if legacy else "source_target") if canary else "automatic",
+            "source_language": language if canary else None,
+            "target_language": language if canary else None}
+
+
+def compatible_legacy_report(report: dict, config: dict, models: dict, parts: Sequence[str]) -> bool:
+    """Only an old, matching producer report can vouch for missing cache language.
+
+    Callers must additionally check each cache's current audio/model identity.
+    Rescoring thresholds, chunk size and terminology do not change recognition.
+    """
+    if not isinstance(report, dict) or "asr_provenance" in report:
+        return False
+    saved = report.get("config")
+    if not isinstance(saved, dict):
+        return False
+    return (saved.get("language") == config["language"] and report.get("judges") == models
+            and report.get("asr_model") == " + ".join(models.values())
+            and isinstance(report.get("parts"), dict) and set(parts) <= report["parts"].keys())
+
+
+def validate_runner_language(runner, backend, language):
+    """Injected real runners must not contradict the provenance we are recording."""
+    if isinstance(runner, AsrRunner) and (runner.cfg.language != language or runner.cfg.backend != backend):
+        raise ValueError("ASR runner differs from the book language or configured backend")
+
+
 def plan_windows(audio: np.ndarray, sr: int, window_s: float, overlap_s: float,
                  cut_search_s: float) -> List[Tuple[float, float, float, float]]:
     """(window start, window end, keep start, keep end) in seconds; the keep ranges partition the audio."""
@@ -129,7 +164,8 @@ class AsrRunner:
         import torch
 
         if self.spec.kind == "canary":
-            inputs = self._processor.apply_transcription_request(list(clips), source_language=self.cfg.language)
+            inputs = self._processor.apply_transcription_request(
+                list(clips), source_language=self.cfg.language, target_language=self.cfg.language)
         else:
             inputs = self._processor(list(clips), sampling_rate=SAMPLE_RATE, return_tensors="pt")
         model = self._model

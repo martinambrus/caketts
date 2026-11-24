@@ -13,7 +13,7 @@ import yaml
 
 from src.data.prepare.align.ctc import BACKENDS
 from src.data.prepare.align.types import WordSpan
-from src.data.prepare.asr import ASR_BACKENDS, AsrWord
+from src.data.prepare.asr import ASR_BACKENDS, AsrWord, transcription_identity
 from src.data.prepare.text import TextStageError
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "prepare_corpus.py"
@@ -269,7 +269,8 @@ def test_align_asr_cache_content_and_invalidation(tmp_path):
     cache = json.loads((world.work / "align" / "pB.asr.json").read_text())
     wav = (world.work / "audio" / "pB.16k.wav").read_bytes()
     assert cache == {"audio_sha256": hashlib.sha256(wav).hexdigest(),
-                     "config": {"window_s": 35.0, "overlap_s": 1.0, "cut_search_s": 3.0},
+                     "config": {"window_s": 35.0, "overlap_s": 1.0, "cut_search_s": 3.0,
+                                "provenance": transcription_identity("parakeet-tdt-0.6b-v3", "cs")},
                      "model_id": "stub/asr",
                      "words": [[w.text, w.start, w.end] for w in world.asr_words["pB"]]}
     run_align(tmp_path, world, cfg)
@@ -284,6 +285,36 @@ def test_align_asr_cache_content_and_invalidation(tmp_path):
     write_wav(world.work / "audio" / "pB.16k.wav", world.durations["pB"], seed=99)
     run_align(tmp_path, world, align_cfg(tmp_path, asr={"window_s": 20.0}))
     assert world.asr_calls == 4
+
+
+@pytest.mark.parametrize("evidence", ["valid", "wrong_language", "missing_part", "changed_audio", "no_report"])
+def test_align_legacy_cache_migration_requires_producer_part_and_audio(tmp_path, evidence):
+    world = World(tmp_path)
+    cfg = align_cfg(tmp_path)
+    model = ASR_BACKENDS["parakeet-tdt-0.6b-v3"].model_id
+    run_align(tmp_path, world, cfg, asr=world.asr(model))
+    cache_path = world.work / "align/pB.asr.json"
+    cache = json.loads(cache_path.read_text())
+    cache["config"].pop("provenance")
+    if evidence == "changed_audio":
+        cache["audio_sha256"] = "old-audio"
+    cache_path.write_text(json.dumps(cache))
+    report_path = world.work / "align/report.json"
+    report = json.loads(report_path.read_text())
+    report.pop("asr_provenance")
+    if evidence == "wrong_language":
+        report["config"]["asr"]["language"] = "sk"
+    elif evidence == "missing_part":
+        report["parts"].pop("pB")
+    report_path.write_text(json.dumps(report))
+    if evidence == "no_report":
+        report_path.unlink()
+    # Alignment repair thresholds do not change raw anchor recognition.
+    cfg = align_cfg(tmp_path, edge_repair_max_s=.3)
+    run_align(tmp_path, world, cfg, asr=world.asr(model))
+    assert world.asr_calls == (1 if evidence == "valid" else 2)
+    cache = json.loads(cache_path.read_text())
+    assert ("migrated_from" in cache) == (evidence == "valid")
 
 
 def test_align_asr_pass_comes_before_any_alignment(tmp_path):
